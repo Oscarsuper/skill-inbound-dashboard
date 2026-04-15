@@ -1,0 +1,3663 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Skill Inbound — Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<style>/* System fonts - no external request needed */
+</style>
+<style>
+
+/* ═══ LOGIN SCREEN ═══ */
+#login-screen{
+  display:flex;position:fixed;inset:0;z-index:99999;
+  background:linear-gradient(160deg,#1A0542 0%,#2B0B6B 55%,#1D3A8A 100%);
+  align-items:center;justify-content:center;
+}
+#login-screen::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:52px 52px;animation:gm 28s linear infinite;
+}
+.login-box{
+  position:relative;z-index:1;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(167,139,250,.25);
+  border-radius:24px;padding:44px 40px;
+  width:100%;max-width:400px;
+  backdrop-filter:blur(12px);
+  box-shadow:0 32px 80px rgba(0,0,0,.45);
+}
+.login-logo{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  margin-bottom:32px;
+}
+.login-logo-icon{
+  width:48px;height:48px;border-radius:14px;
+  background:linear-gradient(135deg,#7C3AED,#4A1D96);
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+}
+.login-logo-text h1{font-size:18px;font-weight:800;color:#fff}
+.login-logo-text p{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px}
+.login-title{font-size:22px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px}
+.login-sub{font-size:12px;color:rgba(255,255,255,.4);text-align:center;margin-bottom:28px}
+.login-field{margin-bottom:16px}
+.login-field label{
+  display:block;font-size:11px;font-weight:700;color:rgba(196,181,253,.8);
+  margin-bottom:6px;letter-spacing:.3px;
+}
+.login-input{
+  width:100%;background:rgba(255,255,255,.08);
+  border:1.5px solid rgba(167,139,250,.3);border-radius:10px;
+  padding:11px 14px;font-size:14px;font-family:inherit;
+  color:#fff;transition:all .2s;outline:none;
+}
+.login-input::placeholder{color:rgba(255,255,255,.25)}
+.login-input:focus{border-color:rgba(167,139,250,.7);background:rgba(255,255,255,.1)}
+.login-btn{
+  width:100%;background:linear-gradient(135deg,#4A1D96,#7C3AED);
+  color:#fff;border:none;border-radius:10px;
+  padding:13px;font-size:14px;font-weight:800;
+  font-family:inherit;cursor:pointer;margin-top:8px;
+  transition:all .2s;letter-spacing:.3px;
+}
+.login-btn:hover{background:linear-gradient(135deg,#3B0FA0,#6D28D9);transform:translateY(-1px);
+  box-shadow:0 8px 24px rgba(124,58,237,.4)}
+.login-btn:active{transform:translateY(0)}
+.login-error{
+  background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.35);
+  color:#FCA5A5;border-radius:8px;padding:10px 14px;font-size:12px;
+  font-weight:600;text-align:center;margin-top:12px;display:none;
+}
+.login-roles{
+  display:flex;gap:10px;margin-bottom:24px;
+}
+.login-role-btn{
+  flex:1;padding:10px;border-radius:10px;cursor:pointer;text-align:center;
+  font-family:inherit;font-size:12px;font-weight:700;transition:all .2s;
+  border:2px solid rgba(167,139,250,.25);background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);
+}
+.login-role-btn.active{
+  border-color:#A78BFA;background:rgba(167,139,250,.2);color:#fff;
+}
+.login-role-icon{font-size:20px;display:block;margin-bottom:4px}
+.login-footer{
+  text-align:center;margin-top:20px;font-size:10px;
+  color:rgba(255,255,255,.2);
+}
+/* Agente mode: hide supervisor-only tabs */
+body.mode-agente .ntab[data-rol="supervisor"]{display:none !important}
+body.mode-agente #sel-wrap{display:none !important}
+body.mode-agente #s-dashboard{display:none !important}
+body.mode-agente #s-compromisos{display:none !important}
+body.mode-agente .hcards .nc:nth-child(1){display:none !important}
+body.mode-agente .hcards .nc:nth-child(4){display:none !important}
+body.mode-agente #btn-pdf{display:none !important}
+
+/* Chat mode: only Dashboard + Datos */
+body.mode-chat .ntab[data-tab="calidad"]{display:none !important}
+body.mode-chat .ntab[data-tab="compromisos"]{display:none !important}
+body.mode-chat #s-calidad{display:none !important}
+body.mode-chat #s-compromisos{display:none !important}
+body.mode-chat .hcards .nc[data-tab="calidad"]{display:none !important}
+body.mode-chat .hcards .nc[data-tab="compromisos"]{display:none !important}
+
+
+/* ═══ SKILL SELECTOR SCREEN ═══ */
+#skill-screen{
+  display:none;position:fixed;inset:0;z-index:99998;
+  background:linear-gradient(160deg,#1A0542 0%,#2B0B6B 55%,#1D3A8A 100%);
+  align-items:center;justify-content:center;
+}
+#skill-screen::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:52px 52px;animation:gm 28s linear infinite;
+}
+.skill-box{
+  position:relative;z-index:1;text-align:center;padding:20px;
+  max-width:640px;width:100%;
+}
+.skill-box h2{font-size:26px;font-weight:800;color:#fff;margin-bottom:8px}
+.skill-box p{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:36px}
+.skill-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
+.skill-card{
+  background:rgba(255,255,255,.06);border:2px solid rgba(167,139,250,.2);
+  border-radius:20px;padding:32px 24px;cursor:pointer;transition:all .25s;
+  position:relative;overflow:hidden;
+}
+.skill-card:hover{
+  border-color:#A78BFA;background:rgba(167,139,250,.15);
+  transform:translateY(-4px);box-shadow:0 20px 50px rgba(43,11,107,.5);
+}
+.skill-card-icon{font-size:44px;margin-bottom:12px}
+.skill-card h3{font-size:18px;font-weight:800;color:#fff;margin-bottom:6px}
+.skill-card p{font-size:12px;color:rgba(255,255,255,.4);line-height:1.5}
+.skill-card .skill-badge{
+  display:inline-block;margin-top:12px;padding:4px 14px;border-radius:20px;
+  font-size:10px;font-weight:700;letter-spacing:.5px;
+  background:rgba(167,139,250,.2);color:#C4B5FD;border:1px solid rgba(167,139,250,.3);
+}
+.skill-tag{
+  position:absolute;top:12px;right:12px;
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.4);
+  border-radius:6px;padding:3px 8px;font-size:9px;font-weight:700;
+}
+.skill-back-btn{
+  background:rgba(255,255,255,.06);color:rgba(255,255,255,.4);
+  border:1px solid rgba(255,255,255,.1);border-radius:8px;
+  padding:8px 20px;font-size:12px;font-family:inherit;cursor:pointer;
+  transition:all .2s;
+}
+.skill-back-btn:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.7)}
+
+/* ═══ SKILL BADGE IN NAV ═══ */
+#skill-badge-nav{
+  display:none;background:rgba(167,139,250,.15);color:#C4B5FD;
+  border:1px solid rgba(167,139,250,.3);border-radius:8px;
+  padding:4px 12px;font-size:11px;font-weight:700;
+  cursor:pointer;transition:all .2s;
+}
+#skill-badge-nav:hover{background:rgba(167,139,250,.25)}
+
+/* ═══ INDICATOR FILTER IN DATOS ═══ */
+.ind-filter-panel{
+  background:var(--w);border:1px solid var(--ln);border-radius:12px;
+  margin-bottom:12px;overflow:hidden;
+}
+.ind-filter-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;cursor:pointer;user-select:none;
+  background:linear-gradient(90deg,var(--azul2),var(--azul3));
+}
+.ind-filter-header span{font-size:11px;font-weight:800;color:#fff}
+.ind-filter-header .ind-filter-toggle{
+  font-size:10px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:6px;
+}
+.ind-filter-body{
+  display:none;padding:14px 16px;
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+}
+.ind-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 12px;border-radius:20px;cursor:pointer;
+  border:1.5px solid var(--ln);background:var(--bg);
+  font-size:11px;font-weight:600;color:var(--txt);
+  transition:all .18s;user-select:none;
+}
+.ind-chip input{display:none}
+.ind-chip.checked{
+  border-color:var(--azul2);background:var(--gold-lt);color:var(--azul2);
+}
+.ind-chip .ind-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--ln);flex-shrink:0;transition:background .18s;
+}
+.ind-chip.checked .ind-dot{background:var(--azul2)}
+.ind-filter-actions{
+  display:flex;gap:8px;margin-left:auto;padding-left:8px;
+  border-left:1px solid var(--ln);
+}
+.ind-filter-btn{
+  background:none;border:1px solid var(--ln);border-radius:6px;
+  padding:4px 10px;font-size:10px;font-weight:700;font-family:inherit;
+  cursor:pointer;color:var(--txt);transition:all .18s;
+}
+.ind-filter-btn:hover{border-color:var(--azul2);color:var(--azul2)}
+
+:root{
+  --azul:#2B0B6B;--azul2:#4A1D96;--azul3:#7C3AED;--azul-lt:#3B82F6;
+  --gold:#A78BFA;--gold-lt:#EDE9FE;
+  --w:#fff;--bg:#F8F5FF;--ln:#DDD6FE;--txt:#6B7280;
+  --ok:#16A34A;--ok-bg:#DCFCE7;
+  --wn:#D97706;--wn-bg:#FEF3C7;
+  --bad:#DC2626;--bad-bg:#FEE2E2;
+  --dk:#1E1235;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--dk);min-height:100vh}
+
+/* LOADING */
+#loading{display:none;position:fixed;inset:0;background:rgba(11,30,58,.93);z-index:9999;
+  align-items:center;justify-content:center;flex-direction:column;gap:14px;color:#fff;font-size:14px;font-weight:600}
+.spin{width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;
+  border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* HOME */
+#home{min-height:100vh;background:linear-gradient(160deg,#1A0542 0%,#2B0B6B 50%,#1D3A8A 100%);position:relative;overflow:hidden}
+#home::before{content:'';position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:52px 52px;animation:gm 28s linear infinite;pointer-events:none}
+@keyframes gm{to{background-position:0 52px}}
+#home::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 55% 50% at 10% 90%,rgba(124,58,237,.25) 0%,transparent 55%),
+  radial-gradient(ellipse 45% 55% at 90% 10%,rgba(29,78,216,.2) 0%,transparent 55%)}
+
+.hw{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+.htb{display:flex;align-items:center;justify-content:space-between;padding:22px 44px}
+.hbrand{display:flex;align-items:center;gap:12px}
+.hbi{width:42px;height:42px;background:linear-gradient(135deg,#7C3AED,#4A1D96);border-radius:11px;
+  display:flex;align-items:center;justify-content:center;font-size:22px}
+.hbt h1{font-size:15px;font-weight:800;color:#fff;letter-spacing:.2px}
+.hbt p{font-size:11px;color:rgba(255,255,255,.45);margin-top:1px}
+
+.btn-carga{background:rgba(167,139,250,.15);color:var(--gold);
+  border:1px solid rgba(167,139,250,.4);border-radius:8px;padding:8px 18px;
+  font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:all .2s;display:flex;align-items:center;gap:7px}
+.btn-carga svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5}
+.btn-carga:hover{background:rgba(167,139,250,.28);border-color:rgba(167,139,250,.7)}
+#file-input{display:none}
+
+.hhero{flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:10px 44px 0;text-align:center}
+.heyebrow{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:2.5px;
+  text-transform:uppercase;margin-bottom:18px;display:flex;align-items:center;gap:10px}
+.heyebrow::before,.heyebrow::after{content:'';width:36px;height:1px;background:rgba(167,139,250,.6)}
+.htitle{font-size:52px;font-weight:800;color:#fff;line-height:1.08;margin-bottom:14px;letter-spacing:-2px}
+.htitle span{color:var(--gold)}
+.hsub{font-size:15px;color:rgba(255,255,255,.5);max-width:500px;line-height:1.65;margin-bottom:36px}
+
+.hstatus{display:flex;align-items:center;gap:8px;background:rgba(167,139,250,.08);
+  border:1px solid rgba(167,139,250,.2);border-radius:20px;padding:6px 18px;
+  font-size:12px;color:rgba(255,255,255,.55);margin-bottom:44px;
+  transition:all .3s}
+.sdot{width:7px;height:7px;border-radius:50%;background:#475569;flex-shrink:0}
+.sdot.on{background:#A78BFA;box-shadow:0 0 0 3px rgba(167,139,250,.35)}
+
+.hcards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:1100px;width:100%;margin-bottom:44px}
+.nc{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);
+  border-radius:20px;padding:28px 24px;cursor:pointer;transition:all .28s;
+  position:relative;overflow:hidden;text-align:left}
+.nc::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .25s;
+  background:linear-gradient(135deg,rgba(124,58,237,.12),transparent 60%)}
+.nc:hover:not(.lk){border-color:rgba(167,139,250,.6);transform:translateY(-5px);
+  box-shadow:0 24px 48px rgba(43,11,107,.4)}
+.nc:hover:not(.lk)::before{opacity:1}
+.nc.lk{cursor:not-allowed;opacity:.45}
+.nci{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;
+  justify-content:center;font-size:26px;margin-bottom:18px}
+.i1{background:rgba(124,58,237,.2)}.i2{background:rgba(29,78,216,.2)}.i3{background:rgba(167,139,250,.2)}
+.nc h3{font-size:17px;font-weight:800;color:#fff;margin-bottom:7px}
+.nc p{font-size:12px;color:rgba(255,255,255,.48);line-height:1.6;margin-bottom:18px}
+.nbadge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;
+  color:#C4B5FD;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.25);
+  border-radius:7px;padding:4px 12px}
+.nbadge.lkb{color:rgba(255,255,255,.25);background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08)}
+
+.hfoot{padding:14px 44px;border-top:1px solid rgba(255,255,255,.05);
+  display:flex;align-items:center;justify-content:space-between}
+.hfoot span{font-size:11px;color:rgba(255,255,255,.22)}
+
+/* APP */
+#app{display:none}
+.anav{background:var(--azul2);border-bottom:2px solid rgba(167,139,250,.25);padding:0 22px;display:flex;align-items:center;
+  height:52px;gap:0;position:sticky;top:0;z-index:100;box-shadow:0 2px 14px rgba(0,0,0,.28)}
+.alogo{font-size:14px;font-weight:800;color:#fff;margin-right:28px;white-space:nowrap;letter-spacing:-.3px}
+.alogo span{color:var(--gold)}
+.ntabs{display:flex;gap:2px;flex:1}
+.ntab{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;color:rgba(255,255,255,.45);
+  cursor:pointer;transition:all .2s;border:none;background:none;font-family:inherit}
+.ntab:hover{color:#fff;background:rgba(167,139,250,.12)}
+.ntab.act{color:#fff;background:rgba(167,139,250,.2);border-bottom:2px solid #A78BFA}
+.nright{display:flex;align-items:center;gap:10px}
+.slw{display:flex;align-items:center;gap:6px}
+.slbl{font-size:10px;color:rgba(196,181,253,.7);font-weight:600}
+select.asel{background:rgba(167,139,250,.15);color:#fff;border:1px solid rgba(167,139,250,.3);
+  border-radius:6px;padding:5px 26px 5px 9px;font-size:12px;font-weight:700;
+  font-family:inherit;cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 7px center}
+select.asel option{background:var(--azul2)}
+.btnhome{background:rgba(167,139,250,.1);color:rgba(196,181,253,.8);
+  border:1px solid rgba(167,139,250,.25);border-radius:6px;padding:5px 13px;
+  font-size:11px;font-family:inherit;cursor:pointer;transition:all .2s}
+.btnhome:hover{background:rgba(167,139,250,.25);color:#fff}
+
+.abody{padding:18px 22px;max-width:1400px;margin:0 auto}
+.sec{display:none}.sec.act{display:block}
+
+/* SHARED */
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.st{font-size:13px;font-weight:800;color:var(--azul2)}
+.ci{font-size:11px;color:var(--txt);font-style:italic}
+.card{background:var(--w);border-radius:12px;border:1px solid var(--ln);overflow:hidden;margin-bottom:14px}
+.ch{background:var(--azul2);padding:10px 16px;font-size:11px;font-weight:800;
+  color:#fff;border-left:4px solid var(--gold);display:flex;align-items:center;gap:8px}
+.chsub{font-size:10px;color:rgba(255,255,255,.5);font-weight:400}
+.chip{display:inline-block;padding:2px 10px;border-radius:20px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px}
+.cok{background:var(--ok-bg);color:var(--ok)}.cwn{background:var(--wn-bg);color:var(--wn)}.cbd{background:var(--bad-bg);color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead tr{background:linear-gradient(90deg,var(--azul2),var(--azul3))}
+thead th{padding:8px 10px;text-align:center;font-size:9px;font-weight:700;color:#fff;
+  text-transform:uppercase;letter-spacing:.4px;border-right:1px solid rgba(255,255,255,.1)}
+thead th:nth-child(2){text-align:left}
+tbody tr:nth-child(even){background:#F8FAFF}
+tbody tr:hover{background:#EFF6FF}
+tbody td{padding:7px 10px;border-bottom:1px solid #F1F5F9;text-align:center}
+tbody td:nth-child(2){text-align:left;font-weight:700}
+tbody td:first-child{color:var(--txt);font-size:10px}
+.nok{color:var(--ok);font-weight:700;font-family:'Courier New',Courier,monospace,monospace}
+.nbd{color:var(--bad);font-weight:700;font-family:'Courier New',Courier,monospace,monospace}
+.nneu{color:var(--azul3);font-weight:600;font-family:'Courier New',Courier,monospace,monospace}
+.ngray{color:#9CA3AF;font-family:'Courier New',Courier,monospace,monospace}
+
+/* DASHBOARD */
+.kg{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:14px}
+.kc{background:var(--w);border-radius:11px;border:1px solid var(--ln);overflow:hidden;
+  transition:box-shadow .2s}
+.kc:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.kh{background:linear-gradient(90deg,var(--azul),var(--azul2));padding:7px 12px;font-size:8px;font-weight:700;
+  color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px}
+.kb{padding:10px 12px 10px}
+.kv{font-size:25px;font-weight:800;color:var(--azul);line-height:1;font-family:'Courier New',Courier,monospace,monospace}
+.ks{font-size:9px;color:var(--txt);margin-top:3px;font-style:italic}
+.kbdg{display:inline-block;margin-top:7px;font-size:9px;font-weight:800;padding:2px 9px;border-radius:20px}
+.t2g{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.t10r{display:flex;align-items:center;padding:7px 14px;border-bottom:1px solid #F1F5F9;gap:9px}
+.t10r:last-child{border-bottom:none}.t10r:hover{background:#F8FAFF}
+.t10rk{width:22px;height:22px;border-radius:50%;background:var(--azul3);color:#fff;
+  font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.g{background:#D97706}.s{background:#94A3B8}.b{background:#B45309}
+.t10n{flex:1;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t10v{font-family:'Courier New',Courier,monospace;font-size:12px;font-weight:700;color:var(--azul2);flex-shrink:0}
+.t10d{font-size:10px;font-weight:800;flex-shrink:0;min-width:52px;text-align:right}
+.dok{color:var(--ok)}.dbd{color:var(--bad)}
+.bbg{height:3px;background:#E2E8F0;border-radius:2px;margin-top:3px;overflow:hidden}
+.bf{height:100%;border-radius:2px;transition:width .7s ease}
+.bok{background:var(--ok)}.bwn{background:var(--wn)}.bbd{background:var(--bad)}
+.afoot{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 0 2px;font-size:10px;color:var(--txt);border-top:1px solid var(--ln);margin-top:2px}
+.leg{display:flex;gap:14px}
+.li{display:flex;align-items:center;gap:5px}
+.ld{width:8px;height:8px;border-radius:50%}
+
+/* DATOS */
+.fb{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.fb label{font-size:11px;font-weight:700;color:var(--txt)}
+.fb input,.fb select{border:1px solid var(--ln);border-radius:7px;padding:6px 11px;
+  font-size:11px;font-family:inherit;background:var(--w);color:var(--dk)}
+.fb input:focus,.fb select:focus{outline:none;border-color:var(--azul-lt)}
+.dscroll{overflow-x:auto}
+/* Value display in datos */
+.vok{color:var(--ok);font-weight:700;font-family:'Courier New',Courier,monospace;font-size:10px}
+.vbd{color:var(--bad);font-weight:700;font-family:'Courier New',Courier,monospace;font-size:10px}
+.vna{color:#CBD5E1;font-size:10px}
+
+/* CALIDAD */
+.cstats{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
+.cst{background:var(--w);border-radius:10px;border:1px solid var(--ln);padding:10px 14px;
+  display:flex;align-items:center;gap:10px}
+.csti{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-size:18px;flex-shrink:0}
+.cstv{font-size:22px;font-weight:800;font-family:'Courier New',Courier,monospace;color:var(--azul2)}
+.cstl{font-size:10px;color:var(--txt)}
+.caltw{overflow-x:auto}
+.calt{width:100%;border-collapse:collapse;font-size:11px}
+.calt thead tr{background:linear-gradient(90deg,var(--azul),var(--azul2))}
+.calt thead th{padding:8px 10px;font-size:9px;font-weight:700;color:#fff;
+  text-align:left;white-space:nowrap;border-right:1px solid rgba(255,255,255,.1);letter-spacing:.3px}
+.calt tbody tr:nth-child(even){background:#F8FAFF}
+.calt tbody tr:hover{background:#EFF6FF}
+.calt tbody td{padding:7px 10px;border-bottom:1px solid #F1F5F9;vertical-align:middle}
+.tdnum{text-align:center;color:var(--txt);font-size:10px;width:30px}
+.tdnota{text-align:center;font-weight:700;font-family:'Courier New',Courier,monospace,monospace}
+.esel{border:1px solid var(--ln);border-radius:6px;padding:3px 8px;
+  font-size:11px;font-family:inherit;background:var(--w);cursor:pointer;min-width:105px;font-weight:600}
+.esel:focus{outline:none;border-color:var(--azul-lt)}
+.ep{color:var(--wn)}.ec{color:var(--ok)}.er{color:var(--bad)}
+.acell{display:flex;align-items:center;gap:6px;min-width:170px}
+.badj{background:#EFF6FF;color:var(--azul3);border:1px solid #BFDBFE;
+  border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;font-family:inherit;
+  cursor:pointer;transition:all .2s;white-space:nowrap}
+.badj:hover{background:#DBEAFE}
+.apw{display:flex;align-items:center;gap:6px}
+.bplay{width:30px;height:30px;border-radius:50%;background:var(--azul2);color:#fff;
+  border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:13px;transition:all .2s;flex-shrink:0}
+.bplay:hover{background:var(--azul3);transform:scale(1.1)}
+.bplay.pl{background:var(--bad)}
+.aname{font-size:9px;color:var(--txt);max-width:80px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.brma{background:none;border:none;color:#CBD5E1;cursor:pointer;
+  font-size:15px;line-height:1;padding:0 2px;transition:color .15s}
+.brma:hover{color:var(--bad)}
+
+
+/* PDF MODAL */
+#pdf-modal{display:none;position:fixed;inset:0;background:rgba(11,30,58,.75);
+  z-index:99998;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.pm-box{background:#fff;border-radius:20px;padding:32px;width:420px;max-width:95vw;
+  box-shadow:0 32px 80px rgba(0,0,0,.35);position:relative}
+.pm-close{position:absolute;top:14px;right:16px;background:none;border:none;
+  font-size:20px;color:#94A3B8;cursor:pointer;line-height:1}
+.pm-close:hover{color:#1F2937}
+.pm-title{font-size:17px;font-weight:800;color:#0F172A;margin-bottom:4px}
+.pm-sub{font-size:12px;color:#64748B;margin-bottom:22px}
+.pm-opts{display:flex;flex-direction:column;gap:10px}
+.pm-opt{border:2px solid #E2E8F0;border-radius:12px;padding:14px 16px;cursor:pointer;
+  transition:all .2s;text-align:left;background:#fff;font-family:inherit;width:100%}
+.pm-opt:hover{border-color:#1A3A6E;background:#F8FAFF}
+.pm-opt.sel{border-color:#1A3A6E;background:#EFF6FF}
+.pm-opt-icon{font-size:20px;margin-bottom:5px;display:block}
+.pm-opt-title{font-size:13px;font-weight:800;color:#0F172A;display:block;margin-bottom:2px}
+.pm-opt-desc{font-size:11px;color:#64748B;display:block;line-height:1.5}
+.pm-search-wrap{margin-top:10px;display:none}
+.pm-search-wrap label{font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:5px}
+.pm-sinput{width:100%;border:1.5px solid #E2E8F0;border-radius:8px;padding:8px 12px;
+  font-size:12px;font-family:inherit;color:#0F172A;transition:border .2s}
+.pm-sinput:focus{outline:none;border-color:#1A3A6E}
+.pm-sugs{max-height:130px;overflow-y:auto;border:1px solid #E2E8F0;
+  border-radius:8px;margin-top:4px;display:none;background:#fff}
+.pm-sug{padding:8px 12px;font-size:11px;cursor:pointer;color:#0F172A;
+  border-bottom:1px solid #F1F5F9;font-weight:600}
+.pm-sug:last-child{border-bottom:none}
+.pm-sug:hover{background:#EFF6FF;color:#1A3A6E}
+.pm-sug span{color:#94A3B8;font-weight:400;margin-left:6px;font-size:10px}
+.pm-sel-agent{background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:8px;
+  padding:7px 12px;font-size:12px;font-weight:700;color:#1A3A6E;margin-top:6px;
+  display:none;align-items:center;justify-content:space-between}
+.pm-sel-agent button{background:none;border:none;color:#94A3B8;cursor:pointer;font-size:15px}
+.pm-btn{width:100%;background:linear-gradient(135deg,#2B0B6B,#4A1D96);color:#fff;
+  border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;
+  font-family:inherit;cursor:pointer;margin-top:18px;transition:all .2s;
+  display:flex;align-items:center;justify-content:center;gap:8px}
+.pm-btn:hover{background:linear-gradient(135deg,#0B1E3A,#1A3A6E);transform:translateY(-1px)}
+.pm-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+/* PDF BUTTON */
+.btn-pdf{background:linear-gradient(135deg,#DC2626,#B91C1C);color:#fff;
+  border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;
+  font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:7px;
+  transition:all .2s;box-shadow:0 2px 8px rgba(220,38,38,.35)}
+.btn-pdf:hover{background:linear-gradient(135deg,#B91C1C,#991B1B);
+  box-shadow:0 4px 14px rgba(220,38,38,.45);transform:translateY(-1px)}
+.btn-pdf:active{transform:translateY(0)}
+.btn-pdf svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5}
+.btn-pdf:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* PDF overlay progress */
+#pdf-progress{display:none;position:fixed;inset:0;background:rgba(11,30,58,.92);
+  z-index:99999;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.pdf-box{background:#fff;border-radius:16px;padding:32px 40px;text-align:center;
+  max-width:340px;width:90%}
+.pdf-box h3{font-size:16px;font-weight:800;color:#0F172A;margin-bottom:6px}
+.pdf-box p{font-size:12px;color:#64748B;margin-bottom:20px}
+.pdf-bar-bg{width:100%;height:8px;background:#E2E8F0;border-radius:4px;overflow:hidden}
+.pdf-bar{height:100%;background:linear-gradient(90deg,#1A3A6E,#3B82F6);
+  border-radius:4px;transition:width .4s ease;width:0%}
+.pdf-step{font-size:11px;color:#94A3B8;margin-top:10px}
+
+@media(max-width:900px){.kg{grid-template-columns:repeat(3,1fr)}.t2g{grid-template-columns:1fr}.hcards{grid-template-columns:repeat(2,1fr)}.htitle{font-size:34px}.cstats{grid-template-columns:repeat(2,1fr)}}
+
+/* COMPROMISOS TAB */
+.comp-upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.comp-dropzone{border:2px dashed var(--ln);border-radius:12px;padding:24px 16px;
+  text-align:center;cursor:pointer;transition:all .2s;background:var(--w)}
+.comp-dropzone:hover,.comp-dropzone.dz-over{border-color:var(--azul-lt);background:#EFF6FF}
+.comp-dropzone.loaded{border-color:var(--ok);background:var(--ok-bg);border-style:solid}
+.dz-icon{font-size:28px;margin-bottom:8px}
+.dz-title{font-size:13px;font-weight:700;color:var(--azul2);margin-bottom:4px}
+.dz-sub{font-size:11px;color:var(--txt)}
+.dz-file{font-size:11px;font-weight:700;color:var(--ok);margin-top:6px}
+
+.formato-card{background:var(--w);border-radius:12px;border:1px solid var(--ln);
+  overflow:hidden;margin-bottom:14px}
+.formato-header{background:var(--azul2);padding:10px 16px;display:flex;
+  align-items:center;justify-content:space-between}
+.formato-header h3{font-size:12px;font-weight:800;color:#fff;margin:0}
+.formato-header .fh-badge{background:rgba(245,158,11,.2);color:var(--gold);
+  border:1px solid rgba(245,158,11,.4);border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700}
+.formato-body{padding:16px}
+.formato-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.fmeta{background:var(--bg);border-radius:8px;padding:10px 12px}
+.fmeta-label{font-size:9px;font-weight:700;color:var(--txt);text-transform:uppercase;
+  letter-spacing:.5px;margin-bottom:3px}
+.fmeta-val{font-size:12px;font-weight:700;color:var(--dk)}
+.fblock{margin-bottom:12px}
+.fblock-title{font-size:10px;font-weight:800;color:var(--azul2);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;
+  display:flex;align-items:center;gap:6px}
+.fblock-title::after{content:'';flex:1;height:1px;background:var(--ln)}
+.fblock-text{font-size:11px;color:var(--dk);line-height:1.65;background:var(--bg);
+  border-radius:8px;padding:10px 12px;border-left:3px solid var(--azul2)}
+.alert-critica{border-left-color:var(--bad)!important}
+.alert-leve{border-left-color:var(--wn)!important}
+
+.firma-section{background:var(--w);border-radius:12px;border:2px solid var(--azul2);
+  overflow:hidden;margin-bottom:14px}
+.firma-header{background:linear-gradient(135deg,var(--azul),var(--azul2));padding:12px 16px}
+.firma-header h3{font-size:13px;font-weight:800;color:#fff;margin:0}
+.firma-header p{font-size:11px;color:rgba(255,255,255,.6);margin:3px 0 0}
+.firma-body{padding:16px}
+.firma-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.firma-col h4{font-size:11px;font-weight:800;color:var(--azul2);
+  margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.firma-col h4 span{background:var(--azul2);color:#fff;border-radius:50%;
+  width:20px;height:20px;display:inline-flex;align-items:center;
+  justify-content:center;font-size:10px;flex-shrink:0}
+.firma-textarea{width:100%;border:1.5px solid var(--ln);border-radius:8px;
+  padding:10px;font-size:11px;font-family:inherit;color:var(--dk);
+  resize:vertical;min-height:90px;transition:border .2s;line-height:1.6}
+.firma-textarea:focus{outline:none;border-color:var(--azul-lt)}
+.firma-input{width:100%;border:1.5px solid var(--ln);border-radius:8px;
+  padding:8px 12px;font-size:12px;font-weight:700;font-family:inherit;
+  color:var(--dk);transition:border .2s}
+.firma-input:focus{outline:none;border-color:var(--azul-lt)}
+.firma-name-label{font-size:10px;color:var(--txt);margin-bottom:5px;font-weight:600}
+
+.canvas-firma{border:1.5px solid var(--ln);border-radius:8px;cursor:crosshair;
+  display:block;background:#fff;touch-action:none}
+.firma-canvas-wrap{position:relative}
+.btn-clear-firma{position:absolute;top:6px;right:6px;background:rgba(220,38,38,.1);
+  color:var(--bad);border:none;border-radius:5px;padding:3px 8px;font-size:10px;
+  font-weight:700;cursor:pointer;font-family:inherit}
+.btn-clear-firma:hover{background:var(--bad-bg)}
+
+.btn-gen-comp{width:100%;background:linear-gradient(135deg,#2B0B6B,#4A1D96);
+  color:#fff;border:none;border-radius:10px;padding:13px;font-size:13px;
+  font-weight:800;font-family:inherit;cursor:pointer;margin-top:4px;
+  display:flex;align-items:center;justify-content:center;gap:9px;transition:all .2s}
+.btn-gen-comp:hover{background:linear-gradient(135deg,#3B0FA0,#7C3AED);transform:translateY(-1px)}
+.btn-gen-comp:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+/* CALIDAD updated - new fields */
+.cal-detail-modal{display:none;position:fixed;inset:0;background:rgba(11,30,58,.7);
+  z-index:9000;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.cal-detail-box{background:#fff;border-radius:16px;width:700px;max-width:95vw;
+  max-height:90vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,.35)}
+.cal-detail-hdr{background:linear-gradient(135deg,var(--azul),var(--azul2));padding:16px 20px;border-radius:16px 16px 0 0;
+  display:flex;align-items:center;justify-content:space-between;position:sticky;top:0}
+.cal-detail-hdr h3{font-size:14px;font-weight:800;color:#fff;margin:0}
+.cal-detail-body{padding:20px}
+.cal-field{margin-bottom:14px}
+.cal-field-label{font-size:9px;font-weight:700;color:var(--txt);
+  text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.cal-field-val{font-size:12px;color:var(--dk);line-height:1.6;
+  background:var(--bg);border-radius:7px;padding:8px 12px}
+.tipo-critica{color:var(--bad);font-weight:800}
+.tipo-leve{color:var(--wn);font-weight:800}
+.btn-ver-detalle{background:#EFF6FF;color:var(--azul3);border:1px solid #BFDBFE;
+  border-radius:5px;padding:3px 8px;font-size:9px;font-weight:700;
+  cursor:pointer;font-family:inherit;white-space:nowrap}
+.btn-ver-detalle:hover{background:#DBEAFE}
+
+
+/* FORM PREVIEW */
+.form-preview-wrap{background:#fff;border:1px solid var(--ln);border-radius:8px;
+  overflow:hidden;font-family:Arial,Helvetica,sans-serif;font-size:11px}
+.fp-table{width:100%;border-collapse:collapse}
+.fp-table td,.fp-table th{border:1px solid #555;padding:4px 6px;vertical-align:middle}
+.fp-hdr-main{background:linear-gradient(90deg,#2B0B6B,#4A1D96);color:#fff;font-weight:700;text-align:center;font-size:12px}
+.fp-hdr-sub{background:linear-gradient(90deg,#4A1D96,#7C3AED);color:#fff;font-weight:700;text-align:center;font-size:13px;letter-spacing:.5px}
+.fp-label{background:#2B0B6B;color:#fff;font-weight:700;font-size:10px;width:160px}
+.fp-label-purple{background:#3B0FA0;color:#fff;font-weight:700;font-size:10px}
+.fp-val{background:#fff;font-size:10.5px}
+.fp-section{background:linear-gradient(90deg,#2B0B6B,#4A1D96);color:#fff;font-weight:700;text-align:center;font-size:11px;padding:5px}
+.fp-edit{background:#FFFDE7;border:none;width:100%;min-height:60px;padding:4px;
+  font-family:Arial,sans-serif;font-size:10.5px;resize:vertical;outline:none;
+  border-left:3px solid #F59E0B}
+.fp-edit-sm{background:#FFFDE7;border:none;width:100%;padding:4px;
+  font-family:Arial,sans-serif;font-size:10.5px;outline:none}
+.fp-logo-cell{width:140px;text-align:center;padding:6px;vertical-align:middle}
+.fp-logo-box{background:#2B0B6B;color:#fff;font-size:9px;font-weight:700;
+  padding:4px;border-radius:3px;display:inline-block}
+
+
+/* LOGO UPLOAD */
+.logo-upload-row{display:flex;gap:12px;margin-bottom:14px;align-items:stretch}
+.logo-upload-box{flex:1;border:2px dashed var(--ln);border-radius:10px;padding:12px;
+  text-align:center;cursor:pointer;transition:all .2s;background:var(--w);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.logo-upload-box:hover{border-color:var(--azul-lt);background:#EFF6FF}
+.logo-upload-box.has-logo{border-style:solid;border-color:var(--ok);background:var(--ok-bg)}
+.logo-preview{max-width:120px;max-height:44px;object-fit:contain;display:none}
+.logo-upload-label{font-size:10px;font-weight:700;color:var(--txt)}
+.logo-upload-hint{font-size:9px;color:var(--gris-txt,#94a3b8)}
+
+</style>
+</head>
+<body>
+
+<div id="pdf-progress">
+  <div class="pdf-box">
+    <h3>Generando PDF</h3>
+    <p>Capturando las 3 secciones del dashboard...<br>Esto puede tomar unos segundos.</p>
+    <div class="pdf-bar-bg"><div class="pdf-bar" id="pdf-bar"></div></div>
+    <div class="pdf-step" id="pdf-step">Iniciando...</div>
+  </div>
+</div>
+
+<div id="pdf-modal">
+  <div class="pm-box">
+    <button class="pm-close" onclick="closePM()">✕</button>
+    <div class="pm-title">📄 Exportar PDF</div>
+    <div class="pm-sub" id="pm-sub-text">Elige el tipo de reporte</div>
+    <div class="pm-opts">
+      <button class="pm-opt sel" id="opt-full" onclick="selOpt('full')">
+        <span class="pm-opt-icon">📊</span>
+        <span class="pm-opt-title">Reporte completo del skill</span>
+        <span class="pm-opt-desc">Dashboard general, todos los asesores y todos los registros de calidad en un solo PDF.</span>
+      </button>
+      <button class="pm-opt" id="opt-ag" onclick="selOpt('ag')">
+        <span class="pm-opt-icon">👤</span>
+        <span class="pm-opt-title">Reporte individual por asesor</span>
+        <span class="pm-opt-desc">Solo indicadores y calidad del asesor seleccionado. Ideal para sesiones de feedback.</span>
+      </button>
+    </div>
+    <div class="pm-search-wrap" id="pm-sw">
+      <label>Buscar asesor</label>
+      <input class="pm-sinput" id="pm-q" type="text" placeholder="Escribe el nombre..." oninput="filterAg(this.value)" autocomplete="off">
+      <div class="pm-sugs" id="pm-sugs"></div>
+      <div class="pm-sel-agent" id="pm-picked">
+        <span id="pm-picked-nm"></span>
+        <button onclick="clearAg()">✕</button>
+      </div>
+    </div>
+    <button class="pm-btn" onclick="startPDF()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Generar y descargar PDF
+    </button>
+  </div>
+</div>
+
+<!-- CAL DETAIL MODAL -->
+<div class="cal-detail-modal" id="cal-detail-modal" onclick="if(event.target===this)this.style.display='none'">
+  <div class="cal-detail-box">
+    <div class="cal-detail-hdr">
+      <h3 id="cdm-title">Detalle del registro</h3>
+      <button style="background:none;border:none;color:#93C5FD;font-size:18px;cursor:pointer"
+        onclick="document.getElementById('cal-detail-modal').style.display='none'">✕</button>
+    </div>
+    <div class="cal-detail-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="cal-field"><div class="cal-field-label">ID Llamada</div><div class="cal-field-val" id="cdm-id" style="font-family:monospace;font-size:10px;word-break:break-all"></div></div>
+        <div class="cal-field"><div class="cal-field-label">Fecha</div><div class="cal-field-val" id="cdm-fecha"></div></div>
+        <div class="cal-field"><div class="cal-field-label">Tipo de Alerta</div><div class="cal-field-val" id="cdm-tipo"></div></div>
+        <div class="cal-field"><div class="cal-field-label">Nota</div><div class="cal-field-val" id="cdm-nota"></div></div>
+      </div>
+      <div class="cal-field"><div class="cal-field-label">Análisis</div><div class="cal-field-val" id="cdm-analisis" style="white-space:pre-wrap;min-height:40px"></div></div>
+      <div class="cal-field"><div class="cal-field-label">Oportunidad de Mejora</div><div class="cal-field-val" id="cdm-desc" style="white-space:pre-wrap;min-height:40px"></div></div>
+      <div class="cal-field"><div class="cal-field-label">Plan de Acción del Supervisor</div><div class="cal-field-val" id="cdm-rec" style="white-space:pre-wrap"></div></div>
+      <div class="cal-field" id="cdm-comp-wrap" style="display:none">
+        <div class="cal-field-label">Compromisos del Asesor</div>
+        <div class="cal-field-val" id="cdm-compromisos" style="white-space:pre-wrap;border-left:3px solid var(--azul-lt)"></div>
+      </div>
+      <!-- FIRMAS -->
+      <div id="cdm-firmas-wrap" style="display:none;margin-top:14px">
+        <div style="font-size:9px;font-weight:700;color:var(--txt);text-transform:uppercase;
+          letter-spacing:.6px;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          Firmas <span style="flex:1;height:1px;background:var(--ln)"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--azul2);margin-bottom:6px">
+              Firma Asesor / Ejecutivo
+            </div>
+            <div style="border:1px solid var(--ln);border-radius:8px;padding:8px;
+              min-height:70px;display:flex;align-items:center;justify-content:center;
+              background:var(--bg)">
+              <img id="cdm-firma-asesor" style="max-width:100%;max-height:60px;object-fit:contain" alt="">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--azul2);margin-bottom:6px">
+              Firma Supervisor — <span id="cdm-sup-nombre" style="font-weight:400"></span>
+            </div>
+            <div style="border:1px solid var(--ln);border-radius:8px;padding:8px;
+              min-height:70px;display:flex;align-items:center;justify-content:center;
+              background:var(--bg)">
+              <img id="cdm-firma-sup" style="max-width:100%;max-height:60px;object-fit:contain" alt="">
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:8px;font-size:10px;color:var(--ok);font-weight:700;
+          display:flex;align-items:center;gap:6px">
+          <span style="background:var(--ok-bg);border-radius:50%;width:18px;height:18px;
+            display:inline-flex;align-items:center;justify-content:center;font-size:11px">✓</span>
+          Documento firmado digitalmente
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+        <button onclick="descargarPDFRegistro(this.dataset.idx)" data-idx=""
+          id="cdm-btn-pdf" style="display:none;background:var(--bad);color:#fff;border:none;
+          border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;
+          font-family:inherit;cursor:pointer">
+          ↓ Descargar PDF
+        </button>
+        <button style="background:var(--azul2);color:#fff;border:none;border-radius:8px;
+          padding:8px 20px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer"
+          onclick="document.getElementById('cal-detail-modal').style.display='none'">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="loading"><div class="spin"></div><span>Procesando archivo...</span></div>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">🌾</div>
+      <div class="login-logo-text">
+        <h1>Skill Inbound</h1>
+        <p>Banco Agrario de Colombia</p>
+      </div>
+    </div>
+    <div class="login-title">Bienvenido</div>
+    <div class="login-sub">Ingresa con tu usuario y contraseña</div>
+
+    <!-- Selector de rol (oculto - el rol viene de Supabase) -->
+    <div class="login-roles" style="display:none">
+      <button class="login-role-btn active" id="rol-sup" onclick="setRol('supervisor')">
+        <span class="login-role-icon">🛡️</span>
+        Supervisor
+      </button>
+      <button class="login-role-btn" id="rol-agt" onclick="setRol('agente')">
+        <span class="login-role-icon">👤</span>
+        Asesor
+      </button>
+    </div>
+
+    <div class="login-field">
+      <label>USUARIO</label>
+      <input class="login-input" id="login-user" type="text"
+        placeholder="Escribe tu usuario..." autocomplete="off"
+        onkeydown="if(event.key==='Enter')loginSubmit()">
+    </div>
+    <div class="login-field">
+      <label>CONTRASEÑA</label>
+      <input class="login-input" id="login-pass" type="password"
+        placeholder="Escribe tu contraseña..."
+        onkeydown="if(event.key==='Enter')loginSubmit()">
+    </div>
+
+    <button class="login-btn" onclick="loginSubmit()">Ingresar →</button>
+    <div class="login-error" id="login-error">Usuario o contraseña incorrectos</div>
+
+    <div class="login-footer">Sistema de indicadores · Uso interno</div>
+  </div>
+</div>
+
+
+<!-- ═══ SKILL SELECTOR ═══ -->
+<div id="skill-screen">
+  <div class="skill-box">
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:24px">
+      <div style="width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#7C3AED,#4A1D96);
+        display:flex;align-items:center;justify-content:center;font-size:20px">🌾</div>
+      <div style="text-align:left">
+        <div style="font-size:14px;font-weight:800;color:#fff">Skill Inbound</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.35)">Banco Agrario de Colombia</div>
+      </div>
+    </div>
+    <h2>¿Qué skill deseas revisar?</h2>
+    <p>Selecciona el skill. Puedes cargar un solo Excel con todos los asesores.</p>
+    <div class="skill-cards">
+      <div class="skill-card" onclick="seleccionarSkill('inbound')">
+        <div class="skill-tag">Llamadas</div>
+        <div class="skill-card-icon">📞</div>
+        <h3>Inbound</h3>
+        <p>Supervisores Oscar y Ximena.<br>Indicadores de llamadas.</p>
+        <div class="skill-badge">Oscar · Ximena</div>
+      </div>
+      <div class="skill-card" onclick="seleccionarSkill('chat')">
+        <div class="skill-tag">Mensajes</div>
+        <div class="skill-card-icon">💬</div>
+        <h3>Chat</h3>
+        <p>Supervisor Antonio.<br>Indicadores de chat.</p>
+        <div class="skill-badge">Antonio</div>
+      </div>
+    </div>
+    <button class="skill-back-btn" onclick="volverLoginDesdeSkill()">← Volver al inicio</button>
+  </div>
+</div>
+
+
+<!-- HOME -->
+<div id="home">
+<div class="hw">
+  <div class="htb">
+    <div class="hbrand">
+      <div class="hbi">🌾</div>
+      <div class="hbt"><h1>Skill Inbound</h1><p>Banco Agrario de Colombia</p></div>
+    </div>
+    <button onclick="cambiarSkill()" style="background:rgba(167,139,250,.15);
+      color:#C4B5FD;border:1px solid rgba(167,139,250,.3);border-radius:8px;
+      padding:8px 16px;font-size:12px;font-weight:700;font-family:inherit;
+      cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .2s;margin-right:8px"
+      id="home-skill-btn">
+      <span id="home-skill-icon" style="font-size:14px">📞</span>
+      <span id="home-skill-label">Inbound</span>
+      <span style="opacity:.5;font-size:10px">▼ cambiar</span>
+    </button>
+    <button class="btn-carga" onclick="document.getElementById('file-input').click()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Cargar Excel
+    </button>
+    <input type="file" id="file-input" accept=".xlsx,.xls" onchange="if(this.files[0])processFile(this.files[0])">
+  </div>
+  <div class="hhero">
+    <div class="heyebrow">Sistema de indicadores</div>
+    <h1 class="htitle">Inbound <span>Dashboard</span></h1>
+    <p class="hsub">Monitoreo en tiempo real de indicadores, asesores y calidad del Skill Banco Agrario</p>
+    <div class="hstatus"><div class="sdot" id="sdot"></div><span id="stxt">Carga tu archivo Excel para comenzar</span></div>
+    <div class="hcards">
+      <div class="nc lk" id="c1" onclick="goTo('dashboard')">
+        <div class="nci i1">📊</div><h3>Dashboard</h3>
+        <p>KPIs globales, semáforos de cumplimiento y ranking TOP 10 de asesores.</p>
+        <div class="nbadge lkb" id="b1">🔒 Carga un archivo</div>
+      </div>
+      <div class="nc lk" id="c2" onclick="goTo('datos')">
+        <div class="nci i2">👥</div><h3>Datos por Asesor</h3>
+        <p>Registro individual con los 13 indicadores y sus valores reales. Filtra por supervisor o nombre.</p>
+        <div class="nbadge lkb" id="b2">🔒 Carga un archivo</div>
+      </div>
+      <div class="nc lk" id="c3" data-tab="calidad" onclick="goTo('calidad')">
+        <div class="nci i3">⭐</div><h3>Calidad</h3>
+        <p>Seguimiento de errores. Adjunta grabaciones de llamadas por caso y gestiona el estado.</p>
+        <div class="nbadge lkb" id="b3">🔒 Carga un archivo</div>
+      </div>
+      <div class="nc" id="c4" data-tab="compromisos" onclick="goToCompromisos()" style="border-color:rgba(245,158,11,.3)">
+        <div class="nci" style="background:rgba(245,158,11,.15)">📋</div><h3>Compromisos</h3>
+        <p>Carga el Formato de Alerta y el de Retroalimentación. El asesor firma y descarga el PDF oficial.</p>
+        <div class="nbadge" style="color:var(--gold);background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3)">→ Acceso directo</div>
+      </div>
+    </div>
+  </div>
+  <div class="hfoot">
+    <span>Skill Inbound — Banco Agrario de Colombia</span>
+    <span>💡 Para <b style="color:rgba(255,255,255,.5)">Compromisos</b> no necesitas cargar el Excel principal · Los datos no se modifican</span>
+  </div>
+</div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <nav class="anav">
+    <div class="alogo">🌾 <span>Skill Inbound</span></div>
+    <button id="skill-badge-nav" onclick="cambiarSkill()" title="Cambiar skill">
+        <span id="nav-skill-icon"></span>
+        <span id="nav-skill-label"></span>
+        <span style="opacity:.5;font-size:9px;margin-left:2px">▼</span>
+      </button>
+    <div class="ntabs">
+      <button class="ntab act" onclick="sw('dashboard')" data-rol="supervisor">📊 Dashboard</button>
+      <button class="ntab" onclick="sw('datos')">👥 Datos</button>
+      <button class="ntab" data-tab="calidad" onclick="sw('calidad')">⭐ Calidad</button>
+      <button class="ntab" data-tab="compromisos" data-rol="supervisor" onclick="sw('compromisos')">📋 Compromisos</button>
+    </div>
+    <div class="nright">
+      <div class="slw" id="sel-wrap" title="Filtrar por supervisor">
+        <span class="slbl">Ver:</span>
+        <select class="asel" id="sel" onchange="renderAll()">
+          <option value="gen">Promedio General</option>
+          <option value="oscar">Oscar</option>
+          <option value="ximena">Ximena</option>
+        </select>
+      </div>
+      <button class="btnhome" onclick="showHome()">⬅ Inicio</button>
+      <button class="btnhome" onclick="cerrarSesion()" style="color:rgba(252,165,165,.8);border-color:rgba(220,38,38,.3)" title="Cerrar sesión">⏻ Salir</button>
+      <button class="btn-pdf" id="btn-pdf" onclick="openPM()" title="Descargar PDF con las 3 secciones">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Descargar PDF
+      </button>
+    </div>
+  </nav>
+  <div class="abody">
+
+    <!-- DASHBOARD -->
+    <div class="sec act" id="s-dashboard">
+      <div class="sh"><div class="st" id="dtitle">Resumen global del skill</div><div class="ci" id="ci"></div></div>
+      <div class="kg" id="kgrid"></div>
+      <div class="card">
+        <div class="ch">DETALLE POR INDICADOR</div>
+        <table><thead><tr>
+          <th>#</th><th>Indicador</th><th>Meta</th>
+          <th>Promedio equipo</th><th>Cumplen ✔</th>
+          <th>No cumplen ✘</th><th>% Cumpl.</th><th>Estado</th>
+        </tr></thead><tbody id="tind"></tbody></table>
+      </div>
+      <div class="t2g">
+        <div class="card"><div class="ch">🏆 TOP 10 — MEJOR AHT <span class="chsub">menor tiempo</span></div><div id="t10a"></div></div>
+        <div class="card"><div class="ch">🏅 TOP 10 — NOTA CALIDAD <span class="chsub">mayor nota</span></div><div id="t10c"></div></div>
+      </div>
+      <div class="afoot">
+        <div class="leg">
+          <div class="li"><div class="ld" style="background:var(--ok)"></div><span>Bien ≥70%</span></div>
+          <div class="li"><div class="ld" style="background:var(--wn)"></div><span>Alerta 50–69%</span></div>
+          <div class="li"><div class="ld" style="background:var(--bad)"></div><span>Crítico &lt;50%</span></div>
+        </div>
+        <span id="ft">Skill Inbound — Uso interno</span>
+      </div>
+    </div>
+
+    <!-- DATOS -->
+    <div class="sec" id="s-datos">
+      <div class="fb">
+        <label>Supervisor:</label>
+        <select id="dsup" onchange="rdatos()">
+          <option value="todos">Todos</option>
+        </select>
+        <label>Buscar:</label>
+        <input type="text" id="dsrch" placeholder="Nombre del asesor..." oninput="rdatos()" style="width:210px">
+        <span id="dcnt" style="font-size:11px;color:var(--txt)"></span>
+      </div>
+      <!-- FILTRO DE INDICADORES -->
+      <div class="ind-filter-panel">
+        <div class="ind-filter-header" onclick="toggleIndFilter()">
+          <span>&#9878; Filtrar indicadores <span id="ind-filter-count" style="opacity:.7;font-weight:400"></span></span>
+          <div class="ind-filter-toggle">
+            <span id="ind-filter-arrow">&#9660;</span>
+            <span>Selecciona cuáles ver</span>
+          </div>
+        </div>
+        <div class="ind-filter-body" id="ind-filter-body">
+          <!-- chips generados por JS -->
+          <div class="ind-filter-actions">
+            <button class="ind-filter-btn" onclick="indFilterAll()">Todos</button>
+            <button class="ind-filter-btn" onclick="indFilterNone()">Ninguno</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch">REGISTRO DE INDICADORES POR ASESOR — VALORES REALES</div>
+        <div class="dscroll">
+          <table><thead><tr id="dhead"></tr></thead><tbody id="dbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPROMISOS -->
+    <div     <!-- CALIDAD -->
+    <div class="sec" id="s-calidad">
+      <div class="fb">
+        <label>Supervisor:</label>
+        <select id="csup" onchange="rcal()">
+          <option value="todos">Todos</option>
+          <option value="Oscar">Oscar</option>
+          <option value="Ximena">Ximena</option>
+        </select>
+        <label>Estado:</label>
+        <select id="cest" onchange="rcal()">
+          <option value="todos">Todos</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="Refutado">Refutado</option>
+          <option value="Cerrado">Cerrado</option>
+        </select>
+        <label>Buscar:</label>
+        <input type="text" id="cal-srch" placeholder="Nombre del asesor..." oninput="rcal()" style="width:180px">
+        <span id="ccnt" style="font-size:11px;color:var(--txt)"></span>
+      </div>
+      <div class="cstats" id="cstats"></div>
+      <div class="card">
+        <div class="ch" style="display:flex;align-items:center;justify-content:space-between">
+          <span>ALERTAS DE CALIDAD</span>
+          <button onclick="sw('compromisos')" style="background:rgba(245,158,11,.15);color:var(--gold);border:1px solid rgba(245,158,11,.4);border-radius:7px;padding:5px 14px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer">+ Nueva retroalimentacion</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="calt"><thead><tr>
+            <th style="width:28px">#</th>
+            <th style="min-width:160px">Asesor</th>
+            <th>Supervisor</th><th>Fecha</th>
+            <th style="min-width:220px">Descripcion del Error</th>
+            <th style="width:50px">Nota</th>
+            <th style="min-width:110px">Estado</th>
+            <th>Audio</th><th style="width:60px">Detalle</th>
+          </tr></thead>
+          <tbody id="cbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec" id="s-compromisos">
+
+      <!-- Instrucciones -->
+      <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;
+        padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">📌</span>
+        <div>
+          <div style="font-size:12px;font-weight:800;color:var(--azul2)">Cómo usar esta sección</div>
+          <div style="font-size:11px;color:var(--txt);margin-top:2px">
+            1. Carga el <b>Formato de Alerta</b> · 2. Carga el <b>Formato de Retroalimentación</b> · 
+            3. Completa los campos en blanco · 4. Firmas · 5. Descarga el PDF oficial
+          </div>
+        </div>
+      </div>
+
+      <!-- Logo upload -->
+      <div style="font-size:11px;font-weight:700;color:var(--azul2);margin-bottom:6px">
+        Logos institucionales (opcionales — aparecen en el PDF)
+      </div>
+      <div class="logo-upload-row" style="margin-bottom:14px">
+        <div class="logo-upload-box" id="logo-box-left" onclick="document.getElementById('fi-logo-left').click()" title="Logo izquierdo (AlmaExperience)">
+          <img id="logo-preview-left" class="logo-preview" alt="Logo izquierdo">
+          <div class="logo-upload-label" id="logo-label-left">Logo izquierdo</div>
+          <div class="logo-upload-hint">AlmaExperience / empresa</div>
+          <input type="file" id="fi-logo-left" accept="image/*" style="display:none" onchange="loadLogo('left',this)">
+        </div>
+        <div style="display:flex;align-items:center;padding:0 6px;color:var(--txt);font-size:18px;font-weight:300">|</div>
+        <div class="logo-upload-box" id="logo-box-right" onclick="document.getElementById('fi-logo-right').click()" title="Logo derecho">
+          <img id="logo-preview-right" class="logo-preview" alt="Logo derecho">
+          <div class="logo-upload-label" id="logo-label-right">Logo derecho</div>
+          <div class="logo-upload-hint">Logo banco / cliente</div>
+          <input type="file" id="fi-logo-right" accept="image/*" style="display:none" onchange="loadLogo('right',this)">
+        </div>
+      </div>
+
+      <!-- Upload zones -->
+      <div class="comp-upload-grid" style="margin-bottom:16px">
+        <div class="comp-dropzone" id="dz-alerta" onclick="document.getElementById('fi-alerta').click()">
+          <div class="dz-icon">⚠️</div>
+          <div class="dz-title">Formato de Alerta</div>
+          <div class="dz-sub">Haz clic o arrastra el Excel</div>
+          <div class="dz-file" id="dz-alerta-name" style="display:none"></div>
+          <input type="file" id="fi-alerta" accept=".xlsx,.xls" style="display:none" onchange="loadFormato('alerta',this)">
+        </div>
+        <div class="comp-dropzone" id="dz-retro" onclick="document.getElementById('fi-retro').click()">
+          <div class="dz-icon">📋</div>
+          <div class="dz-title">Formato Retroalimentación</div>
+          <div class="dz-sub">Haz clic o arrastra el Excel</div>
+          <div class="dz-file" id="dz-retro-name" style="display:none"></div>
+          <input type="file" id="fi-retro" accept=".xlsx,.xls" style="display:none" onchange="loadFormato('retro',this)">
+        </div>
+      </div>
+
+      <!-- FORMS PREVIEW AREA -->
+      <div id="comp-preview" style="display:none">
+
+        <!-- ═══ FORMATO DE ALERTA PREVIEW ═══ -->
+        <div style="margin-bottom:24px">
+          <div style="font-size:11px;font-weight:800;color:var(--azul2);margin-bottom:8px">
+            FORMATO DE ALERTA — Vista previa (los campos en blanco son editables)
+          </div>
+          <div id="form-alerta-preview" class="form-preview-wrap"></div>
+        </div>
+
+        <!-- ═══ FORMATO RETROALIMENTACIÓN PREVIEW ═══ -->
+        <div style="margin-bottom:24px">
+          <div style="font-size:11px;font-weight:800;color:var(--azul2);margin-bottom:8px">
+            FORMATO RETROALIMENTACIÓN — Vista previa
+          </div>
+          <div id="form-retro-preview" class="form-preview-wrap"></div>
+        </div>
+
+        <!-- FIRMAS -->
+        <div class="firma-section">
+          <div class="firma-header">
+            <h3>Firmas</h3>
+            <p>Dibuja tu firma con el mouse o el dedo en el recuadro</p>
+          </div>
+          <div class="firma-body">
+            <div class="firma-grid">
+              <div class="firma-col">
+                <h4><span>1</span> Firma del Asesor</h4>
+                <div class="firma-canvas-wrap">
+                  <canvas class="canvas-firma" id="canvas-asesor" width="310" height="80"></canvas>
+                  <button class="btn-clear-firma" onclick="clearCanvas('canvas-asesor')">Limpiar</button>
+                </div>
+              </div>
+              <div class="firma-col">
+                <h4><span>2</span> Firma del Supervisor</h4>
+                <div class="firma-canvas-wrap">
+                  <canvas class="canvas-firma" id="canvas-sup" width="310" height="80"></canvas>
+                  <button class="btn-clear-firma" onclick="clearCanvas('canvas-sup')">Limpiar</button>
+                </div>
+              </div>
+            </div>
+            <button class="btn-gen-comp" onclick="generarPDFCompromisos()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Descargar PDF — Formato Oficial con Firmas
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script>
+
+
+// ════════════════════════════════════════════════════════════
+// CREDENCIALES — Edita aquí los usuarios y contraseñas
+// ════════════════════════════════════════════════════════════
+const CREDS = {
+  supervisor: [
+    { user: 'oscar',  pass: 'super123' },
+    { user: 'ximena', pass: 'super123' },
+  ],
+  agente: [
+    { user: 'asesor', pass: 'asesor2024', nombre: null },
+  ]
+};
+
+let ROL_ACTUAL   = 'supervisor';   // 'supervisor' | 'agente'
+let AGENTE_NOMBRE = null;          // Nombre del asesor logueado (para filtrar datos)
+
+
+// ════════════════════════════════════════════════════════════
+// SKILL CONFIG
+// ════════════════════════════════════════════════════════════
+const SKILLS_CONFIG = {
+  inbound: { label: 'Inbound 📞', icon: '📞', color: '#4A1D96' },
+  chat:    { label: 'Chat 💬',    icon: '💬', color: '#1D4ED8' },
+};
+
+// Supervisores que pertenecen a cada skill
+// Edita aquí si agregas más supervisores
+const SKILL_SUPERVISORS = {
+  inbound: ['oscar', 'ximena'],   // minúsculas para comparar
+  chat:    ['antonio'],
+};
+let SKILL_ACTUAL = null;   // 'inbound' | 'chat'
+
+// ════════════════════════════════════════════════════════════
+// INDICATOR FILTER STATE
+// ════════════════════════════════════════════════════════════
+let IND_VISIBLE = {};      // { vC: true/false } — all true by default
+let IND_FILTER_OPEN = false;
+
+function initIndFilter(){
+  IND_VISIBLE = {};
+  INDS.forEach(ind => { IND_VISIBLE[ind.vC] = true; });
+  const body = document.getElementById('ind-filter-body');
+  if(!body) return;
+  const actions = body.querySelector('.ind-filter-actions');
+  // Clear old chips (keep actions div)
+  Array.from(body.children).forEach(el => {
+    if(!el.classList.contains('ind-filter-actions')) el.remove();
+  });
+  INDS.forEach(ind => {
+    const chip = document.createElement('label');
+    chip.className = 'ind-chip checked';
+    chip.dataset.vc = ind.vC;
+    chip.innerHTML = '<span class="ind-dot"></span>' + ind.nm;
+    chip.onclick = () => toggleInd(ind.vC, chip);
+    body.insertBefore(chip, actions);
+  });
+  updateIndCount();
+}
+
+function toggleInd(vC, chip){
+  IND_VISIBLE[vC] = !IND_VISIBLE[vC];
+  chip.classList.toggle('checked', IND_VISIBLE[vC]);
+  updateIndCount();
+  rdatos();
+}
+
+function indFilterAll(){
+  INDS.forEach(ind => { IND_VISIBLE[ind.vC] = true; });
+  document.querySelectorAll('.ind-chip').forEach(c => c.classList.add('checked'));
+  updateIndCount(); rdatos();
+}
+
+function indFilterNone(){
+  INDS.forEach(ind => { IND_VISIBLE[ind.vC] = false; });
+  document.querySelectorAll('.ind-chip').forEach(c => c.classList.remove('checked'));
+  updateIndCount(); rdatos();
+}
+
+function updateIndCount(){
+  const visible = INDS.filter(ind => IND_VISIBLE[ind.vC]).length;
+  const el = document.getElementById('ind-filter-count');
+  if(el) el.textContent = '(' + visible + '/' + INDS.length + ' visibles)';
+}
+
+function toggleIndFilter(){
+  IND_FILTER_OPEN = !IND_FILTER_OPEN;
+  const body  = document.getElementById('ind-filter-body');
+  const arrow = document.getElementById('ind-filter-arrow');
+  if(body)  body.style.display  = IND_FILTER_OPEN ? 'flex' : 'none';
+  if(arrow) arrow.textContent   = IND_FILTER_OPEN ? '▲' : '▼';
+}
+
+// ════════════════════════════════════════════════════════════
+// SKILL FLOW
+// ════════════════════════════════════════════════════════════
+function seleccionarSkill(skill){
+  SKILL_ACTUAL = skill;
+  const cfg = SKILLS_CONFIG[skill] || {};
+  const icon  = cfg.icon  || '📋';
+  const label = skill === 'inbound' ? 'Inbound' : 'Chat';
+
+  // Apply/remove skill-specific body modes
+  document.body.classList.remove('mode-chat','mode-inbound');
+  if(skill === 'chat') document.body.classList.add('mode-chat');
+  else                 document.body.classList.add('mode-inbound');
+
+  // Update nav badge
+  const navIcon  = document.getElementById('nav-skill-icon');
+  const navLabel = document.getElementById('nav-skill-label');
+  const badge    = document.getElementById('skill-badge-nav');
+  if(navIcon)  navIcon.textContent  = icon + ' ';
+  if(navLabel) navLabel.textContent = label;
+  if(badge)    badge.style.display  = 'flex';
+
+  // Update home topbar button
+  const homeIcon  = document.getElementById('home-skill-icon');
+  const homeLabel = document.getElementById('home-skill-label');
+  if(homeIcon)  homeIcon.textContent  = icon;
+  if(homeLabel) homeLabel.textContent = label;
+
+  // Guardar datos del skill anterior si había
+  if(SKILL_ACTUAL && SKILL_ACTUAL !== skill) {
+    // Se guarda al salir en cambiarSkill — aquí solo restauramos
+  }
+  // Siempre cargar desde Supabase primero (datos más recientes)
+  D.oscar=[]; D.ximena=[]; D.chat=[]; D.calidad=[]; D.file=''; D.fecha='';
+  mostrarNotifSupa('🔄 Cargando datos desde la base de datos...');
+  cargarDesdeSupabase(skill).then(ok => {
+    if(ok){
+      autoGuardarSkillData(D.file);
+      unlockCards();
+      renderAll();
+      refreshSupDropdown();
+      initIndFilter();
+      mostrarNotifSupa('✅ Datos cargados desde la base de datos');
+    } else if(SKILL_DATA[skill]) {
+      // Si Supabase falla, usar caché local
+      const saved = SKILL_DATA[skill];
+      D.oscar   = saved.oscar   || [];
+      D.ximena  = saved.ximena  || [];
+      D.chat    = saved.chat    || [];
+      D.calidad = saved.calidad || [];
+      D.file    = saved.file;
+      D.fecha   = saved.fecha;
+      setTimeout(() => {
+        try { unlockCards(); }        catch(e){}
+        try { renderAll(); }          catch(e){}
+        try { refreshSupDropdown(); } catch(e){}
+        try { initIndFilter(); }      catch(e){}
+      }, 100);
+      mostrarNotifSupa('⚠️ Usando datos locales — sin conexión a BD', true);
+    }
+  });
+
+  // Hide skill screen, show home
+  document.getElementById('skill-screen').style.display = 'none';
+  document.getElementById('home').style.display = '';
+
+  // If agent, skip home and go straight to datos
+  if(ROL_ACTUAL === 'agente'){
+    document.getElementById('home').style.display = 'none';
+    document.getElementById('app').style.display  = 'block';
+    sw('datos');
+    const srch = document.getElementById('dsrch');
+    if(srch && AGENTE_NOMBRE) srch.value = AGENTE_NOMBRE;
+    try{ rdatos(); }catch(e){}
+  }
+}
+
+function cambiarSkill(){
+  // Guardar datos del skill actual antes de cambiar
+  if(SKILL_ACTUAL && D.file) {
+    SKILL_DATA[SKILL_ACTUAL] = {
+      oscar:   [...D.oscar],
+      ximena:  [...D.ximena],
+      chat:    [...(D.chat||[])],
+      calidad: [...D.calidad],
+      file:    D.file,
+      fecha:   D.fecha
+    };
+  }
+  // Go back to skill selector without logging out
+  document.getElementById('skill-screen').style.display = 'flex';
+  document.getElementById('home').style.display = 'none';
+  document.getElementById('app').style.display  = 'none';
+  // Mostrar indicador de datos cargados en las tarjetas del selector
+  actualizarSkillCards();
+  // Limpiar D para el próximo skill
+  D.oscar=[]; D.ximena=[]; D.chat=[]; D.calidad=[]; D.file=''; D.fecha='';
+  SKILL_ACTUAL = null;
+  document.body.classList.remove('mode-chat','mode-inbound');
+  // Reset status dot
+  const sdot = document.getElementById('sdot');
+  if(sdot) sdot.classList.remove('on');
+  const stxt = document.getElementById('stxt');
+  if(stxt) stxt.textContent = 'Carga tu archivo Excel para comenzar';
+}
+
+function volverLoginDesdeSkill(){
+  document.getElementById('skill-screen').style.display = 'none';
+  cerrarSesion();
+}
+
+// Dynamic supervisor dropdown
+function refreshSupDropdown(){
+  const sel = document.getElementById('dsup');
+  if(!sel) return;
+  const current = sel.value;
+  let sups = [];
+  if(SKILL_ACTUAL==='chat'){
+    sups = [...new Set((D.chat||[]).map(r => r.supervisor).filter(Boolean))].sort();
+  } else {
+    sups = [...new Set([
+      ...D.oscar.map(r => r.supervisor || 'Oscar'),
+      ...D.ximena.map(r => r.supervisor || 'Ximena'),
+    ])].filter(Boolean).sort();
+  }
+  sel.innerHTML = '<option value="todos">Todos</option>'
+    + sups.map(s => '<option value="' + s + '"' + (s===current?' selected':'') + '>' + s + '</option>').join('');
+}
+
+function setRol(rol){
+  ROL_ACTUAL = rol;
+  document.getElementById('rol-sup').classList.toggle('active', rol === 'supervisor');
+  document.getElementById('rol-agt').classList.toggle('active', rol === 'agente');
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-user').focus();
+}
+
+async function loginSubmit(){
+  const user  = document.getElementById('login-user').value.trim().toLowerCase();
+  const pass  = document.getElementById('login-pass').value.trim();
+  const errEl = document.getElementById('login-error');
+  const btnLogin = document.querySelector('.login-btn');
+
+  if(!user || !pass){
+    errEl.style.display = 'block';
+    errEl.textContent   = 'Escribe tu usuario y contraseña';
+    return;
+  }
+
+  // Mostrar cargando
+  if(btnLogin) btnLogin.textContent = 'Verificando...';
+  errEl.style.display = 'none';
+
+  try{
+    // Buscar usuario en Supabase
+    let match = null;
+    let rolEncontrado = null;
+
+    if(supa){
+      const {data, error} = await supa
+        .from('usuarios')
+        .select('*')
+        .eq('user_id', user)
+        .eq('password', pass)
+        .eq('activo', true)
+        .limit(1);
+
+      if(!error && data && data.length > 0){
+        match = data[0];
+        rolEncontrado = match.rol; // 'supervisor' o 'agente'
+      }
+    }
+
+    // Fallback: si Supabase no responde, usar CREDS local
+    if(!match){
+      const lista = CREDS[ROL_ACTUAL] || [];
+      const localMatch = lista.find(c => c.user.toLowerCase() === user && c.pass === pass);
+      if(localMatch){
+        match = { user_id: user, nombre: localMatch.nombre, rol: ROL_ACTUAL };
+        rolEncontrado = ROL_ACTUAL;
+      }
+    }
+
+    if(!match){
+      errEl.style.display = 'block';
+      errEl.textContent   = 'Usuario o contraseña incorrectos';
+      document.getElementById('login-pass').value = '';
+      document.getElementById('login-pass').focus();
+      if(btnLogin) btnLogin.textContent = 'Ingresar →';
+      return;
+    }
+
+    // Login exitoso
+    ROL_ACTUAL    = rolEncontrado || 'agente';
+    AGENTE_NOMBRE = ROL_ACTUAL === 'agente' ? (match.nombre || null) : null;
+
+    // Aplicar modo al body
+    document.body.classList.remove('mode-supervisor','mode-agente');
+    document.body.classList.add('mode-' + ROL_ACTUAL);
+
+    // Actualizar selector de rol visualmente
+    document.getElementById('rol-sup').classList.toggle('active', ROL_ACTUAL === 'supervisor');
+    document.getElementById('rol-agt').classList.toggle('active', ROL_ACTUAL === 'agente');
+
+    // Ocultar login → mostrar selector de skill
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('home').style.display = 'none';
+    document.getElementById('skill-screen').style.display = 'flex';
+
+  } catch(e){
+    console.error('Error login:', e);
+    errEl.style.display = 'block';
+    errEl.textContent   = 'Error de conexión. Intenta de nuevo.';
+  } finally {
+    if(btnLogin) btnLogin.textContent = 'Ingresar →';
+  }
+}
+
+// Cerrar sesión
+function cerrarSesion(){
+  ROL_ACTUAL    = 'supervisor';
+  AGENTE_NOMBRE = null;
+  SKILL_ACTUAL  = null;
+  document.body.classList.remove('mode-supervisor','mode-agente');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('skill-screen').style.display = 'none';
+  document.getElementById('login-user').value  = '';
+  document.getElementById('login-pass').value  = '';
+  document.getElementById('home').style.display = '';
+  document.getElementById('app').style.display  = 'none';
+  const badge = document.getElementById('skill-badge-nav');
+  if(badge) badge.style.display = 'none';
+  const homeSkillBtn = document.getElementById('home-skill-btn');
+  if(homeSkillBtn) homeSkillBtn.style.display = 'none';
+  setRol('supervisor');
+  // Limpiar cache de datos al cerrar sesión
+  SKILL_DATA.inbound = null;
+  SKILL_DATA.chat = null;
+}
+
+
+// ════════════════════════════════════════════════════════════
+// SUPABASE — CONEXIÓN A POSTGRESQL EN LA NUBE
+// ════════════════════════════════════════════════════════════
+const SUPA_URL = 'https://ezhgzgqnbvutbhgksgpv.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6aGd6Z3FuYnZ1dGJoZ2tzZ3B2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5NDg3NzUsImV4cCI6MjA5MTUyNDc3NX0.gM4Mc8Hx5tHn5dPQIQdWANpitKih5_SSZNehKbv1pWs';
+let supa = null;
+
+function initSupabase(){
+  try{
+    supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+    console.log('✅ Supabase conectado');
+    suscribirTiempoReal();
+  } catch(e){
+    console.warn('Supabase no disponible:', e.message);
+  }
+}
+
+// ── GUARDAR EN SUPABASE ──────────────────────────────────────
+async function guardarEnSupabase(skill, fileName){
+  if(!supa) return;
+  try{
+    // 1. Borrar datos anteriores del mismo skill
+    const {data: cortesViejos} = await supa
+      .from('cortes')
+      .select('id')
+      .eq('skill', skill);
+
+    if(cortesViejos && cortesViejos.length > 0){
+      const idsViejos = cortesViejos.map(c => c.id);
+      await supa.from('indicadores').delete().in('corte_id', idsViejos);
+      await supa.from('cortes').delete().eq('skill', skill);
+    }
+    if(skill === 'inbound'){
+      await supa.from('calidad').delete().eq('skill', 'inbound');
+    }
+
+    // 2. Crear nuevo registro de corte
+    const periodo = new Date().toLocaleDateString('es-CO', {month:'long', year:'numeric'});
+    const {data: corte, error: errCorte} = await supa
+      .from('cortes')
+      .insert({ skill, archivo: fileName, periodo })
+      .select()
+      .single();
+
+    if(errCorte) throw errCorte;
+    const corteId = corte.id;
+
+    // 2. Guardar indicadores según skill
+    const filas = skill === 'chat'
+      ? (D.chat || [])
+      : [...(D.oscar||[]), ...(D.ximena||[])];
+  console.log('Guardando en Supabase:', filas.length, 'asesores para skill:', skill);
+
+    if(filas.length > 0){
+      const rows = filas.map(r => ({
+        corte_id:          corteId,
+        skill:             skill,
+        supervisor:        r.supervisor || '',
+        asesor:            r.nombre     || '',
+        err_radicados:     r['C']  ?? null,
+        mal_radicados:     r['E']  ?? null,
+        eval_conocimiento: r['G']  ?? null,
+        nps:               r['I']  ?? null,
+        envio_encuesta:    r['K']  ?? null,
+        aht:               r['M']  ?? null,
+        productividad:     r['O']  ?? null,
+        fcr:               r['Q']  ?? null,
+        ausentismo:        r['S']  ?? null,
+        adherencia:        r['U']  ?? null,
+        tipificacion:      r['W']  ?? null,
+        nota_calidad:      r['Y']  ?? null,
+        desconexiones:     r['AA'] ?? null,
+      }));
+
+      const {error: errInd} = await supa.from('indicadores').insert(rows);
+      if(errInd) throw errInd;
+    }
+
+    // 3. Guardar registros de calidad (solo Inbound)
+    if(skill === 'inbound' && D.calidad.length > 0){
+      const calRows = D.calidad.map(r => ({
+        skill:           'inbound',
+        asesor:          r.asesor       || '',
+        supervisor:      r.supervisor   || '',
+        fecha:           r.fecha        || '',
+        descripcion:     r.descripcion  || '',
+        nota:            r.nota         ?? null,
+        estado:          r.estado       || 'Pendiente',
+        tipo_alerta:     r.tipoAlerta   || '',
+        id_llamada:      r.idLlamada    || '',
+        analisis:        r.analisis     || '',
+        oportunidad:     r.oportunidad  || '',
+        plan_accion:     r.planAccion   || '',
+        from_compromisos: r._fromCompromisos || false,
+      }));
+      const {error: errCal} = await supa.from('calidad').insert(calRows);
+      if(errCal) console.warn('Calidad error:', errCal.message);
+    }
+
+    console.log('✅ Datos guardados en Supabase — corte ID:', corteId);
+    mostrarNotifSupa('✅ Datos sincronizados con la base de datos');
+  } catch(e){
+    console.warn('Error guardando en Supabase:', e.message);
+    mostrarNotifSupa('⚠️ Sin conexión a BD — datos solo en memoria', true);
+  }
+}
+
+// ── CARGAR ÚLTIMO CORTE DESDE SUPABASE ──────────────────────
+async function cargarDesdeSupabase(skill){
+  if(!supa) return false;
+  try{
+    // Obtener el corte más reciente del skill
+    const {data: cortes_list} = await supa
+      .from('cortes')
+      .select('id, archivo, periodo, fecha_carga')
+      .eq('skill', skill)
+      .order('fecha_carga', {ascending: false})
+      .limit(1);
+
+    if(!cortes_list || cortes_list.length === 0) return false;
+    const corte = cortes_list[0];
+
+    // Obtener sus indicadores
+    const {data: inds} = await supa
+      .from('indicadores')
+      .select('*')
+      .eq('corte_id', corte.id);
+
+    if(!inds || !inds.length) return false;
+
+    // Reconstruir objeto D con el formato que espera el dashboard
+    const filas = inds.map(r => {
+      const row = {
+        nombre:     r.asesor,
+        supervisor: r.supervisor,
+        C:  r.err_radicados,     D: r.err_radicados  !== null ? (r.err_radicados  <= 0   ? '✔':'✘') : null,
+        E:  r.mal_radicados,     F: r.mal_radicados  !== null ? (r.mal_radicados  <= 0   ? '✔':'✘') : null,
+        G:  r.eval_conocimiento, H: r.eval_conocimiento !== null ? (r.eval_conocimiento >= .9 ? '✔':'✘') : null,
+        I:  r.nps,               J: r.nps            !== null ? (r.nps            >= .8  ? '✔':'✘') : null,
+        K:  r.envio_encuesta,    L: r.envio_encuesta !== null ? (r.envio_encuesta  >= .7  ? '✔':'✘') : null,
+        M:  r.aht,               N: r.aht            !== null ? (r.aht            <= 370 ? '✔':'✘') : null,
+        O:  r.productividad,     P: r.productividad  !== null ? (r.productividad  >= .95 ? '✔':'✘') : null,
+        Q:  r.fcr,               R: r.fcr            !== null ? (r.fcr            >= .8  ? '✔':'✘') : null,
+        S:  r.ausentismo,        T: r.ausentismo     !== null ? (r.ausentismo     <= .05 ? '✔':'✘') : null,
+        U:  r.adherencia,        V: r.adherencia     !== null ? (r.adherencia     >= .95 ? '✔':'✘') : null,
+        W:  r.tipificacion,      X: r.tipificacion   !== null ? (r.tipificacion   >= 1   ? '✔':'✘') : null,
+        Y:  r.nota_calidad,      Z: r.nota_calidad   !== null ? (r.nota_calidad   >= .97 ? '✔':'✘') : null,
+        AA: r.desconexiones,     AB: r.desconexiones !== null ? (r.desconexiones  <= .04 ? '✔':'✘') : null,
+      };
+      return row;
+    });
+
+    if(skill === 'chat'){
+      D.chat = filas;
+    } else {
+      D.oscar  = filas.filter(r => r.supervisor && r.supervisor.toLowerCase() !== 'ximena');
+      D.ximena = filas.filter(r => r.supervisor && r.supervisor.toLowerCase() === 'ximena');
+    }
+    D.file  = corte.archivo  || 'Base de datos';
+    D.fecha = corte.periodo  || '';
+
+    // Cargar calidad si es Inbound
+    if(skill === 'inbound'){
+      const {data: cal} = await supa
+        .from('calidad')
+        .select('*')
+        .order('created_at', {ascending: false});
+      if(cal) {
+        D.calidad = cal.map(r => ({
+          asesor:      r.asesor,
+          supervisor:  r.supervisor,
+          fecha:       r.fecha,
+          descripcion: r.descripcion,
+          nota:        r.nota,
+          estado:      r.estado,
+          tipoAlerta:  r.tipo_alerta,
+          idLlamada:   r.id_llamada,
+          analisis:    r.analisis,
+          oportunidad: r.oportunidad,
+          planAccion:  r.plan_accion,
+          _fromCompromisos: r.from_compromisos,
+          firmaAsesor:     r.firma_asesor,
+          firmaSupervisor: r.firma_supervisor,
+        }));
+      }
+    }
+
+    autoGuardarSkillData(D.file);
+    console.log('✅ Datos cargados desde Supabase:', filas.length, 'asesores');
+    return true;
+  } catch(e){
+    console.warn('Error cargando desde Supabase:', e.message);
+    return false;
+  }
+}
+
+// ── TIEMPO REAL ──────────────────────────────────────────────
+function suscribirTiempoReal(){
+  if(!supa) return;
+  supa.channel('cambios-bd')
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'cortes'},
+      async (payload) => {
+        const skill = payload.new.skill;
+        console.log('Nuevo corte detectado para:', skill);
+        const ok = await cargarDesdeSupabase(skill);
+        if(ok && skill === SKILL_ACTUAL){
+          unlockCards();
+          renderAll();
+          mostrarNotifSupa('🔄 Datos actualizados automáticamente');
+        }
+      }
+    )
+    .subscribe();
+}
+
+// ── NOTIFICACIÓN FLOTANTE ────────────────────────────────────
+function mostrarNotifSupa(msg, esError=false){
+  let el = document.getElementById('supa-notif');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'supa-notif';
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;'
+      + 'padding:10px 18px;border-radius:10px;font-size:12px;font-weight:700;'
+      + 'font-family:inherit;transition:opacity .4s;box-shadow:0 4px 20px rgba(0,0,0,.2)';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.background = esError ? '#FEE2E2' : '#DCFCE7';
+  el.style.color       = esError ? '#991B1B' : '#166534';
+  el.style.opacity     = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 4000);
+}
+
+// Iniciar Supabase cuando cargue la página
+document.addEventListener('DOMContentLoaded', () => { initSupabase(); });
+
+// ══ GLOBALS ══
+let D={oscar:[],ximena:[],chat:[],calidad:[],file:'',fecha:''};
+// Cache de datos por skill para no perder lo cargado al cambiar
+const SKILL_DATA = { inbound: null, chat: null };
+const audioStore=new Map(), statusMap=new Map();
+let activeAudio=null;
+
+// ══ INDICADORES ══
+const INDS=[
+  {n:1,nm:'Err. Radicados',    vC:'C', eC:'D', meta:'0%',    t:'inv', mV:0,    aht:false, fmt:'pct2'},
+  {n:2,nm:'Mal Radicados',     vC:'E', eC:'F', meta:'0%',    t:'inv', mV:0,    aht:false, fmt:'pct2'},
+  {n:3,nm:'Eval. Conocimiento',vC:'G', eC:'H', meta:'≥90%',  t:'nor', mV:.9,   aht:false, fmt:'pct1'},
+  {n:4,nm:'NPS',               vC:'I', eC:'J', meta:'≥80%',  t:'nor', mV:.8,   aht:false, fmt:'pct1'},
+  {n:5,nm:'Envío Encuesta',    vC:'K', eC:'L', meta:'≥70%',  t:'nor', mV:.7,   aht:false, fmt:'pct1'},
+  {n:6,nm:'AHT (seg)',         vC:'M', eC:'N', meta:'≤370s', t:'inv', mV:370,  aht:true,  fmt:'seg'},
+  {n:7,nm:'Productividad',     vC:'O', eC:'P', meta:'≥95%',  t:'nor', mV:.95,  aht:false, fmt:'pct1'},
+  {n:8,nm:'FCR',               vC:'Q', eC:'R', meta:'≥80%',  t:'nor', mV:.8,   aht:false, fmt:'pct1'},
+  {n:9,nm:'% ABS Ausentismo',  vC:'S', eC:'T', meta:'≤5%',   t:'inv', mV:.05,  aht:false, fmt:'pct2'},
+  {n:10,nm:'% ADH Adherencia', vC:'U', eC:'V', meta:'≥95%',  t:'nor', mV:.95,  aht:false, fmt:'pct1'},
+  {n:11,nm:'% Tipificación',   vC:'W', eC:'X', meta:'≥100%', t:'nor', mV:1,    aht:false, fmt:'pct1'},
+  {n:12,nm:'Nota Calidad',     vC:'Y', eC:'Z', meta:'≥97%',  t:'nor', mV:.97,  aht:false, fmt:'pct1'},
+  {n:13,nm:'% Desconexiones',  vC:'AA',eC:'AB',meta:'≤4%',   t:'inv', mV:.04,  aht:false, fmt:'pct2'},
+];
+
+function fmtInd(v,ind){
+  if(v===null||v===undefined||v==='') return null;
+  if(ind.fmt==='seg') return Math.round(v)+'s';
+  if(ind.fmt==='pct1') return (v*100).toFixed(1)+'%';
+  if(ind.fmt==='pct2') return (v*100).toFixed(2)+'%';
+  return v;
+}
+function meets(v,ind){ return ind.t==='inv'?v<=ind.mV:v>=ind.mV; }
+
+// ══ PARSING ══
+function ci(col){let n=0;for(let c of col)n=n*26+c.charCodeAt(0)-64;return n-1;}
+function gcv(ws,r,c){const a=XLSX.utils.encode_cell({r,c}),cell=ws[a];return cell&&cell.v!==undefined?cell.v:null;}
+
+// Convierte cualquier valor de celda a número decimal
+// Soporta: 0.988, "98,8 %", "98.8%", "98,8%", 0
+function toNum(v){
+  if(v===null||v===undefined||v==='') return null;
+  if(typeof v==='number') return v;
+  // Texto tipo "98,8 %" o "98,8%" o "98.8%"
+  const s = String(v).trim()
+    .replace(/\s/g,'')    // quitar espacios
+    .replace('%','')      // quitar %
+    .replace(',','.');    // coma decimal -> punto
+  const n = parseFloat(s);
+  if(isNaN(n)) return null;
+  // Si el valor es mayor a 1, asumir que es porcentaje (ej: 98.8 -> 0.988)
+  return n > 1 ? n / 100 : n;
+}
+
+// Parse nueva plantilla simple (hoja "Datos")
+function parseNuevoFormato(ws){
+  const range=XLSX.utils.decode_range(ws['!ref']||'A1:A1');
+  // Limpiar todos los datos
+  D.oscar=[]; D.ximena=[]; D.chat=[];
+  // Buscar fila de headers
+  let startRow=1;
+  for(let r=0;r<=Math.min(5,range.e.r);r++){
+    const v=gcv(ws,r,0);
+    if(v&&String(v).toLowerCase().includes('supervisor')){startRow=r+1;break;}
+    if(v&&(String(v)==='Oscar'||String(v)==='Ximena'||String(v)==='Antonio')){startRow=r;break;}
+  }
+  for(let r=startRow;r<=range.e.r;r++){
+    const sup=gcv(ws,r,0); const nom=gcv(ws,r,1);
+    if(!nom||typeof nom!=='string'||!nom.trim()) continue;
+    const supLower=(String(sup||'')).toLowerCase().trim();
+    const row={nombre:nom.trim().replace(/\u00a0/g,'').trim(),supervisor:String(sup||'').trim()};
+    INDS.forEach((ind,i)=>{
+      const raw=gcv(ws,r,2+i);
+      row[ind.vC]=toNum(raw);
+      if(row[ind.vC]!==null) row[ind.eC]=meets(row[ind.vC],ind)?'✔':'✘';
+      else row[ind.eC]=null;
+    });
+    // Clasificar en el bucket correcto según supervisor
+    if(SKILL_SUPERVISORS.chat.includes(supLower)){
+      D.chat.push(row);
+    } else if(supLower==='ximena'){
+      D.ximena.push(row);
+    } else {
+      D.oscar.push(row);
+    }
+  }
+}
+
+// Parse formato original (hojas "📊 Datos Oscar" / "📊 Datos Ximena")
+function parseViejoFormato(ws,supervisor){
+  const range=XLSX.utils.decode_range(ws['!ref']||'A1:A1'),rows=[];
+  const indCols=[3,5,7,9,11,13,15,17,19,21,23,25,27]; // col idx en original
+  for(let r=3;r<=range.e.r;r++){
+    const ag=gcv(ws,r,1);
+    if(!ag||typeof ag!=='string'||!ag.trim()) continue;
+    const row={nombre:ag.trim(),supervisor};
+    INDS.forEach((ind,i)=>{
+      row[ind.vC]=gcv(ws,r,indCols[i]-1);
+      row[ind.eC]=gcv(ws,r,indCols[i]);
+    });
+    rows.push(row);
+  }
+  return rows;
+}
+
+function parseCalidad(ws){
+  if(!ws) return [];
+  var range=XLSX.utils.decode_range(ws["!ref"]||"A1:A1");
+  var rows=[], hdr=-1;
+  var estMap={"Pendiente":"Pendiente","Cerrado":"Cerrado","Refutado":"Refutado"};
+  for(var r=0;r<=Math.min(5,range.e.r);r++){
+    var v=gcv(ws,r,0);
+    if(v&&String(v).trim().toUpperCase().indexOf("ASESOR")!==-1){hdr=r;break;}
+  }
+  if(hdr===-1) return rows;
+  for(var r2=hdr+1;r2<=range.e.r;r2++){
+    var asesor=gcv(ws,r2,0);
+    if(!asesor||typeof asesor!=="string"||!asesor.trim()) continue;
+    var supervisor=String(gcv(ws,r2,1)||"");
+    var fecha=fmtDate(gcv(ws,r2,2));
+    var desc=String(gcv(ws,r2,3)||"");
+    var nota=gcv(ws,r2,4);
+    var estRaw=String(gcv(ws,r2,5)||"Pendiente");
+    var estado=estMap[estRaw]||estRaw||"Pendiente";
+    rows.push({
+      asesor:String(asesor).trim(), supervisor:supervisor,
+      fecha:String(fecha||""), tipoAlerta:"", tipoError:"", idLlamada:"",
+      analisis:desc, descripcion:desc, oportunidad:"", planAccion:"", recomendacion:"",
+      nota:typeof nota==="number"?nota:(parseFloat(nota)||null),
+      estado:estado, _fromCompromisos:false, firmaAsesor:null, firmaSupervisor:null
+    });
+  }
+  return rows;
+}
+
+function findSheet(wb,name){return wb.SheetNames.find(s=>s.toLowerCase().includes(name.toLowerCase()));}
+
+function processFile(file){
+  document.getElementById('loading').style.display='flex';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      // Detectar formato
+      const newDatos=findSheet(wb,'Datos');
+      const oldOscar=findSheet(wb,'Oscar');
+      const oldXimena=findSheet(wb,'Ximena');
+      const calSheet=findSheet(wb,'Calidad');
+      if(newDatos){
+        parseNuevoFormato(wb.Sheets[newDatos]);
+      } else if(oldOscar&&oldXimena){
+        D.oscar=parseViejoFormato(wb.Sheets[oldOscar],'Oscar');
+        D.ximena=parseViejoFormato(wb.Sheets[oldXimena],'Ximena');
+      } else {
+        throw new Error('No se encontraron las hojas de datos. Usa la plantilla proporcionada.');
+      }
+      D.calidad=calSheet?parseCalidad(wb.Sheets[calSheet]):[];
+      D.file=file.name;
+      D.fecha=new Date().toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+      statusMap.clear(); audioStore.clear();
+      document.getElementById('loading').style.display='none';
+      // Auto-guardar en caché de ambos skills si el Excel tiene datos de los dos
+      autoGuardarSkillData(file.name);
+      // Guardar también en Supabase (PostgreSQL en la nube)
+      guardarEnSupabase(SKILL_ACTUAL || 'inbound', file.name);
+      unlockCards();
+      refreshSupDropdown();
+      initIndFilter();
+    }catch(err){
+      document.getElementById('loading').style.display='none';
+      alert('Error procesando el archivo:\n'+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══ NAVEGACIÓN ══
+function unlockCards(){
+  const chatRows = D.chat||[]; const tot=(SKILL_ACTUAL==='chat'?chatRows.length:D.oscar.length+D.ximena.length);
+  document.getElementById('sdot').classList.add('on');
+  var skillLabel = SKILL_ACTUAL==='chat'?'Chat':'Inbound';
+  document.getElementById('stxt').textContent=`✔ ${D.file} [${skillLabel}] — ${tot} asesores · ${D.calidad.length} registros de calidad`;
+  const cardsToUnlock = (typeof ROL_ACTUAL!=='undefined'&&ROL_ACTUAL==='agente')
+    ? [[2,'→ Ver mis datos'],[3,'→ Ver calidad']]
+    : [[1,'→ Ver indicadores'],[2,'→ Ver asesores'],[3,'→ Ver errores'],[4,'→ Compromisos']];
+  cardsToUnlock.forEach(([i,t])=>{
+    const c=document.getElementById('c'+i); if(!c) return;
+    c.classList.remove('lk');
+    const b=document.getElementById('b'+i); if(!b) return;
+    b.textContent=t; b.classList.remove('lkb');
+  });
+}
+function goTo(s){
+  if(!D.oscar.length&&!D.ximena.length) return;
+  document.getElementById('home').style.display='none';
+  document.getElementById('app').style.display='block';
+  sw(s); renderAll();
+}
+function showHome(){
+  document.getElementById('app').style.display='none';
+  document.getElementById('home').style.display='block';
+}
+function sw(tab){
+  // In chat mode, redirect hidden tabs to dashboard
+  if(SKILL_ACTUAL==='chat' && (tab==='calidad'||tab==='compromisos')) tab='dashboard';
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('act'));
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('act'));
+  document.getElementById('s-'+tab).classList.add('act');
+  const ti={dashboard:0,datos:1,calidad:2,compromisos:3};
+  document.querySelectorAll('.ntab')[ti[tab]].classList.add('act');
+  if(tab==='compromisos') setTimeout(()=>{initCanvas('canvas-asesor');initCanvas('canvas-sup');},80);
+  // Update dashboard title
+  if(tab==='dashboard'){
+    const sel=document.getElementById('sel').value;
+    const isChat = typeof SKILL_ACTUAL!=='undefined' && SKILL_ACTUAL==='chat';
+  const lbl = isChat ? 'Chat — Antonio' : (sel==='oscar'?'Oscar':sel==='ximena'?'Ximena':'Promedio General');
+    document.getElementById('dtitle').textContent='Resumen del skill — '+lbl;
+    try{ if(D.oscar.length||D.ximena.length) rdash(); }catch(e){}
+  }
+  if(tab==='calidad')  try{ rcal(); }catch(e){}
+  if(tab==='datos')    try{ rdatos(); }catch(e){}
+}
+
+function goToCompromisos() {
+  document.getElementById('home').style.display = 'none';
+  document.getElementById('app').style.display  = 'block';
+  sw('compromisos');
+}
+
+function renderAll(){
+  const sel=document.getElementById('sel').value;
+  const isChat = typeof SKILL_ACTUAL!=='undefined' && SKILL_ACTUAL==='chat';
+  const lbl = isChat ? 'Chat — Antonio' : (sel==='oscar'?'Oscar':sel==='ximena'?'Ximena':'Promedio General');
+  document.getElementById('dtitle').textContent=`Resumen del skill — ${lbl}`;
+  document.getElementById('ci').textContent=`Corte: ${D.fecha} · ${D.file}`;
+  document.getElementById('ft').textContent=`Skill Inbound — Uso interno · ${new Date().toLocaleDateString('es-CO')}`;
+  rdash(); rdatos(); rcal();
+}
+
+// ══ HELPERS ══
+function getRows(){
+  if(typeof SKILL_ACTUAL!=='undefined'&&SKILL_ACTUAL==='chat') return [...(D.chat||[])];
+  const s=document.getElementById('sel').value;
+  if(s==='oscar')  return D.oscar;
+  if(s==='ximena') return D.ximena;
+  return [...D.oscar,...D.ximena];
+}
+function avg(rows,col){const v=rows.map(r=>r[col]).filter(v=>typeof v==='number'&&v!==null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;}
+function cnt(rows,col,val){return rows.filter(r=>r[col]===val).length;}
+function est(p){return p>=.7?'BIEN':p>=.5?'ALERTA':'CRÍTICO';}
+function cc(p){return p>=.7?'cok':p>=.5?'cwn':'cbd';}
+function fv(v,f){
+  if(v===null||v===undefined) return '—';
+  if(f==='0') return Math.round(v).toLocaleString('es-CO');
+  if(f==='seg') return Math.round(v)+' seg';
+  if(f==='pct') return (v*100).toFixed(1)+'%';
+  if(f==='pct2') return (v*100).toFixed(2)+'%';
+  return v;
+}
+
+// ══ DASHBOARD ══
+function rdash(){
+  const rows=getRows();
+  const aA=avg(rows,'M'),nA=avg(rows,'I'),adA=avg(rows,'U'),auA=avg(rows,'S');
+  const cAHT=cnt(rows,'N','✔');
+  const kpis=[
+    {l:'TOTAL AGENTES',v:rows.length,f:'0',s:'activos',bd:null},
+    {l:'AHT PROMEDIO',v:aA,f:'seg',s:'meta ≤ 370 seg',
+     bd:aA!==null?(aA<=370?'✔ Cumple meta':'✘ Fuera de meta'):'—',bc:aA!==null?(aA<=370?'kbdg cok':'kbdg cbd'):'kbdg cwn'},
+    {l:'NPS PROMEDIO',v:nA,f:'pct',s:'meta ≥ 80%',
+     bd:nA!==null?(nA>=.8?'✔ Cumple':nA>=.7?'~ Alerta':'✘ Fuera de meta'):'—',bc:nA!==null?(nA>=.8?'kbdg cok':nA>=.7?'kbdg cwn':'kbdg cbd'):'kbdg cwn'},
+    {l:'CUMPLEN AHT',v:cAHT,f:'0',s:'cumplen ≤370s',
+     bd:rows.length?Math.round(cAHT/rows.length*100)+'% del equipo':'—',
+     bc:rows.length&&cAHT/rows.length>=.7?'kbdg cok':rows.length&&cAHT/rows.length>=.5?'kbdg cwn':'kbdg cbd'},
+    {l:'ADHERENCIA',v:adA,f:'pct',s:'meta ≥ 95%',
+     bd:adA!==null?(adA>=.95?'✔ Cumple':adA>=.8?'~ Alerta':'✘ Fuera de meta'):'—',bc:adA!==null?(adA>=.95?'kbdg cok':adA>=.8?'kbdg cwn':'kbdg cbd'):'kbdg cwn'},
+    {l:'AUSENTISMO',v:auA,f:'pct2',s:'meta ≤ 5%',
+     bd:auA!==null?(auA<=.05?'✔ Cumple':auA<=.1?'~ Alerta':'✘ Fuera de meta'):'—',bc:auA!==null?(auA<=.05?'kbdg cok':auA<=.1?'kbdg cwn':'kbdg cbd'):'kbdg cwn'},
+  ];
+  document.getElementById('kgrid').innerHTML=kpis.map(k=>`
+    <div class="kc"><div class="kh">${k.l}</div>
+    <div class="kb"><div class="kv">${fv(k.v,k.f)}</div>
+    <div class="ks">${k.s}</div>
+    ${k.bd?`<span class="${k.bc}">${k.bd}</span>`:''}</div></div>`).join('');
+
+  // Tabla indicadores
+  document.getElementById('tind').innerHTML=INDS.map((ind,i)=>{
+    const bg=i%2===0?'':'style="background:#F8FAFF"';
+    const pV=rows.map(r=>r[ind.vC]).filter(v=>typeof v==='number'&&v!==null);
+    const pr=pV.length?pV.reduce((a,b)=>a+b,0)/pV.length:null;
+    const cm=cnt(rows,ind.eC,'✔'),nc=cnt(rows,ind.eC,'✘');
+    const tot=cm+nc,pct=tot>0?cm/tot:0;
+    let pFmt='—';
+    if(pr!==null) pFmt=ind.aht?Math.round(pr)+' seg':ind.mV<=1?(pr*100).toFixed(2)+'%':pr.toFixed(1);
+    return `<tr ${bg}><td>${ind.n}</td><td>${ind.nm}</td><td><b>${ind.meta}</b></td>
+      <td class="nneu">${pFmt}</td><td class="nok">${cm}</td><td class="nbd">${nc}</td>
+      <td>${tot>0?(pct*100).toFixed(1)+'%':'—'}</td>
+      <td><span class="chip ${tot>0?cc(pct):'cwn'}">${tot>0?est(pct):'—'}</span></td></tr>`;
+  }).join('');
+
+  // TOP 10 AHT
+  const aRows=[...rows].filter(r=>typeof r['M']==='number'&&r['M']>0).sort((a,b)=>a['M']-b['M']).slice(0,10);
+  const mxA=aRows.length?aRows[aRows.length-1]['M']:370;
+  document.getElementById('t10a').innerHTML=aRows.length?aRows.map((r,i)=>{
+    const v=r['M'],d=v-370,bp=Math.min(100,v/Math.max(mxA,370)*100);
+    const rk=i===0?'g':i===1?'s':i===2?'b':'';
+    return `<div class="t10r"><div class="t10rk ${rk}">${i+1}</div>
+      <div style="flex:1;min-width:0"><div class="t10n">${r.nombre}</div>
+      <div class="bbg"><div class="bf ${v<=370?'bok':v<=450?'bwn':'bbd'}" style="width:${bp}%"></div></div></div>
+      <div class="t10v">${Math.round(v)} seg</div>
+      <div class="t10d ${d<=0?'dok':'dbd'}">${d<=0?'':'+'}${Math.round(d)}s</div></div>`;
+  }).join(''):'<div style="padding:20px;text-align:center;color:var(--txt);font-size:12px">Sin datos AHT</div>';
+
+  // TOP 10 Calidad
+  const cRows=[...rows].filter(r=>typeof r['Y']==='number'&&r['Y']>0).sort((a,b)=>b['Y']-a['Y']).slice(0,10);
+  document.getElementById('t10c').innerHTML=cRows.length?cRows.map((r,i)=>{
+    const v=r['Y'],d=v-.97,bp=Math.min(100,v*100);
+    const rk=i===0?'g':i===1?'s':i===2?'b':'';
+    return `<div class="t10r"><div class="t10rk ${rk}">${i+1}</div>
+      <div style="flex:1;min-width:0"><div class="t10n">${r.nombre}</div>
+      <div class="bbg"><div class="bf ${v>=.97?'bok':v>=.9?'bwn':'bbd'}" style="width:${bp}%"></div></div></div>
+      <div class="t10v">${(v*100).toFixed(1)}%</div>
+      <div class="t10d ${d>=0?'dok':'dbd'}">${d>=0?'+':''}${(d*100).toFixed(1)}%</div></div>`;
+  }).join(''):'<div style="padding:20px;text-align:center;color:var(--txt);font-size:12px">Sin datos de calidad</div>';
+}
+
+// ══ DATOS ══
+function rdatos(){
+  const sup=document.getElementById('dsup').value;
+  const q=(document.getElementById('dsrch').value||'').toLowerCase();
+  let rows=[];
+  if(SKILL_ACTUAL==='chat'){
+    // Chat: solo datos de Antonio y demás supervisores de chat
+    const chatRows = (D.chat||[]).map(r=>({...r,_sup:r.supervisor||'Antonio'}));
+    rows.push(...chatRows);
+  } else {
+    // Inbound: Oscar y Ximena
+    if(sup==='todos'||sup==='Oscar')  rows.push(...D.oscar.map(r=>({...r,_sup:r.supervisor||'Oscar'})));
+    if(sup==='todos'||sup==='Ximena') rows.push(...D.ximena.map(r=>({...r,_sup:r.supervisor||'Ximena'})));
+  }
+  // Agente logueado: forzar filtro por su nombre
+  if(typeof AGENTE_NOMBRE!=='undefined'&&AGENTE_NOMBRE)
+    rows=rows.filter(r=>r.nombre===AGENTE_NOMBRE);
+  else if(q) rows=rows.filter(r=>r.nombre.toLowerCase().includes(q));
+  document.getElementById('dcnt').textContent=`${rows.length} asesores`;
+
+  // Build headers using only visible indicators
+  const visibleInds = INDS.filter(ind => !IND_VISIBLE || IND_VISIBLE[ind.vC] !== false);
+  const indHeaders  = visibleInds.map(ind => '<th>' + ind.nm + '</th>').join('');
+  document.getElementById('dhead').innerHTML = '<th>#</th><th>Asesor</th><th>Sup.</th>' + indHeaders;
+
+  document.getElementById('dbody').innerHTML=rows.map((r,i)=>{
+    const bg=i%2===0?'':'style="background:#F8FAFF"';
+    const cells=visibleInds.map(ind=>{
+      const val=r[ind.vC];
+      if(val===null||val===undefined||val==='') return '<td class="vna">—</td>';
+      const ok=meets(val,ind);
+      const cls=ok?'vok':'vbd';
+      const fmt=fmtInd(val,ind)||'—';
+      return '<td class="' + cls + '">' + fmt + '</td>';
+    }).join('');
+    return `<tr ${bg}><td>${i+1}</td>
+      <td style="text-align:left;font-weight:700;font-size:11px;white-space:nowrap">${r.nombre}</td>
+      <td style="text-align:center;font-size:10px;color:var(--azul3);font-weight:600">${r._sup||r.supervisor||''}</td>
+      ${cells}</tr>`;
+  }).join('');
+}
+
+// ══ CALIDAD ══
+function gcs(i){return statusMap.has(i)?statusMap.get(i):(D.calidad[i]?.estado||'Pendiente');}
+function scs(i,v){statusMap.set(i,v);if(v==='Cerrado')rmAudio(i);rcal();}
+function rmAudio(i){
+  if(!audioStore.has(i)) return;
+  const a=audioStore.get(i);
+  if(activeAudio===a.el){activeAudio.pause();activeAudio=null;}
+  URL.revokeObjectURL(a.url); audioStore.delete(i);
+}
+function adjAudio(i){
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='audio/*,.mp3,.wav,.m4a,.ogg';
+  inp.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    rmAudio(i);
+    const url=URL.createObjectURL(f),el=new Audio(url);
+    audioStore.set(i,{url,name:f.name,el});
+    el.onended=()=>{activeAudio=null;rcal();};
+    rcal();
+  };
+  inp.click();
+}
+function togPlay(i){
+  const a=audioStore.get(i);if(!a)return;
+  if(activeAudio&&activeAudio!==a.el){activeAudio.pause();}
+  if(a.el.paused){a.el.play();activeAudio=a.el;}
+  else{a.el.pause();activeAudio=null;}
+  rcal();
+}
+
+function rcal(){
+  var sf=(document.getElementById("csup")?document.getElementById("csup").value:"todos");
+  var ef=(document.getElementById("cest")?document.getElementById("cest").value:"todos");
+  var sq=document.getElementById("cal-srch");
+  var q=sq?sq.value.toLowerCase():"";
+
+  var rows=D.calidad.map(function(r,i){return Object.assign({},r,{_i:i,_e:gcs(i)});});
+  if(sf!=="todos") rows=rows.filter(function(r){return r.supervisor===sf;});
+  if(ef!=="todos") rows=rows.filter(function(r){return r._e===ef;});
+  if(q) rows=rows.filter(function(r){return r.asesor.toLowerCase().indexOf(q)!==-1;});
+  if(typeof AGENTE_NOMBRE!=="undefined"&&AGENTE_NOMBRE)
+    rows=rows.filter(function(r){return r.asesor===AGENTE_NOMBRE;});
+
+  var cntEl=document.getElementById("ccnt");
+  if(cntEl) cntEl.textContent=rows.length+" registros";
+
+  var all=D.calidad.map(function(_,i){return gcs(i);});
+  var pe=all.filter(function(e){return e==="Pendiente";}).length;
+  var rf=all.filter(function(e){return e==="Refutado"; }).length;
+  var ce=all.filter(function(e){return e==="Cerrado";  }).length;
+
+  var statsEl=document.getElementById("cstats");
+  if(statsEl){
+    statsEl.innerHTML=
+      '<div class="cst"><div class="csti" style="background:#EFF6FF">📋</div><div><div class="cstv">'+D.calidad.length+'</div><div class="cstl">Total</div></div></div>'
+      +'<div class="cst"><div class="csti" style="background:#FEF3C7">🔴</div><div><div class="cstv">'+pe+'</div><div class="cstl">Pendientes</div></div></div>'
+      +'<div class="cst"><div class="csti" style="background:#FEE2E2">🔁</div><div><div class="cstv">'+rf+'</div><div class="cstl">Refutados</div></div></div>'
+      +'<div class="cst"><div class="csti" style="background:#DCFCE7">✅</div><div><div class="cstv">'+ce+'</div><div class="cstl">Cerrados</div></div></div>';
+  }
+
+  var bodyEl=document.getElementById("cbody");
+  if(!bodyEl) return;
+
+  if(!rows.length){
+    bodyEl.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--txt)">Sin registros</td></tr>';
+    return;
+  }
+
+  bodyEl.innerHTML=rows.map(function(r,ri){
+    var i=r._i; var est=r._e;
+    var ec=est==="Pendiente"?"ep":est==="Cerrado"?"ec":"er";
+    var nota=typeof r.nota==="number"?r.nota.toFixed(1):"—";
+    var notaCls=typeof r.nota==="number"?(r.nota>=3.5?"nok":r.nota>=3?"nneu":"nbd"):"";
+    var bgStr=ri%2===0?"":" style=\"background:#F8FAFF\"";
+    var locked=est==="Cerrado";
+    var ha=audioStore.has(i);
+    var ac="";
+    if(locked){
+      ac='<span style="font-size:9px;color:var(--txt);font-style:italic">Cerrado</span>';
+    } else if(ha){
+      var a=audioStore.get(i);
+      var isp=activeAudio===a.el&&!a.el.paused;
+      ac='<div class="apw">'
+        +'<button class="bplay '+(isp?"pl":"")+'" onclick="togPlay('+i+')">'        +(isp?"⏸":"▶")+'</button>'
+        +'<div><div class="aname">'+a.name+'</div></div>'
+        +'<button class="brma" onclick="rmAudio('+i+');rcal()">✕</button>'
+        +'</div>';
+    } else {
+      ac='<button class="badj" onclick="adjAudio('+i+')">📎</button>';
+    }
+    var badge=r._fromCompromisos?'<span class="chip cok" style="font-size:8px;padding:1px 6px;margin-right:4px">Firmado</span>':""
+    var fd=r.descripcion||r.analisis||"";
+    var dc=fd.length>80?fd.substring(0,80)+"...":fd||"—";
+    return '<tr'+bgStr+'>'
+      +'<td class="tdnum">'+( r._i+1)+'</td>'
+      +'<td style="font-weight:700;white-space:nowrap;font-size:11px">'+badge+r.asesor+'</td>'
+      +'<td style="color:var(--txt);font-size:10px">'+( r.supervisor||"")+'</td>'
+      +'<td style="color:var(--txt);font-size:10px;white-space:nowrap">'+( r.fecha||"")+'</td>'
+      +'<td style="font-size:10px;color:var(--dk)">'+dc+'</td>'
+      +'<td class="tdnota '+notaCls+'">'+nota+'</td>'
+      +'<td><select class="esel '+ec+'" onchange="scs('+i+',this.value)">'
+        +'<option value="Pendiente"'        +(est==="Pendiente"?" selected":"")+'>🔴 Pendiente</option>'
+        +'<option value="Refutado"'
+        +(est==="Refutado"?" selected":"")+'>🔁 Refutado</option>'
+        +'<option value="Cerrado"'
+        +(est==="Cerrado"?" selected":"")+'>✅ Cerrado</option>'
+      +'</select></td>'
+      +'<td>'+ac+'</td>'
+      +'<td><button class="btn-ver-detalle" onclick="verDetalle('+i+')">'
+        +(r._fromCompromisos?"&#10003; ":"")+"Ver</button></td>"
+      +"</tr>";
+  }).join("");
+}
+
+function openPM(){
+  pdfMode='full'; selAgent=null;
+  const isC = typeof SKILL_ACTUAL!=='undefined'&&SKILL_ACTUAL==='chat';
+  const subEl = document.getElementById('pm-sub-text');
+  if(subEl) subEl.textContent = isC ? 'Reporte de Chat — Dashboard y Datos' : 'Elige el tipo de reporte';
+  document.getElementById('opt-full').classList.add('sel');
+  document.getElementById('opt-ag').classList.remove('sel');
+  document.getElementById('pm-sw').style.display='none';
+  document.getElementById('pm-q').value='';
+  document.getElementById('pm-sugs').style.display='none';
+  document.getElementById('pm-picked').style.display='none';
+  document.getElementById('pdf-modal').style.display='flex';
+}
+function closePM(){ document.getElementById('pdf-modal').style.display='none'; }
+function selOpt(m){
+  pdfMode=m;
+  document.getElementById('opt-full').classList.toggle('sel',m==='full');
+  document.getElementById('opt-ag').classList.toggle('sel',m==='ag');
+  document.getElementById('pm-sw').style.display=m==='ag'?'block':'none';
+  if(m==='ag') document.getElementById('pm-q').focus();
+}
+function filterAg(q){
+  const sg=document.getElementById('pm-sugs');
+  if(!q||q.length<2){sg.style.display='none';return;}
+  const hits=[...D.oscar,...D.ximena].filter(r=>r.nombre.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  if(!hits.length){sg.style.display='none';return;}
+  sg.innerHTML=hits.map(r=>`<div class="pm-sug" onclick="pickAg('${r.nombre.replace(/'/g,"\\'")}','${(r.supervisor||r._sup||'').replace(/'/g,"\\'")}')">
+    ${r.nombre}<span>${r.supervisor||r._sup||''}</span></div>`).join('');
+  sg.style.display='block';
+}
+function pickAg(nm,sup){
+  selAgent={nombre:nm,supervisor:sup};
+  document.getElementById('pm-q').value=nm;
+  document.getElementById('pm-sugs').style.display='none';
+  document.getElementById('pm-picked-nm').textContent='OK: '+nm+' ('+sup+')';
+  document.getElementById('pm-picked').style.display='flex';
+}
+function clearAg(){
+  selAgent=null;
+  document.getElementById('pm-q').value='';
+  document.getElementById('pm-picked').style.display='none';
+}
+function startPDF(){
+  if(pdfMode==='ag'&&!selAgent){
+    const inp=document.getElementById('pm-q');
+    inp.focus(); inp.style.borderColor='#DC2626';
+    setTimeout(()=>inp.style.borderColor='',1500); return;
+  }
+  closePM();
+  pdfMode==='ag'?exportAsesor(selAgent):exportFull();
+}
+
+// ══════════════════════════════════════════════
+// PDF UTILITIES
+// ══════════════════════════════════════════════
+const C={
+  azul:[43,11,107],   azul2:[74,29,150],   gold:[124,58,237],
+  ok:[22,163,74],     okBg:[220,252,231],
+  wn:[217,119,6],     wnBg:[254,243,199],
+  bad:[220,38,38],    badBg:[254,226,226],
+  dk:[30,18,53],      gray:[100,116,139],
+  grayLt:[237,233,254], bg:[245,243,255], white:[255,255,255]
+};
+
+function mkPDF(){ return new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'}); }
+
+function pageHeader(pdf, title, sub, PW=297){
+  // Purple gradient header
+  pdf.setFillColor(43,11,107); pdf.rect(0,0,PW*0.55,11,'F');
+  pdf.setFillColor(74,29,150); pdf.rect(PW*0.55,0,PW*0.45,11,'F');
+  pdf.setTextColor(255,255,255); pdf.setFont('helvetica','bold'); pdf.setFontSize(10);
+  pdf.text(title, 10, 7.5);
+  pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(196,181,253);
+  pdf.text(sub||'Skill Inbound — Banco Agrario', PW-10, 7.5, {align:'right'});
+  return 14; // return Y cursor after header
+}
+
+function sectionBar(pdf, title, y, PW=297){
+  pdf.setFillColor(74,29,150); pdf.rect(0,y,PW,8,'F');
+  pdf.setFillColor(124,58,237); pdf.rect(0,y,3,8,'F');  // violet left accent
+  pdf.setTextColor(237,233,254); pdf.setFont('helvetica','bold'); pdf.setFontSize(8);
+  pdf.text(title, 8, y+5.5);
+  return y+10;
+}
+
+// fmtInd — uses global definition above
+function meetsInd(v,ind){ if(v===null) return null; return ind.t==='inv'?v<=ind.mV:v>=ind.mV; }
+
+// Progress helpers
+function showProgress(){ document.getElementById('pdf-progress').style.display='flex'; }
+function hideProgress(){ document.getElementById('pdf-progress').style.display='none'; }
+function setProgress(pct, txt){
+  document.getElementById('pdf-bar').style.width=pct+'%';
+  document.getElementById('pdf-step').textContent=txt;
+}
+
+// ══════════════════════════════════════════════
+// FULL REPORT
+// ══════════════════════════════════════════════
+async function exportFull(){
+  document.getElementById('btn-pdf').disabled=true;
+  showProgress(); setProgress(2,'Iniciando...');
+  renderAll(); await tick(100);
+
+  const pdf = mkPDF();
+  const PW=297, PAD=10;
+  const sel=document.getElementById('sel').value;
+  const fecha=new Date().toLocaleDateString('es-CO');
+  const isChat = typeof SKILL_ACTUAL!=='undefined' && SKILL_ACTUAL==='chat';
+  const skillLabel = isChat ? 'Chat' : 'Inbound';
+  const lbl = isChat ? 'Antonio' : (sel==='oscar'?'Oscar':sel==='ximena'?'Ximena':'General');
+  const rows=getRows();
+
+  try{
+    // ─── PAGINA 1: DASHBOARD ──────────────────────────────
+    setProgress(8,'Generando Dashboard...');
+    let y = pageHeader(pdf,'DASHBOARD — INDICADORES Y KPIs','Skill '+skillLabel+' '+lbl+' — '+fecha);
+
+    // KPI cards (6 mini-cards en fila)
+    y = drawKPICards(pdf, rows, PAD, y, PW); y+=4;
+
+    // Section bar
+    y = sectionBar(pdf, 'DETALLE POR INDICADOR', y, PW); 
+
+    // Indicator table
+    y = drawIndicatorTable(pdf, rows, PAD, y, PW);
+
+    setProgress(30,'Generando TOP 10...');
+
+    // TOP 10 en nueva pagina
+    pdf.addPage();
+    y = pageHeader(pdf,'DASHBOARD — TOP 10','Skill '+skillLabel+' '+lbl+' — '+fecha);
+    y = drawTop10(pdf, rows, PAD, y, PW);
+
+    // ─── PAGINA(S): DATOS ─────────────────────────────────
+    setProgress(50,'Generando tabla de asesores...');
+    pdf.addPage();
+    y = pageHeader(pdf,'DATOS POR ASESOR — INDICADORES INDIVIDUALES','Skill '+skillLabel+' '+lbl+' — '+fecha);
+    drawDatosTable(pdf, rows, PAD, y, PW, lbl, fecha);
+
+    // ─── PAGINA(S): CALIDAD (solo Inbound) ──────────────────
+    if(!isChat){
+      setProgress(80,'Generando calidad...');
+      pdf.addPage();
+      y = pageHeader(pdf,'CALIDAD — RETROALIMENTACION DE ERRORES','Skill Inbound — '+fecha);
+      drawCalidadTable(pdf, D.calidad, PAD, y, PW, fecha);
+    }
+
+    setProgress(98,'Descargando...');
+    await tick(200);
+    pdf.save('Skill_'+skillLabel+'_'+lbl+'_'+fecha.replace(/\//g,'-')+'.pdf');
+
+  } catch(e){ alert('Error PDF: '+e.message); console.error(e); }
+  finally{ hideProgress(); document.getElementById('btn-pdf').disabled=false; }
+}
+
+// ══════════════════════════════════════════════
+// INDIVIDUAL REPORT
+// ══════════════════════════════════════════════
+async function exportAsesor(agent){
+  document.getElementById('btn-pdf').disabled=true;
+  showProgress(); setProgress(5,'Preparando reporte de '+agent.nombre+'...');
+  renderAll(); await tick(100);
+
+  const pdf = mkPDF();
+  const PW=297, PAD=10;
+  const fecha=new Date().toLocaleDateString('es-CO');
+  const allAgentes = [...D.oscar,...D.ximena,...(D.chat||[])];
+  const aRow=allAgentes.find(r=>r.nombre===agent.nombre);
+  const isAsesorChat = typeof SKILL_ACTUAL!=='undefined' && SKILL_ACTUAL==='chat';
+  const calRows = isAsesorChat ? [] : D.calidad.filter(r=>r.asesor===agent.nombre);
+
+  try{
+    // ─── PAGINA 1: FICHA DEL ASESOR ──────────────────────
+    setProgress(20,'Generando ficha individual...');
+
+    // Header con nombre
+    pdf.setFillColor(...C.azul); pdf.rect(0,0,PW,14,'F');
+    pdf.setTextColor(...C.white); pdf.setFont('helvetica','bold'); pdf.setFontSize(12);
+    pdf.text('REPORTE INDIVIDUAL: '+agent.nombre, PAD, 8);
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(8.5); pdf.setTextColor(147,197,253);
+    pdf.text('Supervisor: '+agent.supervisor+'   |   Skill Inbound — Banco Agrario   |   '+fecha, PAD, 13);
+
+    let y = 17;
+
+    // KPI boxes del asesor
+    if(aRow) y = drawAsesorKPIs(pdf, aRow, PAD, y, PW);
+    y += 3;
+
+    // Su fila de indicadores
+    y = sectionBar(pdf,'INDICADORES DEL ASESOR', y, PW);
+    drawAsesorIndicators(pdf, aRow, agent, PAD, y, PW);
+
+    setProgress(60,'Generando registros de calidad...');
+
+    // ─── PAGINA 2: CALIDAD ────────────────────────────────
+    if(calRows.length){
+      pdf.addPage();
+      let y2 = pageHeader(pdf,'CALIDAD: '+agent.nombre,'Skill Inbound — '+fecha);
+      drawCalidadTable(pdf, calRows, PAD, y2, PW, fecha, true);
+    } else {
+      // Nota al pie si no hay registros
+      pdf.addPage();
+      pageHeader(pdf,'CALIDAD: '+agent.nombre,'Skill Inbound — '+fecha);
+      pdf.setTextColor(...C.gray); pdf.setFont('helvetica','italic'); pdf.setFontSize(10);
+      pdf.text('Sin registros de calidad para este asesor.',PW/2,80,{align:'center'});
+    }
+
+    setProgress(98,'Descargando...');
+    await tick(200);
+    const fn=agent.nombre.replace(/[^a-zA-Z0-9 ]/g,'').replace(/ +/g,'_');
+    pdf.save('Reporte_'+fn+'_'+fecha.replace(/\//g,'-')+'.pdf');
+
+  } catch(e){ alert('Error PDF: '+e.message); console.error(e); }
+  finally{ hideProgress(); document.getElementById('btn-pdf').disabled=false; }
+}
+
+function tick(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// ══════════════════════════════════════════════
+// DRAW FUNCTIONS
+// ══════════════════════════════════════════════
+
+function drawKPICards(pdf, rows, PAD, y, PW){
+  const aA=avg(rows,'M'), nA=avg(rows,'I'), adA=avg(rows,'U'), auA=avg(rows,'S');
+  const cumAHT=cnt(rows,'N','✔');
+  const kpis=[
+    {l:'TOTAL AGENTES',    v:rows.length,           fmt:'n',    sub:'activos', ok:true},
+    {l:'AHT PROMEDIO',     v:aA,                    fmt:'seg',  sub:'meta 370s',  ok:aA!==null&&aA<=370},
+    {l:'NPS PROMEDIO',     v:nA,                    fmt:'p1',   sub:'meta 80%',   ok:nA!==null&&nA>=.8},
+    {l:'CUMPLEN AHT',      v:cumAHT,                fmt:'n',    sub:'agentes',    ok:rows.length&&cumAHT/rows.length>=.7},
+    {l:'ADHERENCIA',       v:adA,                   fmt:'p1',   sub:'meta 95%',   ok:adA!==null&&adA>=.95},
+    {l:'AUSENTISMO',       v:auA,                   fmt:'p2',   sub:'meta 5%',    ok:auA!==null&&auA<=.05},
+  ];
+  const cardW=(PW-PAD*2-10)/6, cardH=22, gap=2;
+  kpis.forEach((k,i)=>{
+    const x=PAD+i*(cardW+gap);
+    const [r,g,b]=k.ok?C.ok:C.bad;
+    pdf.setFillColor(245,243,255); pdf.roundedRect(x,y,cardW,cardH,1.5,1.5,'F');
+    pdf.setFillColor(r,g,b); pdf.roundedRect(x,y,cardW,3.5,1.5,1.5,'F'); pdf.rect(x,y+2,cardW,1.5,'F');
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(7); pdf.setTextColor(...C.gray);
+    pdf.text(k.l, x+cardW/2, y+8, {align:'center'});
+    let d='--';
+    if(k.v!==null&&k.v!==undefined){
+      if(k.fmt==='n')   d=Math.round(k.v).toString();
+      else if(k.fmt==='seg') d=Math.round(k.v)+'s';
+      else if(k.fmt==='p1')  d=(k.v*100).toFixed(1)+'%';
+      else if(k.fmt==='p2')  d=(k.v*100).toFixed(2)+'%';
+    }
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(13); pdf.setTextColor(r,g,b);
+    pdf.text(d, x+cardW/2, y+17, {align:'center'});
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(6.5); pdf.setTextColor(...C.gray);
+    pdf.text(k.sub, x+cardW/2, y+21, {align:'center'});
+  });
+  return y+cardH+2;
+}
+
+function drawIndicatorTable(pdf, rows, PAD, y, PW){
+  const headers=[['#','Indicador','Meta','Promedio equipo','Cumplen','No cumplen','% Cumpl.','Estado']];
+  const body = INDS.map(ind=>{
+    const pV=rows.map(r=>r[ind.vC]).filter(v=>typeof v==='number'&&v!==null);
+    const pr=pV.length?pV.reduce((a,b)=>a+b,0)/pV.length:null;
+    const cm=cnt(rows,ind.eC,'✔'), nc=cnt(rows,ind.eC,'✘');
+    const tot=cm+nc, pct=tot>0?cm/tot:null;
+    let pFmt='-';
+    if(pr!==null) pFmt=ind.aht?Math.round(pr)+'s':ind.mV<=1?(pr*100).toFixed(1)+'%':pr.toFixed(1);
+    const estTxt=pct===null?'-':pct>=.7?'BIEN':pct>=.5?'ALERTA':'CRITICO';
+    return [ind.n, ind.nm, ind.meta, pFmt, cm, nc, pct!==null?(pct*100).toFixed(1)+'%':'-', estTxt];
+  });
+
+  pdf.autoTable({
+    startY: y, margin:{left:PAD, right:PAD},
+    head: headers, body: body,
+    theme:'grid',
+    headStyles:{fillColor:C.azul2, textColor:C.white, fontSize:7.5, fontStyle:'bold',
+      halign:'center', cellPadding:2.5},
+    bodyStyles:{fontSize:7.5, cellPadding:2.5, halign:'center', textColor:C.dk},
+    columnStyles:{
+      0:{cellWidth:8},
+      1:{cellWidth:36, halign:'left'},
+      2:{cellWidth:18},
+      3:{cellWidth:28},
+      4:{cellWidth:18, textColor:C.ok, fontStyle:'bold'},
+      5:{cellWidth:22, textColor:C.bad, fontStyle:'bold'},
+      6:{cellWidth:18},
+      7:{cellWidth:18},
+    },
+    didParseCell(data){
+      if(data.column.index===7&&data.section==='body'){
+        const v=data.cell.raw;
+        if(v==='BIEN')   { data.cell.styles.textColor=C.ok;  data.cell.styles.fontStyle='bold'; }
+        if(v==='ALERTA') { data.cell.styles.textColor=C.wn;  data.cell.styles.fontStyle='bold'; }
+        if(v==='CRITICO'){ data.cell.styles.textColor=C.bad; data.cell.styles.fontStyle='bold'; }
+      }
+    },
+    alternateRowStyles:{fillColor:[245,243,255]},
+  });
+  return pdf.lastAutoTable.finalY + 3;
+}
+
+function drawTop10(pdf, rows, PAD, y, PW){
+  const colW=(PW-PAD*2-8)/2;
+  const leftX=PAD, rightX=PAD+colW+8;
+
+  // TOP 10 AHT
+  const aRows=[...rows].filter(r=>typeof r['M']==='number'&&r['M']>0)
+    .sort((a,b)=>a['M']-b['M']).slice(0,10);
+  const maxAHT=aRows.length?aRows[aRows.length-1]['M']:700;
+
+  y = sectionBar(pdf,'TOP 10 — MEJOR AHT (menor tiempo)',y,PW);
+
+  // Left column header
+  pdf.setFillColor(...C.azul2); pdf.rect(leftX,y,colW,6,'F');
+  pdf.setFillColor(...C.azul2); pdf.rect(rightX,y,colW,6,'F');
+  pdf.setTextColor(...C.white); pdf.setFont('helvetica','bold'); pdf.setFontSize(7);
+  pdf.text('MEJOR AHT — MENOR TIEMPO AL TELEFONO', leftX+colW/2, y+4, {align:'center'});
+  pdf.text('MEJOR NOTA CALIDAD — MAYOR NOTA', rightX+colW/2, y+4, {align:'center'});
+  y+=7;
+
+  const cRows=[...rows].filter(r=>typeof r['Y']==='number'&&r['Y']>0)
+    .sort((a,b)=>b['Y']-a['Y']).slice(0,10);
+
+  const rowH=8.5, barH=2.5, maxW=colW-52;
+
+  for(let i=0;i<10;i++){
+    const ry=y+i*rowH;
+    const isEven=i%2===0;
+    if(isEven){
+      pdf.setFillColor(...C.bg); pdf.rect(leftX,ry,colW,rowH,'F');
+      pdf.setFillColor(...C.bg); pdf.rect(rightX,ry,colW,rowH,'F');
+    }
+
+    // Gold/silver/bronze medals
+    const medals=[[245,158,11],[148,163,184],[180,83,9]];
+    const [mr,mg,mb]=i<3?medals[i]:C.azul2;
+
+    // AHT left
+    if(i<aRows.length){
+      const r=aRows[i];
+      const v=r['M'], d=v-370;
+      const bpx=Math.min(maxW,(v/Math.max(maxAHT,370))*maxW);
+      // Medal circle
+      pdf.setFillColor(mr,mg,mb); pdf.circle(leftX+4.5, ry+rowH/2, 3, 'F');
+      pdf.setTextColor(...C.white); pdf.setFont('helvetica','bold'); pdf.setFontSize(6);
+      pdf.text(String(i+1), leftX+4.5, ry+rowH/2+2, {align:'center'});
+      // Name
+      pdf.setTextColor(...C.dk); pdf.setFont('helvetica','bold'); pdf.setFontSize(7);
+      const nm=r.nombre.length>28?r.nombre.substring(0,27)+'...':r.nombre;
+      pdf.text(nm, leftX+9, ry+4);
+      // Bar
+      const bColor=v<=370?C.ok:v<=450?C.wn:C.bad;
+      pdf.setFillColor(...C.grayLt); pdf.rect(leftX+9, ry+5.5, maxW, barH, 'F');
+      pdf.setFillColor(...bColor); pdf.rect(leftX+9, ry+5.5, bpx, barH, 'F');
+      // Value
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(8); pdf.setTextColor(...C.azul2);
+      pdf.text(Math.round(v)+'s', leftX+9+maxW+3, ry+4.5);
+      // Delta
+      pdf.setFontSize(7); pdf.setTextColor(...(d<=0?C.ok:C.bad));
+      pdf.text((d<=0?'':'+')+(Math.round(d))+'s', leftX+colW-2, ry+4.5, {align:'right'});
+    }
+
+    // Calidad right
+    if(i<cRows.length){
+      const r=cRows[i];
+      const v=r['Y'], d=v-.97;
+      const bpx=Math.min(maxW,v*maxW);
+      pdf.setFillColor(mr,mg,mb); pdf.circle(rightX+4.5, ry+rowH/2, 3, 'F');
+      pdf.setTextColor(...C.white); pdf.setFont('helvetica','bold'); pdf.setFontSize(6);
+      pdf.text(String(i+1), rightX+4.5, ry+rowH/2+2, {align:'center'});
+      pdf.setTextColor(...C.dk); pdf.setFont('helvetica','bold'); pdf.setFontSize(7);
+      const nm=r.nombre.length>28?r.nombre.substring(0,27)+'...':r.nombre;
+      pdf.text(nm, rightX+9, ry+4);
+      const bColor=v>=.97?C.ok:v>=.9?C.wn:C.bad;
+      pdf.setFillColor(...C.grayLt); pdf.rect(rightX+9, ry+5.5, maxW, barH, 'F');
+      pdf.setFillColor(...bColor); pdf.rect(rightX+9, ry+5.5, bpx, barH, 'F');
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(8); pdf.setTextColor(...C.azul2);
+      pdf.text((v*100).toFixed(1)+'%', rightX+9+maxW+3, ry+4.5);
+      pdf.setFontSize(7); pdf.setTextColor(...(d>=0?C.ok:C.bad));
+      pdf.text((d>=0?'+':'')+(d*100).toFixed(1)+'%', rightX+colW-2, ry+4.5, {align:'right'});
+    }
+  }
+  return y+10*rowH+4;
+}
+
+function drawDatosTable(pdf, rows, PAD, y, PW, lbl, fecha){
+  const heads=[['#','Asesor','Sup.','Err.Rad','Mal.Rad','Eval','NPS','Envio','AHT','Prod','FCR','Ausent','Adher','Tipif','Calidad','Descon']];
+  const body=rows.map((r,i)=>{
+    const sup=r.supervisor||r._sup||'';
+    return [i+1, r.nombre, sup,
+      ...INDS.map(ind=>{
+        const v=r[ind.vC];
+        if(v===null||v===undefined||v==='') return '-';
+        return fmtInd(v,ind);
+      })
+    ];
+  });
+
+  pdf.autoTable({
+    startY: y, margin:{left:PAD, right:PAD},
+    head: heads, body: body,
+    theme:'striped',
+    headStyles:{fillColor:C.azul2, textColor:C.white, fontSize:6.5, fontStyle:'bold',
+      halign:'center', cellPadding:2},
+    bodyStyles:{fontSize:6.5, cellPadding:1.8, halign:'center', textColor:C.dk},
+    alternateRowStyles:{fillColor:[245,243,255]},
+    columnStyles:{
+      0:{cellWidth:7},
+      1:{cellWidth:42, halign:'left', fontStyle:'bold'},
+      2:{cellWidth:13, textColor:C.azul2},
+      3:{cellWidth:13},4:{cellWidth:13},5:{cellWidth:13},6:{cellWidth:13},
+      7:{cellWidth:13},8:{cellWidth:13},9:{cellWidth:13},10:{cellWidth:13},
+      11:{cellWidth:13},12:{cellWidth:13},13:{cellWidth:13},14:{cellWidth:13},15:{cellWidth:13},
+    },
+    didParseCell(data){
+      if(data.section==='body'&&data.column.index>=3){
+        const v=data.cell.raw;
+        if(v==='-') return;
+        const ind=INDS[data.column.index-3];
+        if(!ind) return;
+        // Parse value back to number for color check
+        let num=null;
+        if(v.endsWith('s')) num=parseFloat(v);
+        else if(v.endsWith('%')) num=parseFloat(v)/100;
+        if(num===null) return;
+        const ok=ind.t==='inv'?num<=ind.mV:num>=ind.mV;
+        data.cell.styles.textColor=ok?C.ok:C.bad;
+        data.cell.styles.fontStyle='bold';
+      }
+    },
+    addPageContent(data){
+      pageHeader(pdf,'DATOS POR ASESOR (cont.)','Skill Inbound '+lbl+' — '+fecha);
+    },
+  });
+}
+
+function drawCalidadTable(pdf, calRows, PAD, y, PW, fecha, isAsesor=false){
+  if(!calRows.length){
+    pdf.setTextColor(...C.gray); pdf.setFont('helvetica','italic'); pdf.setFontSize(10);
+    pdf.text('Sin registros de calidad.',PW/2,y+20,{align:'center'}); return;
+  }
+  const heads=[['#','Asesor','Supervisor','Fecha','Tipo de Error','Descripcion','Recomendacion','Nota','Estado']];
+  const body=calRows.map((r,i)=>{
+    const nota=typeof r.nota==='number'?r.nota.toFixed(1):'-';
+    const est=(r.estado||'Pendiente').replace('Pendiente','PENDIENTE').replace('Cerrado','CERRADO').replace('Refutado','REFUTADO');
+    return [i+1, r.asesor, r.supervisor, r.fecha, r.tipoError,
+      r.descripcion?r.descripcion.substring(0,60)+(r.descripcion.length>60?'...':''):'-',
+      r.recomendacion?r.recomendacion.substring(0,50)+(r.recomendacion.length>50?'...':''):'-',
+      nota, est
+    ];
+  });
+
+  pdf.autoTable({
+    startY:y, margin:{left:PAD, right:PAD},
+    head:heads, body:body,
+    theme:'striped',
+    headStyles:{fillColor:C.azul2, textColor:C.white, fontSize:7, fontStyle:'bold',
+      halign:'center', cellPadding:2.5},
+    bodyStyles:{fontSize:7, cellPadding:2, textColor:C.dk},
+    alternateRowStyles:{fillColor:[245,243,255]},
+    columnStyles:{
+      0:{cellWidth:8,  halign:'center'},
+      1:{cellWidth:36, halign:'left', fontStyle:'bold'},
+      2:{cellWidth:18, halign:'center', textColor:C.azul2},
+      3:{cellWidth:18, halign:'center'},
+      4:{cellWidth:28, halign:'left'},
+      5:{cellWidth:52, halign:'left'},
+      6:{cellWidth:46, halign:'left'},
+      7:{cellWidth:12, halign:'center', fontStyle:'bold'},
+      8:{cellWidth:20, halign:'center', fontStyle:'bold'},
+    },
+    didParseCell(data){
+      if(data.section==='body'&&data.column.index===8){
+        const v=data.cell.raw;
+        if(v.includes('PENDIENTE')) data.cell.styles.textColor=C.wn;
+        else if(v.includes('CERRADO'))  data.cell.styles.textColor=C.ok;
+        else if(v.includes('REFUTADO')) data.cell.styles.textColor=C.bad;
+      }
+      if(data.section==='body'&&data.column.index===7){
+        const nota=parseFloat(data.cell.raw);
+        if(!isNaN(nota)){
+          data.cell.styles.textColor=nota>=4?C.ok:nota>=3?C.wn:C.bad;
+        }
+      }
+    },
+    addPageContent(data){
+      const ttl=isAsesor?'CALIDAD (cont.)':'CALIDAD — RETROALIMENTACION (cont.)';
+      pageHeader(pdf,ttl,'Skill Inbound — '+fecha);
+    },
+  });
+}
+
+function drawAsesorKPIs(pdf, aRow, PAD, y, PW){
+  const kpis=[
+    {l:'NPS',        vC:'I', fmt:'p1', mV:.8,  inv:false},
+    {l:'AHT',        vC:'M', fmt:'seg',mV:370,  inv:true},
+    {l:'Ausentismo', vC:'S', fmt:'p2', mV:.05,  inv:true},
+    {l:'Adherencia', vC:'U', fmt:'p1', mV:.95,  inv:false},
+    {l:'Tipificacion',vC:'W',fmt:'p1', mV:1,    inv:false},
+    {l:'Calidad',    vC:'Y', fmt:'p1', mV:.97,  inv:false},
+    {l:'Desconex.',  vC:'AA',fmt:'p2', mV:.04,  inv:true},
+  ];
+  const cardW=(PW-PAD*2-12)/7, cardH=20, gap=2;
+  kpis.forEach((k,i)=>{
+    const x=PAD+i*(cardW+gap);
+    const v=aRow[k.vC];
+    const ok=v!==null&&(k.inv?v<=k.mV:v>=k.mV);
+    const [r,g,b]=v===null?C.gray:ok?C.ok:C.bad;
+    pdf.setFillColor(...C.bg); pdf.roundedRect(x,y,cardW,cardH,1.5,1.5,'F');
+    pdf.setFillColor(r,g,b); pdf.roundedRect(x,y,cardW,3,1.5,1.5,'F'); pdf.rect(x,y+1.5,cardW,1.5,'F');
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(6.5); pdf.setTextColor(...C.gray);
+    pdf.text(k.l, x+cardW/2, y+7.5, {align:'center'});
+    let d='--';
+    if(v!==null){
+      if(k.fmt==='p1')  d=(v*100).toFixed(1)+'%';
+      else if(k.fmt==='p2') d=(v*100).toFixed(2)+'%';
+      else if(k.fmt==='seg') d=Math.round(v)+'s';
+    }
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(12); pdf.setTextColor(r,g,b);
+    pdf.text(d, x+cardW/2, y+15.5, {align:'center'});
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(6); pdf.setTextColor(...C.gray);
+    pdf.text(ok&&v!==null?'CUMPLE':'NO CUMPLE', x+cardW/2, y+19, {align:'center'});
+  });
+  return y+cardH+3;
+}
+
+function drawAsesorIndicators(pdf, aRow, agent, PAD, y, PW){
+  if(!aRow){
+    pdf.setTextColor(...C.gray); pdf.setFont('helvetica','italic'); pdf.setFontSize(9);
+    pdf.text('Sin datos de indicadores para '+agent.nombre, PW/2, y+20, {align:'center'});
+    return;
+  }
+  const heads=[['Indicador','Meta','Valor','Estado']];
+  const body=INDS.map(ind=>{
+    const v=aRow[ind.vC];
+    const disp=v!==null&&v!==undefined?fmtInd(v,ind):'-';
+    const ok=v!==null?meetsInd(v,ind):null;
+    const est=ok===null?'-':ok?'CUMPLE':'NO CUMPLE';
+    return [ind.nm, ind.meta, disp, est];
+  });
+
+  pdf.autoTable({
+    startY:y, margin:{left:PAD, right:PW/2+PAD},
+    head:heads, body:body,
+    theme:'striped',
+    headStyles:{fillColor:C.azul2, textColor:C.white, fontSize:8, fontStyle:'bold',
+      halign:'center', cellPadding:3},
+    bodyStyles:{fontSize:8.5, cellPadding:3, textColor:C.dk},
+    alternateRowStyles:{fillColor:[245,243,255]},
+    columnStyles:{
+      0:{cellWidth:45, halign:'left', fontStyle:'bold'},
+      1:{cellWidth:22, halign:'center'},
+      2:{cellWidth:28, halign:'center', fontStyle:'bold'},
+      3:{cellWidth:28, halign:'center', fontStyle:'bold'},
+    },
+    didParseCell(data){
+      if(data.section==='body'){
+        if(data.column.index===3){
+          if(data.cell.raw==='CUMPLE')    data.cell.styles.textColor=C.ok;
+          if(data.cell.raw==='NO CUMPLE') data.cell.styles.textColor=C.bad;
+        }
+        if(data.column.index===2){
+          const ind=INDS[data.row.index];
+          if(ind){
+            const v=aRow[ind.vC];
+            if(v!==null&&v!==undefined){
+              const ok=meetsInd(v,ind);
+              data.cell.styles.textColor=ok?C.ok:C.bad;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+
+
+
+// ══════════════════════════════════════════════
+// COMPROMISOS — FORMATO DATA & RENDERING
+// ══════════════════════════════════════════════
+let FMT = { alerta: null, retro: null };
+const SUP_NOMBRE  = 'OSCAR DANIEL NARIÑO'; // global
+const SUP_CARGO   = 'Supervisor Inbound — Banco Agrario';
+const ANALISTA    = 'JONNY DANIEL FUENTES OVALLE';
+
+function loadFormato(tipo, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    if (tipo === 'alerta') {
+      FMT.alerta = parseAlerta(ws);
+      document.getElementById('dz-alerta').classList.add('loaded');
+      document.getElementById('dz-alerta-name').textContent = '✔ ' + file.name;
+      document.getElementById('dz-alerta-name').style.display = 'block';
+      renderAlertaPreview();
+    } else {
+      FMT.retro = parseRetro(ws);
+      document.getElementById('dz-retro').classList.add('loaded');
+      document.getElementById('dz-retro-name').textContent = '✔ ' + file.name;
+      document.getElementById('dz-retro-name').style.display = 'block';
+      renderRetroPreview();
+    }
+    document.getElementById('comp-preview').style.display = 'block';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function gcl(ws, coord) {
+  const c = ws[coord];
+  return c ? String(c.v || '').trim() : '';
+}
+
+function fmtDate(v) {
+  if (v === null || v === undefined || v === '') return '';
+  // Convert to number if it's a numeric string (Excel serial)
+  const num = Number(v);
+  if (!isNaN(num) && num > 1000 && num < 200000) {
+    const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+    const dd = String(d.getUTCDate()).padStart(2,'0');
+    const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+    const yy = d.getUTCFullYear();
+    return `${dd}/${mm}/${yy}`;
+  }
+  const s = String(v).trim();
+  if (s.match(/\d{4}-\d{2}-\d{2}/)) {
+    const parts = s.split(' ')[0].split('-');
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return s;
+}
+
+function parseAlerta(ws) {
+  return {
+    fecha:      fmtDate(gcl(ws,'C4')),
+    usuario:    gcl(ws,'C5'),
+    asesor:     gcl(ws,'D5'),
+    tipoAlerta: gcl(ws,'C6'),
+    cliente:    gcl(ws,'C7'),
+    id:         gcl(ws,'D8'),
+    analisis:   gcl(ws,'B9'),
+    oportunidad: gcl(ws,'B18') || gcl(ws,'B17'),
+    plan:       gcl(ws,'B26'),
+    concesionAplica: gcl(ws,'C36'),
+    concesionDesc:   gcl(ws,'C37'),
+  };
+}
+
+function parseRetro(ws) {
+  return {
+    nombre:    gcl(ws,'B4'),
+    ciudad:    gcl(ws,'E4'),
+    cargo:     gcl(ws,'B5'),
+    operacion: gcl(ws,'E5'),
+    fechaGestion: fmtDate(gcl(ws,'B6')),
+    id:           gcl(ws,'E6'),
+    fechaRetro:   '',
+    analistaNombre: gcl(ws,'B9'),
+    analistaCargo:  gcl(ws,'B10'),
+    analistaOp:     gcl(ws,'B11'),
+    analisis:    gcl(ws,'A13'),
+    oportunidad: gcl(ws,'A24'),
+    compromisos: gcl(ws,'A32'),
+  };
+}
+
+// ── RENDER ALERTA PREVIEW ────────────────────────────────────
+function renderAlertaPreview() {
+  const d = FMT.alerta || {};
+  const html = `
+  <table class="fp-table">
+    <tr>
+      <td class="fp-logo-cell" rowspan="2">
+        <div id="fp-logo-left-alerta" style="display:flex;align-items:center;justify-content:center;min-height:36px">
+          <img id="fp-img-left-alerta" style="max-width:100px;max-height:40px;display:none;object-fit:contain" alt="">
+          <div class="fp-logo-box" id="fp-txt-left-alerta">AlmaExperience<br>COLOMBIA</div>
+        </div>
+      </td>
+      <td class="fp-hdr-main" style="text-align:center;padding:4px">CALIDAD</td>
+      <td class="fp-logo-cell" rowspan="2">
+        <div id="fp-logo-right-alerta" style="display:flex;align-items:center;justify-content:center;min-height:36px">
+          <img id="fp-img-right-alerta" style="max-width:100px;max-height:40px;display:none;object-fit:contain" alt="">
+          <div class="fp-logo-box" id="fp-txt-right-alerta">LOGO</div>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td class="fp-hdr-sub">FORMATO DE ALERTA</td>
+    </tr>
+    <tr>
+      <td class="fp-label">Fecha y hora:</td>
+      <td class="fp-val">${d.fecha||''}</td>
+      <td class="fp-label">Nombre del Ejecutivo:</td>
+    </tr>
+    <tr>
+      <td class="fp-label">Usuario Asesor:</td>
+      <td class="fp-val">${d.usuario||''}</td>
+      <td class="fp-val" rowspan="2"><b>${d.asesor||''}</b></td>
+    </tr>
+    <tr>
+      <td class="fp-label">Tipo de Alerta</td>
+      <td class="fp-val"><b>${d.tipoAlerta||''}</b></td>
+    </tr>
+    <tr>
+      <td class="fp-label">Nombre del Supervisor:</td>
+      <td class="fp-val" colspan="2">&nbsp;</td>
+    </tr>
+    <tr>
+      <td class="fp-label">Cliente</td>
+      <td class="fp-val">${d.cliente||''}</td>
+      <td class="fp-val"><b>${SUP_NOMBRE}</b></td>
+    </tr>
+    <tr>
+      <td class="fp-label" colspan="2">Descripción del Llamado/Interacción</td>
+      <td class="fp-val" style="font-size:9px;font-family:monospace">${d.id||''}</td>
+    </tr>
+    <tr>
+      <td colspan="3" class="fp-val" style="white-space:pre-wrap;padding:8px;min-height:60px">${d.analisis||''}</td>
+    </tr>
+    <tr>
+      <td colspan="3" class="fp-section">Oportunidad de Mejora (Afectación según Matriz):</td>
+    </tr>
+    <tr>
+      <td colspan="3" style="padding:0">
+        <textarea id="ed-alerta-oportunidad" class="fp-edit">${d.oportunidad||''}</textarea>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="3" class="fp-section">Plan de Accion por parte del Supervisor:</td>
+    </tr>
+    <tr>
+      <td colspan="3" style="padding:0">
+        <textarea id="ed-alerta-plan" class="fp-edit" placeholder="Escribe el plan de acción del supervisor...">${d.plan||''}</textarea>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="3" class="fp-label-purple" style="font-size:10px;padding:5px">
+        <b>CONCESION CON EL CLIENTE</b> (Autorizacion por parte del cliente para utilizar o liberar el servicio que no es conforme):
+      </td>
+    </tr>
+    <tr>
+      <td class="fp-label" style="white-space:nowrap">Aplica (SI - NO):</td>
+      <td colspan="2" style="padding:0">
+        <input id="ed-alerta-aplica" class="fp-edit-sm" placeholder="SI / NO" value="${d.concesionAplica||''}">
+      </td>
+    </tr>
+    <tr>
+      <td class="fp-label">Descripción de la Concesión:</td>
+      <td colspan="2" style="padding:0">
+        <input id="ed-alerta-concesion" class="fp-edit-sm" placeholder="Descripción..." value="${d.concesionDesc||''}">
+      </td>
+    </tr>
+  </table>`;
+  document.getElementById('form-alerta-preview').innerHTML = html;
+}
+
+// ── RENDER RETRO PREVIEW ─────────────────────────────────────
+function renderRetroPreview() {
+  const d = FMT.retro || {};
+  const html = `
+  <table class="fp-table">
+    <tr>
+      <td class="fp-logo-cell" rowspan="2">
+        <div id="fp-logo-left-retro" style="display:flex;align-items:center;justify-content:center;min-height:36px">
+          <img id="fp-img-left-retro" style="max-width:100px;max-height:40px;display:none;object-fit:contain" alt="">
+          <div class="fp-logo-box" id="fp-txt-left-retro">AlmaExperience<br>COLOMBIA</div>
+        </div>
+      </td>
+      <td class="fp-hdr-main" colspan="3" style="text-align:center;padding:4px">CALIDAD</td>
+      <td class="fp-logo-cell" rowspan="2">
+        <div id="fp-logo-right-retro" style="display:flex;align-items:center;justify-content:center;min-height:36px">
+          <img id="fp-img-right-retro" style="max-width:100px;max-height:40px;display:none;object-fit:contain" alt="">
+          <div class="fp-logo-box" id="fp-txt-right-retro">LOGO</div>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td class="fp-hdr-sub" colspan="3">FORMATO RETROALIMENTACIÓN CALIDAD</td>
+    </tr>
+    <tr>
+      <td colspan="5" class="fp-section">DATOS DEL COLABORADOR</td>
+    </tr>
+    <tr>
+      <td class="fp-label">NOMBRE</td>
+      <td class="fp-val"><b>${d.nombre||''}</b></td>
+      <td class="fp-label">CIUDAD</td>
+      <td class="fp-val" colspan="2">${d.ciudad||''}</td>
+    </tr>
+    <tr>
+      <td class="fp-label">CARGO</td>
+      <td class="fp-val">${d.cargo||''}</td>
+      <td class="fp-label">OPERACIÓN_CLIENTE</td>
+      <td class="fp-val" colspan="2">${d.operacion||''}</td>
+    </tr>
+    <tr>
+      <td class="fp-label">FECHA DE GESTION</td>
+      <td class="fp-val">${d.fechaGestion||''}</td>
+      <td class="fp-label">LLAMADA AUDITADA</td>
+      <td class="fp-val" colspan="2" style="font-size:9px;font-family:monospace">${d.id||''}</td>
+    </tr>
+    <tr>
+      <td class="fp-label">FECHA DE RETROALIMENTACION</td>
+      <td colspan="4" style="padding:0">
+        <input id="ed-retro-fecha" class="fp-edit-sm" placeholder="DD/MM/AAAA" value="${d.fechaRetro||''}">
+      </td>
+    </tr>
+    <tr>
+      <td colspan="5" class="fp-section">DATOS DE QUIEN HACE EL SEGUIMIENTO</td>
+    </tr>
+    <tr>
+      <td class="fp-label">NOMBRE</td>
+      <td class="fp-val" colspan="4">${d.analistaNombre||ANALISTA}</td>
+    </tr>
+    <tr>
+      <td class="fp-label">CARGO</td>
+      <td class="fp-val" colspan="4">${d.analistaCargo||'ANALISTA DE CALIDAD'}</td>
+    </tr>
+    <tr>
+      <td class="fp-label">OPERACIÓN_CLIENTE</td>
+      <td class="fp-val" colspan="4">${d.analistaOp||'BANCO AGRARIO'}</td>
+    </tr>
+    <tr>
+      <td colspan="5" class="fp-section">DESCRIPCION DE LA LLAMADA/INTERACCIÓN</td>
+    </tr>
+    <tr>
+      <td colspan="5" class="fp-val" style="white-space:pre-wrap;padding:8px;min-height:70px">${d.analisis||''}</td>
+    </tr>
+    <tr>
+      <td colspan="5" class="fp-section">OPORTUNIDADES DE MEJORA</td>
+    </tr>
+    <tr>
+      <td colspan="5" style="padding:0">
+        <textarea id="ed-retro-oportunidad" class="fp-edit" style="min-height:80px" placeholder="Escribe las oportunidades de mejora...">${d.oportunidad||''}</textarea>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="5" class="fp-section">COMPROMISOS</td>
+    </tr>
+    <tr>
+      <td colspan="5" style="padding:0">
+        <textarea id="ed-retro-compromisos" class="fp-edit" style="min-height:80px" placeholder="Escribe los compromisos del asesor...">${d.compromisos||''}</textarea>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="5" class="fp-val" style="padding:10px 6px;border-top:2px solid #2B2B6B">
+        <b>FIRMA ASESOR O EJECUTIVO:</b>
+        <div id="canvas-asesor-preview" style="margin-top:4px;min-height:50px;border-bottom:1px solid #333;width:60%"></div>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="5" class="fp-val" style="padding:10px 6px">
+        <b>FIRMA SUPERVISOR: ${SUP_NOMBRE}</b>
+        <div id="canvas-sup-preview" style="margin-top:4px;min-height:50px;border-bottom:1px solid #333;width:60%"></div>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="5" class="fp-val" style="padding:8px 6px">
+        <b>FIRMA ANALISTA DE CALIDAD: ${ANALISTA}</b>
+      </td>
+    </tr>
+  </table>`;
+  document.getElementById('form-retro-preview').innerHTML = html;
+}
+
+// ── CANVAS SIGNATURES ─────────────────────────────────────────
+function initCanvas(id) {
+  const canvas = document.getElementById(id);
+  if (!canvas || canvas._inited) return;
+  canvas._inited = true;
+  const ctx = canvas.getContext('2d');
+  let drawing = false, lx = 0, ly = 0;
+  ctx.strokeStyle = '#0B1E3A'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  function pos(e) {
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return {x: t.clientX - r.left, y: t.clientY - r.top};
+  }
+  canvas.addEventListener('mousedown',  e => { drawing=true; const p=pos(e); lx=p.x; ly=p.y; });
+  canvas.addEventListener('mousemove',  e => {
+    if (!drawing) return;
+    const p=pos(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(p.x,p.y); ctx.stroke(); lx=p.x; ly=p.y;
+  });
+  canvas.addEventListener('mouseup',   () => drawing=false);
+  canvas.addEventListener('mouseleave',() => drawing=false);
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing=true; const p=pos(e); lx=p.x; ly=p.y; },{passive:false});
+  canvas.addEventListener('touchmove',  e => {
+    e.preventDefault(); if(!drawing) return;
+    const p=pos(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(p.x,p.y); ctx.stroke(); lx=p.x; ly=p.y;
+  },{passive:false});
+  canvas.addEventListener('touchend',  () => drawing=false);
+}
+function clearCanvas(id) {
+  const c = document.getElementById(id);
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+function isCanvasBlank(id) {
+  const c = document.getElementById(id);
+  if (!c) return true;
+  return !c.getContext('2d').getImageData(0,0,c.width,c.height).data.some(v=>v!==0);
+}
+
+// ── GENERATE PDF ──────────────────────────────────────────────
+async function generarPDFCompromisos() {
+  if (!FMT.alerta && !FMT.retro) {
+    alert('Carga al menos uno de los formatos Excel primero.');
+    return;
+  }
+  const btnComp = document.querySelector('.btn-gen-comp');
+  if (btnComp) btnComp.disabled = true;
+  showProgress(); setProgress(5, 'Preparando formularios...');
+  await tick(120);
+
+  // Collect editable values
+  const vals = {
+    alertaOportunidad: (document.getElementById('ed-alerta-oportunidad')?.value || '').trim(),
+    alertaPlan:        (document.getElementById('ed-alerta-plan')?.value        || '').trim(),
+    alertaAplica:      (document.getElementById('ed-alerta-aplica')?.value      || '').trim(),
+    alertaConcesion:   (document.getElementById('ed-alerta-concesion')?.value   || '').trim(),
+    retroFecha:        (document.getElementById('ed-retro-fecha')?.value        || '').trim(),
+    retroOportunidad:  (document.getElementById('ed-retro-oportunidad')?.value  || '').trim(),
+    retroCompromisos:  (document.getElementById('ed-retro-compromisos')?.value  || '').trim(),
+  };
+
+  const {jsPDF} = window.jspdf;
+  const pdf = new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
+  const PW=595, PH=842, PAD=28, cW=595-56;
+
+  const FMT_COL   = [43,11,107];
+  const WHITE=[255,255,255], BLACK=[30,18,53], GRAY_LIGHT=[245,243,255];
+  const BORDER_COL=[85,85,85], EDIT_BG=[255,253,231];
+
+  function box(x,y,w,h,fill){
+    pdf.setFillColor(...fill); pdf.setDrawColor(...BORDER_COL); pdf.rect(x,y,w,h,'FD');
+  }
+  function headerBar(x,y,w,h,text,fs=9){
+    // Draw two-tone gradient simulation: left darker, right lighter purple
+    pdf.setFillColor(43,11,107); pdf.rect(x,y,w*0.5,h,'F');
+    pdf.setFillColor(74,29,150); pdf.rect(x+w*0.5,y,w*0.5,h,'F');
+    pdf.setDrawColor(...BORDER_COL); pdf.rect(x,y,w,h,'S');
+    pdf.setTextColor(...WHITE); pdf.setFont('helvetica','bold'); pdf.setFontSize(fs);
+    pdf.text(text, x+w/2, y+h/2+fs*0.35, {align:'center'});
+  }
+  function labelCell(x,y,w,h,text){
+    pdf.setFillColor(43,11,107); pdf.setDrawColor(74,29,150); pdf.rect(x,y,w,h,'FD');
+    pdf.setTextColor(221,214,254); pdf.setFont('helvetica','bold'); pdf.setFontSize(8);
+    pdf.text(text, x+4, y+h/2+3);
+  }
+  // valCell: single line, truncated if needed
+  function valCell(x,y,w,h,text,bold=false,small=false){
+    box(x,y,w,h,WHITE);
+    pdf.setTextColor(...BLACK); pdf.setFont('helvetica',bold?'bold':'normal');
+    pdf.setFontSize(small?7:9);
+    const safe = String(text||'').replace(/\n/g,' ');
+    const lines = pdf.splitTextToSize(safe, w-8);
+    pdf.text(lines[0]||'', x+4, y+h/2+3);
+  }
+  // textBlock: multiline text in a box with auto-height
+  function textBlock(x,y,w,text,bgColor,minH=50){
+    const safe = String(text||'').replace(/\r/g,'');
+    const paras = safe.split('\n');
+    let allLines = [];
+    pdf.setFontSize(8.5);
+    paras.forEach(p => {
+      const trimmed = p.trim();
+      if (!trimmed) { allLines.push(''); return; }
+      const ls = pdf.splitTextToSize(trimmed, w-22);
+      allLines = allLines.concat(ls);
+    });
+    const lineH = 12, padTop = 10;
+    const h = Math.max(allLines.length * lineH + padTop + 10, minH);
+    pdf.setFillColor(...bgColor); pdf.setDrawColor(...BORDER_COL); pdf.rect(x,y,w,h,'FD');
+    pdf.setTextColor(...BLACK); pdf.setFont('helvetica','normal'); pdf.setFontSize(8.5);
+    allLines.forEach((line,i) => {
+      if (line) pdf.text(line, x+8, y+padTop+i*lineH);
+    });
+    return h;
+  }
+  function editBlock(x,y,w,text,minH=70){
+    return textBlock(x,y,w,text,EDIT_BG,minH);
+  }
+  function checkNewPage(pdf,y,needed,PAD){
+    if(y+needed > 820){ pdf.addPage(); return PAD; }
+    return y;
+  }
+
+  try {
+    // ══ FORMATO ALERTA ═══════════════════════════════════════
+    if (FMT.alerta) {
+      setProgress(15,'Generando Formato de Alerta...');
+      await tick(60);
+      const d = FMT.alerta;
+      let y = PAD;
+
+      // Header logos
+      const logoW=110, midW=cW-logoW*2;
+      // Left logo
+      if (LOGOS.left) {
+        box(PAD,y,logoW,28,[245,245,245]);
+        pdf.addImage(LOGOS.left, PAD+4, y+2, logoW-8, 24,'','FAST');
+      } else {
+        pdf.setFillColor(...FMT_COL); pdf.setDrawColor(...BORDER_COL); pdf.rect(PAD,y,logoW,28,'FD');
+        pdf.setTextColor(...WHITE); pdf.setFont('helvetica','bold'); pdf.setFontSize(7);
+        pdf.text('AlmaExperience', PAD+logoW/2, y+11, {align:'center'});
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(6.5);
+        pdf.text('COLOMBIA', PAD+logoW/2, y+21, {align:'center'});
+      }
+      headerBar(PAD+logoW, y, midW, 14, 'CALIDAD', 8);
+      // Right logo
+      if (LOGOS.right) {
+        box(PAD+logoW+midW,y,logoW,28,[245,245,245]);
+        pdf.addImage(LOGOS.right, PAD+logoW+midW+4, y+2, logoW-8, 24,'','FAST');
+      } else {
+        pdf.setFillColor(...FMT_COL); pdf.setDrawColor(...BORDER_COL);
+        pdf.rect(PAD+logoW+midW,y,logoW,28,'FD');
+        pdf.setTextColor(...WHITE); pdf.setFont('helvetica','bold'); pdf.setFontSize(8);
+        pdf.text('★', PAD+logoW+midW+logoW/2, y+17, {align:'center'});
+      }
+      y += 14;
+      headerBar(PAD+logoW, y, midW, 14, 'FORMATO DE ALERTA', 10);
+      y += 14;
+
+      // Data rows
+      const rH=24, lW=140, rW=cW-lW*2;
+      const yDataStart = y;
+
+      // ── LEFT + MIDDLE: 4 rows ─────────────────────────────
+      labelCell(PAD, y, lW, rH, 'Fecha y hora:');
+      valCell(PAD+lW, y, rW, rH, d.fecha); y += rH;
+
+      labelCell(PAD, y, lW, rH, 'Usuario Asesor:');
+      valCell(PAD+lW, y, rW, rH, d.usuario); y += rH;
+
+      labelCell(PAD, y, lW, rH, 'Tipo de Alerta');
+      valCell(PAD+lW, y, rW, rH, d.tipoAlerta, true); y += rH;
+
+      labelCell(PAD, y, lW, rH, 'Cliente');
+      valCell(PAD+lW, y, rW, rH, d.cliente); y += rH;
+
+      // ── RIGHT COLUMN: independent 2 sections × 2 rows ─────
+      const rx = PAD+lW+rW;   // right column X
+      const rColW = lW;        // right column width
+
+      // Section 1: Nombre del Ejecutivo + asesor name
+      labelCell(rx, yDataStart,        rColW, rH, 'Nombre del Ejecutivo:');
+      // Asesor name - may be long, so multiline cell
+      const asesorLines = pdf.splitTextToSize(d.asesor||'', rColW-8);
+      const asesorCellH = Math.max(asesorLines.length * 11 + 8, rH);
+      box(rx, yDataStart+rH, rColW, asesorCellH, WHITE);
+      pdf.setTextColor(...BLACK); pdf.setFont('helvetica','bold'); pdf.setFontSize(8.5);
+      asesorLines.forEach((line,i) => pdf.text(line, rx+4, yDataStart+rH+10+i*11));
+
+      // Section 2: Nombre del Supervisor + supervisor name
+      const sec2Y = yDataStart + rH*2;
+      labelCell(rx, sec2Y,      rColW, rH, 'Nombre del Supervisor:');
+      const supLines = pdf.splitTextToSize(SUP_NOMBRE||'', rColW-8);
+      const supCellH = Math.max(supLines.length * 11 + 8, rH);
+      box(rx, sec2Y+rH, rColW, supCellH, WHITE);
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(8.5); pdf.setTextColor(...BLACK);
+      supLines.forEach((line,i) => pdf.text(line, rx+4, sec2Y+rH+10+i*11));
+      // Descripcion row (y is now after 4 left rows)
+      labelCell(PAD, y, lW*1.3, rH, 'Descripción del Llamado/Interacción');
+      valCell(PAD+lW*1.3, y, cW-lW*1.3, rH, d.id, false, true);
+      y += rH;
+
+      // Analysis block
+      setProgress(25,'Generando análisis...');
+      const analH = textBlock(PAD, y, cW, d.analisis, WHITE, 60);
+      y += analH;
+
+      // Oportunidad
+      y = checkNewPage(pdf, y, 90, PAD);
+      headerBar(PAD, y, cW, 16, 'Oportunidad de Mejora (Afectación según Matriz):', 8.5);
+      y += 16;
+      const opH = editBlock(PAD, y, cW, vals.alertaOportunidad, 70);
+      y += opH;
+
+      // Plan
+      y = checkNewPage(pdf, y, 90, PAD);
+      headerBar(PAD, y, cW, 16, 'Plan de Accion por parte del Supervisor:', 8.5);
+      y += 16;
+      const planH = editBlock(PAD, y, cW, vals.alertaPlan, 70);
+      y += planH;
+
+      // Concesion
+      y = checkNewPage(pdf, y, 80, PAD);
+      pdf.setFillColor(...FMT_COL); pdf.setDrawColor(...BORDER_COL); pdf.rect(PAD,y,cW,22,'FD');
+      pdf.setTextColor(...WHITE); pdf.setFont('helvetica','bold'); pdf.setFontSize(8);
+      const concTxt = 'CONCESION CON EL CLIENTE (Autorizacion por parte del cliente para utilizar o liberar el servicio que no es conforme):';
+      const concLines = pdf.splitTextToSize(concTxt, cW-8);
+      concLines.forEach((line,i) => pdf.text(line, PAD+4, y+9+i*10));
+      y += 22;
+
+      labelCell(PAD, y, 140, rH, 'Aplica (SI - NO):');
+      valCell(PAD+140, y, cW-140, rH, vals.alertaAplica);
+      y += rH;
+      labelCell(PAD, y, 140, rH, 'Descripción de la Concesión:');
+      const descH = editBlock(PAD+140, y, cW-140, vals.alertaConcesion, rH);
+      box(PAD, y, 140, Math.max(descH,rH), FMT_COL);
+      pdf.setTextColor(...WHITE); pdf.setFont('helvetica','bold'); pdf.setFontSize(8);
+      pdf.text('Descripción de la Concesión:', PAD+4, y+14);
+      y += Math.max(descH, rH) + 12;
+
+      // Signatures
+      y = checkNewPage(pdf, y, 90, PAD);
+      const fW = (cW-16)/2;
+      // Asesor
+      pdf.setFillColor(...GRAY_LIGHT); pdf.setDrawColor(...BORDER_COL);
+      pdf.rect(PAD, y, fW, 75, 'FD');
+      pdf.setTextColor(...BLACK); pdf.setFont('helvetica','bold'); pdf.setFontSize(9);
+      pdf.text('FIRMA ASESOR O EJECUTIVO:', PAD+6, y+14);
+      const cA = document.getElementById('canvas-asesor');
+      if (cA && !isCanvasBlank('canvas-asesor'))
+        pdf.addImage(cA.toDataURL('image/png'),'PNG',PAD+8,y+18,fW-16,48,'','FAST');
+      else { pdf.setDrawColor(160,160,160); pdf.line(PAD+8,y+64,PAD+fW-8,y+64); }
+      // Supervisor
+      pdf.setFillColor(...GRAY_LIGHT); pdf.rect(PAD+fW+16, y, fW, 75, 'FD');
+      pdf.text('FIRMA SUPERVISOR: '+SUP_NOMBRE, PAD+fW+22, y+14);
+      const cS = document.getElementById('canvas-sup');
+      if (cS && !isCanvasBlank('canvas-sup'))
+        pdf.addImage(cS.toDataURL('image/png'),'PNG',PAD+fW+22,y+18,fW-16,48,'','FAST');
+      else { pdf.setDrawColor(160,160,160); pdf.line(PAD+fW+22,y+64,PAD+cW-8,y+64); }
+    }
+
+    // ══ FORMATO RETROALIMENTACIÓN ════════════════════════════
+    if (FMT.retro) {
+      if (FMT.alerta) pdf.addPage();
+      setProgress(60,'Generando Formato de Retroalimentación...');
+      await tick(60);
+      const d = FMT.retro;
+      let y = PAD;
+
+      // Header
+      const logoW=100, midW=cW-logoW*2;
+      if(LOGOS.left){
+        box(PAD,y,logoW,28,[245,245,245]);
+        pdf.addImage(LOGOS.left,PAD+4,y+2,logoW-8,24,'','FAST');
+      } else {
+        pdf.setFillColor(...FMT_COL); pdf.setDrawColor(...BORDER_COL); pdf.rect(PAD,y,logoW,28,'FD');
+        pdf.setTextColor(...WHITE); pdf.setFont('helvetica','bold'); pdf.setFontSize(7);
+        pdf.text('AlmaExperience',PAD+logoW/2,y+11,{align:'center'});
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(6.5);
+        pdf.text('COLOMBIA',PAD+logoW/2,y+21,{align:'center'});
+      }
+      headerBar(PAD+logoW,y,midW,14,'CALIDAD',8);
+      if(LOGOS.right){
+        box(PAD+logoW+midW,y,logoW,28,[245,245,245]);
+        pdf.addImage(LOGOS.right,PAD+logoW+midW+4,y+2,logoW-8,24,'','FAST');
+      } else {
+        pdf.setFillColor(...FMT_COL); pdf.setDrawColor(...BORDER_COL);
+        pdf.rect(PAD+logoW+midW,y,logoW,28,'FD');
+        pdf.setTextColor(...WHITE); pdf.setFont('helvetica','bold'); pdf.setFontSize(8);
+        pdf.text('★',PAD+logoW+midW+logoW/2,y+17,{align:'center'});
+      }
+      y+=14; headerBar(PAD+logoW,y,midW,14,'FORMATO RETROALIMENTACIÓN CALIDAD',9); y+=14;
+
+      const rH=20, h1=cW/2, h2=cW-h1;
+      // DATOS COLABORADOR
+      headerBar(PAD,y,cW,16,'DATOS DEL COLABORADOR',9); y+=16;
+      labelCell(PAD,y,90,rH,'NOMBRE'); valCell(PAD+90,y,h1-90,rH,d.nombre,true);
+      labelCell(PAD+h1,y,70,rH,'CIUDAD'); valCell(PAD+h1+70,y,h2-70,rH,d.ciudad); y+=rH;
+      labelCell(PAD,y,90,rH,'CARGO'); valCell(PAD+90,y,h1-90,rH,d.cargo);
+      labelCell(PAD+h1,y,110,rH,'OPERACIÓN_CLIENTE'); valCell(PAD+h1+110,y,h2-110,rH,d.operacion); y+=rH;
+      labelCell(PAD,y,110,rH,'FECHA DE GESTION'); valCell(PAD+110,y,h1-110,rH,d.fechaGestion);
+      labelCell(PAD+h1,y,110,rH,'LLAMADA AUDITADA'); valCell(PAD+h1+110,y,h2-110,rH,d.id,false,true); y+=rH;
+      labelCell(PAD,y,150,rH,'FECHA DE RETROALIMENTACION');
+      valCell(PAD+150,y,cW-150,rH,vals.retroFecha||new Date().toLocaleDateString('es-CO')); y+=rH;
+
+      // DATOS SEGUIMIENTO
+      headerBar(PAD,y,cW,16,'DATOS DE QUIEN HACE EL SEGUIMIENTO',9); y+=16;
+      labelCell(PAD,y,80,rH,'NOMBRE'); valCell(PAD+80,y,cW-80,rH,d.analistaNombre||ANALISTA); y+=rH;
+      labelCell(PAD,y,80,rH,'CARGO'); valCell(PAD+80,y,cW-80,rH,d.analistaCargo||'ANALISTA DE CALIDAD'); y+=rH;
+      labelCell(PAD,y,120,rH,'OPERACIÓN_CLIENTE'); valCell(PAD+120,y,cW-120,rH,d.analistaOp||'BANCO AGRARIO'); y+=rH;
+
+      // DESCRIPCION
+      y = checkNewPage(pdf,y,80,PAD);
+      headerBar(PAD,y,cW,16,'DESCRIPCION DE LA LLAMADA/INTERACCIÓN',9); y+=16;
+      const dH = textBlock(PAD,y,cW,d.analisis,WHITE,70); y+=dH;
+
+      // OPORTUNIDADES
+      y = checkNewPage(pdf,y,100,PAD);
+      headerBar(PAD,y,cW,16,'OPORTUNIDADES DE MEJORA',9); y+=16;
+      const opH2 = editBlock(PAD,y,cW,vals.retroOportunidad,80); y+=opH2;
+
+      // COMPROMISOS
+      y = checkNewPage(pdf,y,100,PAD);
+      headerBar(PAD,y,cW,16,'COMPROMISOS',9); y+=16;
+      const compH = editBlock(PAD,y,cW,vals.retroCompromisos,80); y+=compH+6;
+
+      // FIRMAS
+      y = checkNewPage(pdf,y,90,PAD);
+      pdf.setFillColor(...GRAY_LIGHT); pdf.setDrawColor(...BORDER_COL);
+      pdf.rect(PAD,y,cW,65,'FD');
+      pdf.setTextColor(...BLACK); pdf.setFont('helvetica','bold'); pdf.setFontSize(9);
+      pdf.text('FIRMA ASESOR O EJECUTIVO:', PAD+6, y+14);
+      const cA2=document.getElementById('canvas-asesor');
+      if(cA2&&!isCanvasBlank('canvas-asesor'))
+        pdf.addImage(cA2.toDataURL('image/png'),'PNG',PAD+6,y+18,(cW-20)/3,38,'','FAST');
+      else{pdf.setDrawColor(160,160,160);pdf.line(PAD+6,y+56,PAD+cW/3,y+56);}
+      y+=65+4;
+
+      y=checkNewPage(pdf,y,70,PAD);
+      pdf.setFillColor(...GRAY_LIGHT); pdf.rect(PAD,y,cW,65,'FD');
+      pdf.setTextColor(...BLACK); pdf.setFont('helvetica','bold'); pdf.setFontSize(9);
+      pdf.text('FIRMA SUPERVISOR: '+SUP_NOMBRE, PAD+6, y+14);
+      const cS2=document.getElementById('canvas-sup');
+      if(cS2&&!isCanvasBlank('canvas-sup'))
+        pdf.addImage(cS2.toDataURL('image/png'),'PNG',PAD+6,y+18,(cW-20)/3,38,'','FAST');
+      else{pdf.setDrawColor(160,160,160);pdf.line(PAD+6,y+56,PAD+cW/3,y+56);}
+      y+=65+4;
+
+      pdf.setFillColor(...GRAY_LIGHT); pdf.rect(PAD,y,cW,28,'FD');
+      pdf.setTextColor(...BLACK); pdf.setFont('helvetica','bold'); pdf.setFontSize(9);
+      pdf.text('FIRMA ANALISTA DE CALIDAD: '+ANALISTA, PAD+6, y+18);
+    }
+
+    // ══ GUARDAR EN CALIDAD ════════════════════════════════════
+    setProgress(90,'Guardando registro...');
+    const firmaAsesorImg = !isCanvasBlank('canvas-asesor')
+      ? document.getElementById('canvas-asesor').toDataURL('image/png') : null;
+    const firmaSupImg    = !isCanvasBlank('canvas-sup')
+      ? document.getElementById('canvas-sup').toDataURL('image/png')    : null;
+
+    const nuevoRegistro = {
+      asesor:       FMT.alerta?.asesor    || FMT.retro?.nombre     || '—',
+      supervisor:   SUP_NOMBRE,
+      fecha:        FMT.alerta?.fecha     || FMT.retro?.fechaGestion || new Date().toLocaleDateString('es-CO'),
+      tipoAlerta:   FMT.alerta?.tipoAlerta || '—',
+      tipoError:    FMT.alerta?.tipoAlerta || '—',
+      idLlamada:    FMT.alerta?.id        || FMT.retro?.id          || '—',
+      analisis:     FMT.alerta?.analisis  || FMT.retro?.analisis    || '—',
+      descripcion:  FMT.alerta?.analisis  || '—',
+      oportunidad:  vals.alertaOportunidad || vals.retroOportunidad  || '—',
+      planAccion:   vals.alertaPlan        || '—',
+      compromisos:  vals.retroCompromisos  || '—',
+      recomendacion:vals.alertaPlan        || '—',
+      nota:         null,
+      estado:       'Pendiente',
+      _fromCompromisos: true,
+      firmaAsesor:  firmaAsesorImg,
+      firmaSupervisor: firmaSupImg,
+    };
+
+    if (!Array.isArray(D.calidad)) D.calidad = [];
+    D.calidad.push(nuevoRegistro);
+
+    // ══ DESCARGAR PDF ══════════════════════════════════════════
+    setProgress(97,'Descargando...');
+    await tick(200);
+    const asesorNm = nuevoRegistro.asesor;
+    const fn = asesorNm.replace(/[^a-zA-Z0-9 ]/g,'').replace(/ +/g,'_');
+    pdf.save('Compromisos_'+fn+'_'+new Date().toLocaleDateString('es-CO').replace(/\//g,'-')+'.pdf');
+
+    setProgress(100,'Listo');
+    await tick(300);
+    hideProgress();
+
+    // ══ RESETEAR FORMULARIO ════════════════════════════════════
+    resetCompromisos();
+
+    // Notificar y ofrecer ir a Calidad
+    const goNow = confirm(
+      'PDF generado y guardado en Calidad.\n\nAsesor: ' + asesorNm +
+      '\n\nEl formulario fue limpiado para una nueva retroalimentacion.\n¿Ir a Calidad ahora?'
+    );
+    if (goNow) {
+      try { sw('calidad'); } catch(e2) { console.warn('sw error:', e2); }
+      try { rcal(); } catch(e3) { console.warn('rcal error:', e3); }
+    }
+
+  } catch(e) {
+    hideProgress();
+    alert('Error al generar PDF: ' + e.message);
+    console.error(e);
+  } finally {
+    if (btnComp) btnComp.disabled = false;
+  }
+}
+
+function resetCompromisos() {
+  // Limpiar formulario completo para nueva retroalimentación
+  FMT.alerta = null; FMT.retro = null;
+
+  // Reset dropzones
+  ['alerta','retro'].forEach(t => {
+    const box = document.getElementById('dz-'+t);
+    const nm  = document.getElementById('dz-'+t+'-name');
+    if(box){ box.classList.remove('loaded'); }
+    if(nm){ nm.style.display='none'; nm.textContent=''; }
+    const inp = document.getElementById('fi-'+t);
+    if(inp) inp.value = '';
+  });
+
+  // Hide previews
+  document.getElementById('comp-preview').style.display = 'none';
+  const ap = document.getElementById('form-alerta-preview');
+  const rp = document.getElementById('form-retro-preview');
+  if(ap) ap.innerHTML='';
+  if(rp) rp.innerHTML='';
+
+  // Clear canvases
+  clearCanvas('canvas-asesor');
+  clearCanvas('canvas-sup');
+
+  // Scroll to top of compromisos
+  document.getElementById('s-compromisos').scrollTop = 0;
+}
+
+// ── DRAG & DROP ───────────────────────────────────────────────
+// ── LOGO HANDLING ────────────────────────────────────────────
+let LOGOS = { left: null, right: null };  // base64 data URLs
+
+function loadLogo(side, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    LOGOS[side] = e.target.result;
+    // Update preview box
+    const box   = document.getElementById('logo-box-' + side);
+    const img   = document.getElementById('logo-preview-' + side);
+    const label = document.getElementById('logo-label-' + side);
+    img.src = e.target.result;
+    img.style.display = 'block';
+    box.classList.add('has-logo');
+    label.textContent = '✔ ' + file.name.substring(0,20);
+    // Update all form preview logos
+    updateLogoInPreviews(side, e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateLogoInPreviews(side, src) {
+  ['alerta','retro'].forEach(form => {
+    const img = document.getElementById(`fp-img-${side}-${form}`);
+    const txt = document.getElementById(`fp-txt-${side}-${form}`);
+    if (img && txt) {
+      img.src = src;
+      img.style.display = 'block';
+      txt.style.display = 'none';
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initCanvas('canvas-asesor');
+  initCanvas('canvas-sup');
+  ['dz-alerta','dz-retro'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('dragover', e=>{ e.preventDefault(); el.classList.add('dz-over'); });
+    el.addEventListener('dragleave', ()=>el.classList.remove('dz-over'));
+    el.addEventListener('drop', e=>{
+      e.preventDefault(); el.classList.remove('dz-over');
+      const f = e.dataTransfer.files[0]; if(!f) return;
+      const tipo = id==='dz-alerta'?'alerta':'retro';
+      const inp = document.getElementById(tipo==='alerta'?'fi-alerta':'fi-retro');
+      const dt = new DataTransfer(); dt.items.add(f); inp.files=dt.files;
+      loadFormato(tipo, inp);
+    });
+  });
+});
+
+function verDetalle(idx) {
+  const r = D.calidad[idx]; if (!r) return;
+
+  // Header
+  const badge = r._fromCompromisos
+    ? ' <span style="background:#DCFCE7;color:#166534;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;margin-left:8px">Firmado</span>'
+    : '';
+  document.getElementById('cdm-title').innerHTML = r.asesor + ' &mdash; ' + r.supervisor + badge;
+
+  // Basic fields
+  document.getElementById('cdm-id').textContent      = r.idLlamada || '—';
+  document.getElementById('cdm-fecha').textContent   = r.fecha     || '—';
+  document.getElementById('cdm-tipo').textContent    = r.tipoAlerta || r.tipoError || '—';
+  document.getElementById('cdm-nota').textContent    = typeof r.nota==='number' ? r.nota.toFixed(1) : '—';
+  document.getElementById('cdm-analisis').textContent= r.analisis  || r.descripcion || '—';
+  document.getElementById('cdm-desc').textContent    = r.oportunidad || '—';
+  document.getElementById('cdm-rec').textContent     = r.planAccion  || r.recomendacion || '—';
+
+  // Compromisos (only if from compromisos tab)
+  const compWrap = document.getElementById('cdm-comp-wrap');
+  if (r.compromisos && r.compromisos !== '—') {
+    document.getElementById('cdm-compromisos').textContent = r.compromisos;
+    compWrap.style.display = 'block';
+  } else {
+    compWrap.style.display = 'none';
+  }
+
+  // Signatures
+  const firmasWrap = document.getElementById('cdm-firmas-wrap');
+  const btnPDF     = document.getElementById('cdm-btn-pdf');
+  if (r._fromCompromisos && (r.firmaAsesor || r.firmaSupervisor)) {
+    firmasWrap.style.display = 'block';
+    btnPDF.style.display     = 'block';
+    btnPDF.dataset.idx       = idx;
+    document.getElementById('cdm-sup-nombre').textContent = r.supervisor || SUP_NOMBRE;
+    // Firma asesor
+    const imgA = document.getElementById('cdm-firma-asesor');
+    if (r.firmaAsesor) { imgA.src = r.firmaAsesor; imgA.style.display = 'block'; }
+    else imgA.style.display = 'none';
+    // Firma supervisor
+    const imgS = document.getElementById('cdm-firma-sup');
+    if (r.firmaSupervisor) { imgS.src = r.firmaSupervisor; imgS.style.display = 'block'; }
+    else imgS.style.display = 'none';
+  } else {
+    firmasWrap.style.display = 'none';
+    btnPDF.style.display     = 'none';
+  }
+
+  document.getElementById('cal-detail-modal').style.display = 'flex';
+}
+
+// ── HOME DRAG & DROP ─────────────────────────────────────────
+(function(){
+  var homeEl=document.getElementById('home');
+  if(!homeEl) return;
+  homeEl.addEventListener('dragover',function(e){e.preventDefault();homeEl.style.outline='2px solid rgba(245,158,11,.5)';});
+  homeEl.addEventListener('dragleave',function(){homeEl.style.outline='';});
+  homeEl.addEventListener('drop',function(e){
+    e.preventDefault(); homeEl.style.outline='';
+    if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+  });
+})();
+
+function actualizarSkillCards(){
+  // Mostrar en las tarjetas del selector si ya tienen datos cargados
+  ['inbound','chat'].forEach(function(sk){
+    const card = document.querySelector('.skill-card[onclick*="' + sk + '"]');
+    if(!card) return;
+    let badge = card.querySelector('.skill-loaded-badge');
+    if(SKILL_DATA[sk] && SKILL_DATA[sk].file){
+      if(!badge){
+        badge = document.createElement('div');
+        badge.className = 'skill-loaded-badge';
+        badge.style.cssText = 'margin-top:8px;font-size:10px;font-weight:700;color:#86EFAC;'
+          + 'background:rgba(22,163,74,.15);border:1px solid rgba(22,163,74,.3);'
+          + 'border-radius:6px;padding:3px 10px;display:inline-block';
+        card.appendChild(badge);
+      }
+      badge.textContent = '✔ ' + SKILL_DATA[sk].file;
+    } else {
+      if(badge) badge.remove();
+    }
+  });
+}
+
+
+// ══ AUTO-GUARDAR DATOS POR SKILL ══════════════════════════════
+// Cuando se carga un Excel, guarda automáticamente los datos
+// de cada skill en el caché, sin importar cuál skill está activo
+function autoGuardarSkillData(fileName){
+  const fecha = new Date().toLocaleDateString('es-CO', {month:'long', year:'numeric'});
+  // Guardar según skill activo
+  if(SKILL_ACTUAL === 'chat'){
+    if((D.chat||[]).length > 0){
+      SKILL_DATA['chat'] = {
+        oscar:[], ximena:[], chat:[...D.chat],
+        calidad:[], file:fileName, fecha:fecha
+      };
+    }
+  } else {
+    if((D.oscar||[]).length > 0 || (D.ximena||[]).length > 0){
+      SKILL_DATA['inbound'] = {
+        oscar:[...(D.oscar||[])], ximena:[...(D.ximena||[])], chat:[],
+        calidad:[...(D.calidad||[])], file:fileName, fecha:fecha
+      };
+    }
+  }
+}
+
+</script>
+</body>
+</html>

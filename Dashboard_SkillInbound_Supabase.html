@@ -165,17 +165,21 @@ body.mode-agente .hcards .nc:nth-child(1){display:none !important}
 body.mode-agente .hcards .nc:nth-child(4){display:none !important}
 body.mode-agente #btn-pdf{display:none !important}
 
-/* Chat mode: only Dashboard + Datos */
-body.mode-chat .ntab[data-tab="calidad"]{display:none !important}
-body.mode-chat .ntab[data-tab="compromisos"]{display:none !important}
-body.mode-chat .ntab[data-tab="evolucion"]{display:none !important}
-body.mode-chat #s-evolucion{display:none !important}
+/* Chat/RRSS/Email mode: only Dashboard + Datos (no calidad/compromisos/evolución) */
+body.mode-simple .ntab[data-tab="calidad"]{display:none !important}
+body.mode-simple .ntab[data-tab="compromisos"]{display:none !important}
+body.mode-simple .ntab[data-tab="evolucion"]{display:none !important}
+body.mode-simple #s-evolucion{display:none !important}
 body.mode-agente .ntab[data-tab="evolucion"]{display:none !important}
 body.mode-agente #s-evolucion{display:none !important}
-body.mode-chat #s-calidad{display:none !important}
-body.mode-chat #s-compromisos{display:none !important}
-body.mode-chat .hcards .nc[data-tab="calidad"]{display:none !important}
-body.mode-chat .hcards .nc[data-tab="compromisos"]{display:none !important}
+body.mode-simple #s-calidad{display:none !important}
+body.mode-simple #s-compromisos{display:none !important}
+body.mode-simple .hcards .nc[data-tab="calidad"]{display:none !important}
+body.mode-simple .hcards .nc[data-tab="compromisos"]{display:none !important}
+/* Plantilla nueva (por categorías): sin PDF ni evolución, esquema distinto */
+body.mode-nuevo #btn-pdf{display:none !important}
+body.mode-nuevo .ntab[data-tab="evolucion"]{display:none !important}
+body.mode-nuevo #s-evolucion{display:none !important}
 
 
 /* ═══ SKILL SELECTOR SCREEN ═══ */
@@ -887,6 +891,20 @@ tbody td:first-child{color:var(--txt);font-size:10px}
         <p>Supervisor Antonio.<br>Indicadores de chat.</p>
         <div class="skill-badge">Antonio</div>
       </div>
+      <div class="skill-card" onclick="seleccionarSkill('rrss')">
+        <div class="skill-tag">Redes Sociales</div>
+        <div class="skill-card-icon">📱</div>
+        <h3>RRSS</h3>
+        <p>Indicadores de redes sociales.</p>
+        <div class="skill-badge">RRSS</div>
+      </div>
+      <div class="skill-card" onclick="seleccionarSkill('email')">
+        <div class="skill-tag">Correo</div>
+        <div class="skill-card-icon">📧</div>
+        <h3>Email</h3>
+        <p>Indicadores de correo.</p>
+        <div class="skill-badge">Email</div>
+      </div>
     </div>
     <button class="skill-back-btn" onclick="volverLoginDesdeSkill()">← Volver al inicio</button>
   </div>
@@ -942,6 +960,11 @@ tbody td:first-child{color:var(--txt);font-size:10px}
         <p>Carga el Formato de Alerta y el de Retroalimentación. El asesor firma y descarga el PDF oficial.</p>
         <div class="nbadge" style="color:var(--gold);background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3)">→ Acceso directo</div>
       </div>
+      <div class="nc" id="c5" onclick="goToPendientes()" style="border-color:rgba(220,38,38,.3)">
+        <div class="nci" style="background:rgba(220,38,38,.15)">☎️</div><h3>Tipificaciones Pendientes</h3>
+        <p>Llamadas pendientes por tipificar, con acceso directo al formulario de gestión.</p>
+        <div class="nbadge" id="b5" style="color:#DC2626;background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.3)">Carga un Excel con la hoja Pendientes_Tipificación</div>
+      </div>
     </div>
   </div>
   <div class="hfoot">
@@ -966,6 +989,7 @@ tbody td:first-child{color:var(--txt);font-size:10px}
       <button class="ntab" data-tab="calidad" onclick="sw('calidad')">⭐ Calidad</button>
       <button class="ntab" data-tab="evolucion" data-rol="supervisor" onclick="sw('evolucion')">📈 Evolución</button>
       <button class="ntab" data-tab="compromisos" data-rol="supervisor" onclick="sw('compromisos')">📋 Compromisos</button>
+      <button class="ntab" data-tab="pendientes" onclick="sw('pendientes')">☎️ Pendientes</button>
     </div>
     <div class="nright">
       <div class="slw" id="sel-wrap" title="Filtrar por supervisor">
@@ -999,8 +1023,8 @@ tbody td:first-child{color:var(--txt);font-size:10px}
         </tr></thead><tbody id="tind"></tbody></table>
       </div>
       <div class="t2g">
-        <div class="card"><div class="ch">🏆 TOP 10 — MEJOR AHT <span class="chsub">menor tiempo</span></div><div id="t10a"></div></div>
-        <div class="card"><div class="ch">🏅 TOP 10 — NOTA CALIDAD <span class="chsub">mayor nota</span></div><div id="t10c"></div></div>
+        <div class="card"><div class="ch">🏆 TOP 10 — <span id="t10a-title">MEJOR AHT</span> <span class="chsub">menor tiempo</span></div><div id="t10a"></div></div>
+        <div class="card"><div class="ch">🏅 TOP 10 — <span id="t10c-title">NOTA CALIDAD</span> <span class="chsub">mayor nota</span></div><div id="t10c"></div></div>
       </div>
       <div class="afoot">
         <div class="leg">
@@ -1049,6 +1073,23 @@ tbody td:first-child{color:var(--txt);font-size:10px}
       </div>
     </div>
 
+    <!-- TIPIFICACIONES PENDIENTES -->
+    <div class="sec" id="s-pendientes">
+      <div class="fb">
+        <label>Buscar:</label>
+        <input type="text" id="pend-srch" placeholder="Nombre del agente..." oninput="renderPendientes()" style="width:210px">
+        <span id="pend-cnt" style="font-size:11px;color:var(--txt)"></span>
+      </div>
+      <div class="card">
+        <div class="ch">LLAMADAS PENDIENTES POR TIPIFICAR</div>
+        <div class="dscroll">
+          <table><thead><tr>
+            <th>#</th><th>Agente</th><th>Cola</th><th>Macroproceso</th><th>Proceso</th>
+            <th>Subproceso 1</th><th>Subproceso 2</th><th>Observaciones</th><th>Gestión</th>
+          </tr></thead><tbody id="pend-body"></tbody></table>
+        </div>
+      </div>
+    </div>
 
     <!-- EVOLUCION -->
     <div class="sec" id="s-evolucion">
@@ -1283,17 +1324,27 @@ let AGENTE_NOMBRE = null;          // Nombre del asesor logueado (para filtrar d
 // SKILL CONFIG
 // ════════════════════════════════════════════════════════════
 const SKILLS_CONFIG = {
-  inbound: { label: 'Inbound 📞', icon: '📞', color: '#4A1D96' },
-  chat:    { label: 'Chat 💬',    icon: '💬', color: '#1D4ED8' },
+  inbound: { label: 'Inbound 📞', shortLabel: 'Inbound', icon: '📞', color: '#4A1D96' },
+  chat:    { label: 'Chat 💬',    shortLabel: 'Chat',    icon: '💬', color: '#1D4ED8' },
+  rrss:    { label: 'RRSS 📱',    shortLabel: 'RRSS',    icon: '📱', color: '#DB2777' },
+  email:   { label: 'Email 📧',   shortLabel: 'Email',   icon: '📧', color: '#059669' },
 };
 
-// Supervisores que pertenecen a cada skill
+// Skills de "un solo bucket" (sin división por supervisor, solo Dashboard + Datos)
+const SIMPLE_SKILLS = ['chat', 'rrss', 'email'];
+// true cuando el skill activo no tiene split de supervisor (chat/rrss/email,
+// o cualquier skill cargado con la plantilla nueva por categorías)
+function soloUnBucket(){
+  return SIMPLE_SKILLS.includes(SKILL_ACTUAL) || !!(typeof NUEVO_TEMPLATE!=='undefined' && NUEVO_TEMPLATE);
+}
+
+// Supervisores que pertenecen a cada skill (formato antiguo de plantilla)
 // Edita aquí si agregas más supervisores
 const SKILL_SUPERVISORS = {
   inbound: ['oscar', 'ximena'],   // minúsculas para comparar
   chat:    ['antonio'],
 };
-let SKILL_ACTUAL = null;   // 'inbound' | 'chat'
+let SKILL_ACTUAL = null;   // 'inbound' | 'chat' | 'rrss' | 'email'
 
 // ════════════════════════════════════════════════════════════
 // INDICATOR FILTER STATE
@@ -1362,12 +1413,16 @@ function seleccionarSkill(skill){
   SKILL_ACTUAL = skill;
   const cfg = SKILLS_CONFIG[skill] || {};
   const icon  = cfg.icon  || '📋';
-  const label = skill === 'inbound' ? 'Inbound' : 'Chat';
+  const label = cfg.shortLabel || skill;
 
   // Apply/remove skill-specific body modes
-  document.body.classList.remove('mode-chat','mode-inbound');
-  if(skill === 'chat') document.body.classList.add('mode-chat');
-  else                 document.body.classList.add('mode-inbound');
+  document.body.classList.remove('mode-chat','mode-inbound','mode-simple');
+  if(SIMPLE_SKILLS.includes(skill)) document.body.classList.add('mode-simple');
+  else                              document.body.classList.add('mode-inbound');
+  // Plantilla nueva por categorías: sin PDF ni evolución
+  NUEVO_TEMPLATE = NUEVO_BY_SKILL[skill] || false;
+  INDS = IND_DEFS[skill] || INDS_LEGACY;
+  document.body.classList.toggle('mode-nuevo', NUEVO_TEMPLATE);
 
   // Update nav badge
   const navIcon  = document.getElementById('nav-skill-icon');
@@ -1466,7 +1521,7 @@ function cambiarSkill(){
   // Limpiar D para el próximo skill
   D.oscar=[]; D.ximena=[]; D.chat=[]; D.calidad=[]; D.file=''; D.fecha='';
   SKILL_ACTUAL = null;
-  document.body.classList.remove('mode-chat','mode-inbound');
+  document.body.classList.remove('mode-chat','mode-inbound','mode-simple','mode-nuevo');
   // Reset status dot
   const sdot = document.getElementById('sdot');
   if(sdot) sdot.classList.remove('on');
@@ -1485,7 +1540,7 @@ function refreshSupDropdown(){
   if(!sel) return;
   const current = sel.value;
   let sups = [];
-  if(SKILL_ACTUAL==='chat'){
+  if(soloUnBucket()){
     sups = [...new Set((D.chat||[]).map(r => r.supervisor).filter(Boolean))].sort();
   } else {
     sups = [...new Set([
@@ -1563,12 +1618,12 @@ function cerrarSesion(){
 // ══ GLOBALS ══
 let D={oscar:[],ximena:[],chat:[],calidad:[],file:'',fecha:''};
 // Cache de datos por skill para no perder lo cargado al cambiar
-const SKILL_DATA = { inbound: null, chat: null };
+const SKILL_DATA = { inbound: null, chat: null, rrss: null, email: null };
 const audioStore=new Map(), statusMap=new Map();
 let activeAudio=null;
 
-// ══ INDICADORES ══
-const INDS=[
+// ══ INDICADORES (plantilla antigua, columnas fijas) ══
+const INDS_LEGACY=[
   {n:1,nm:'Err. Radicados',    vC:'C', eC:'D', meta:'0%',    t:'inv', mV:0,    aht:false, fmt:'pct2'},
   {n:2,nm:'Mal Radicados',     vC:'E', eC:'F', meta:'0%',    t:'inv', mV:0,    aht:false, fmt:'pct2'},
   {n:3,nm:'Eval. Conocimiento',vC:'G', eC:'H', meta:'≥90%',  t:'nor', mV:.9,   aht:false, fmt:'pct1'},
@@ -1583,6 +1638,8 @@ const INDS=[
   {n:12,nm:'Nota Calidad',     vC:'Y', eC:'Z', meta:'≥97%',  t:'nor', mV:.97,  aht:false, fmt:'pct1'},
   {n:13,nm:'% Desconexiones',  vC:'AA',eC:'AB',meta:'≤4%',   t:'inv', mV:.04,  aht:false, fmt:'pct2'},
 ];
+// INDS activo: apunta a INDS_LEGACY (plantilla vieja) o a IND_DEFS[skill] (plantilla nueva)
+let INDS = INDS_LEGACY;
 
 function fmtInd(v,ind){
   if(v===null||v===undefined||v==='') return null;
@@ -1735,35 +1792,204 @@ function parseCalidad(ws){
 
 function findSheet(wb,name){return wb.SheetNames.find(s=>s.toLowerCase().includes(name.toLowerCase()));}
 
+// ══════════════════════════════════════════════════════════════
+// PLANTILLA NUEVA POR CATEGORÍAS — hojas "Indicadores_<mes>_<SKILL>"
+// Fila 1: categorías (ERRORES OPERACIONALES, AHT, NPS, ...)
+// Fila 2: subcolumnas (Resultado, Meta, Cumplimiento) por categoría
+// ══════════════════════════════════════════════════════════════
+let NUEVO_TEMPLATE = false;         // true si el skill actual viene de esta plantilla
+const NUEVO_BY_SKILL = {};          // { inbound:true/false, chat:.., rrss:.., email:.. }
+const IND_DEFS  = {};               // indicadores dinámicos por skill (mismo shape que INDS_LEGACY)
+const EXTRA_DEFS = {};              // columnas informativas por skill (ej. PRODUCTIVIDAD)
+let PENDIENTES = [];                // hoja "Pendientes_Tipificación" (no depende del skill)
+
+// Dirección (t) y formato (fmt) esperados por nombre de categoría.
+// Si aparece una categoría nueva no listada aquí, se asume 'nor'/'pct1'.
+const CAT_META = {
+  'ERRORES OPERACIONALES':{t:'inv',fmt:'pct2'}, 'ERRORES OPERACIONES':{t:'inv',fmt:'pct2'},
+  'MAL RADICADOS':{t:'inv',fmt:'pct2'},
+  'EVALUACION DE CONOCIMIENTO':{t:'nor',fmt:'pct1'},
+  'ENVIO ENCUESTA':{t:'nor',fmt:'pct1'},
+  'AHT':{t:'inv',fmt:'seg'}, 'TMO':{t:'inv',fmt:'seg'}, 'TMR':{t:'inv',fmt:'seg'},
+  'NPS':{t:'nor',fmt:'pct1'},
+  'FCR':{t:'nor',fmt:'pct1'},
+  'AUSENTISMO':{t:'inv',fmt:'pct2'},
+  'TIPIFICACION':{t:'nor',fmt:'pct1'}, 'TIPIFICACIÓN':{t:'nor',fmt:'pct1'},
+  'CALIDAD':{t:'nor',fmt:'pct1'},
+  'ADHERENCIA':{t:'nor',fmt:'pct1'},
+  'DESCONEXIONES':{t:'inv',fmt:'pct2'}, 'DESCONEXIONES PROMEDIO':{t:'inv',fmt:'pct2'},
+  'DESCONEXION PROMEDIO':{t:'inv',fmt:'pct2'},
+};
+function normCat(s){ return String(s||'').trim().toUpperCase().replace(/\s+/g,' '); }
+function metaLabel(mV,ind){
+  if(mV===null||mV===undefined) return '—';
+  return (ind.t==='inv'?'≤':'≥') + (fmtInd(mV,ind)||mV);
+}
+
+// Lee fila 1 (categorías, celda combinada => solo la primera col trae valor)
+// y fila 2 (subcolumnas) desde la columna C en adelante.
+function leerCategoriasIndicadores(ws,range){
+  const cats=[]; let cur=null;
+  for(let c=2;c<=range.e.c;c++){
+    const catRaw=gcv(ws,0,c);
+    if(catRaw && String(catRaw).trim()!==''){ cur={name:String(catRaw).trim(), cols:[]}; cats.push(cur); }
+    const sub=gcv(ws,1,c);
+    if(cur && sub!==null && sub!==undefined && String(sub).trim()!=='')
+      cur.cols.push({label:String(sub).trim(), col:c});
+  }
+  return cats;
+}
+
+function numIndVal(raw,fmt){
+  if(raw===null||raw===undefined||raw==='') return null;
+  if(fmt==='seg'){
+    const n=typeof raw==='number'?raw:parseFloat(String(raw).replace(',','.'));
+    return isNaN(n)?null:n;
+  }
+  if(typeof raw==='number') return raw>1?raw/100:raw;
+  const s=String(raw).trim().replace(/\s/g,'').replace('%','').replace(',','.');
+  const p=parseFloat(s);
+  return isNaN(p)?null:(p>1?p/100:p);
+}
+
+// Parsea una hoja "Indicadores_<mes>_<SKILL>" completa: indicadores + agentes.
+// Categorías con exactamente 3 subcolumnas (Resultado/Meta/Cumplimiento) se
+// tratan como indicador de semáforo; el resto (ej. PRODUCTIVIDAD con 6 cols)
+// se guarda como columnas informativas ("extras").
+function parseIndicadoresSkill(ws){
+  const range=XLSX.utils.decode_range(ws['!ref']||'A1:A1');
+  const cats=leerCategoriasIndicadores(ws,range);
+  const inds=[], extras=[];
+  cats.forEach(c=>{
+    if(c.cols.length===3){
+      const meta=CAT_META[normCat(c.name)]||{t:'nor',fmt:'pct1'};
+      inds.push({
+        n:inds.length+1, nm:c.name, t:meta.t, fmt:meta.fmt, aht:meta.fmt==='seg',
+        vC:'k'+inds.length, eC:'k'+inds.length+'_ok',
+        colVal:c.cols[0].col, colMeta:c.cols[1].col,
+        mV:null, meta:'—'
+      });
+    } else {
+      c.cols.forEach(col=>extras.push({label:c.name+' — '+col.label, key:'x'+extras.length, col:col.col}));
+    }
+  });
+  const agentes=[];
+  for(let r=2;r<=range.e.r;r++){
+    const ced=gcv(ws,r,0), nom=gcv(ws,r,1);
+    if(!nom || typeof nom!=='string' || !nom.trim()) continue;
+    const row={cedula:ced, nombre:String(nom).trim().replace(/ /g,'').trim(), supervisor:''};
+    inds.forEach(ind=>{
+      const v=numIndVal(gcv(ws,r,ind.colVal),ind.fmt);
+      const m=numIndVal(gcv(ws,r,ind.colMeta),ind.fmt);
+      row[ind.vC]=v;
+      if(ind.mV===null && m!==null) ind.mV=m;
+      row[ind.eC]=(v!==null && m!==null)?(meets(v,{t:ind.t,mV:m})?'OK':'NO'):null;
+    });
+    extras.forEach(ex=>{ row[ex.key]=gcv(ws,r,ex.col); });
+    agentes.push(row);
+  }
+  inds.forEach(ind=>{ ind.meta = metaLabel(ind.mV,ind); });
+  return {inds, extras, agentes};
+}
+
+// Hoja "Pendientes_Tipificación": Nombre_Agente, id_llamada_genesys, cola,
+// macroproceso, proceso, subproceso_uno, subproceso_dos, observaciones, Link_Gestion
+function parsePendientesTipificacion(ws){
+  if(!ws) return [];
+  const range=XLSX.utils.decode_range(ws['!ref']||'A1:A1');
+  let hdr=-1;
+  for(let r=0;r<=Math.min(5,range.e.r);r++){
+    const v=gcv(ws,r,0);
+    if(v && String(v).toLowerCase().indexOf('nombre_agente')!==-1){ hdr=r; break; }
+  }
+  if(hdr===-1) return [];
+  const rows=[];
+  for(let r=hdr+1;r<=range.e.r;r++){
+    const nom=gcv(ws,r,0);
+    if(!nom || typeof nom!=='string' || !nom.trim()) continue;
+    rows.push({
+      agente:String(nom).trim(),
+      idLlamada:String(gcv(ws,r,1)||''),
+      cola:String(gcv(ws,r,2)||''),
+      macroproceso:String(gcv(ws,r,3)||''),
+      proceso:String(gcv(ws,r,4)||''),
+      subproceso1:String(gcv(ws,r,5)||''),
+      subproceso2:String(gcv(ws,r,6)||''),
+      observaciones:String(gcv(ws,r,7)||''),
+      link:String(gcv(ws,r,8)||'')
+    });
+  }
+  return rows;
+}
+
 function processFile(file){
   document.getElementById('loading').style.display='flex';
   const reader=new FileReader();
   reader.onload=e=>{
     try{
       const wb=XLSX.read(e.target.result,{type:'array'});
+
+      // Hoja de pendientes por tipificar: independiente del skill/formato
+      const pendSheet=wb.SheetNames.find(s=>/pendientes/i.test(s)&&/tipific/i.test(s));
+      if(pendSheet) PENDIENTES=parsePendientesTipificacion(wb.Sheets[pendSheet]);
+
       // Detectar formato
       const newDatos=findSheet(wb,'Datos');
       const oldOscar=findSheet(wb,'Oscar');
       const oldXimena=findSheet(wb,'Ximena');
       const calSheet=findSheet(wb,'Calidad');
+      // Plantilla nueva por categorías: "Indicadores_<mes>_<SKILL>" (un excel, los 4 skills)
+      const skillSheets={
+        inbound: wb.SheetNames.find(s=>/indicadores/i.test(s)&&/inbound/i.test(s)),
+        chat:    wb.SheetNames.find(s=>/indicadores/i.test(s)&&/chat/i.test(s)),
+        rrss:    wb.SheetNames.find(s=>/indicadores/i.test(s)&&/rrss/i.test(s)),
+        email:   wb.SheetNames.find(s=>/indicadores/i.test(s)&&/email/i.test(s)),
+      };
+      const tieneNueva=Object.values(skillSheets).some(Boolean);
+      const fecha=new Date().toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+
       if(newDatos){
         parseNuevoFormato(wb.Sheets[newDatos]);
+        D.calidad=calSheet?parseCalidad(wb.Sheets[calSheet]):[];
+        NUEVO_BY_SKILL[SKILL_ACTUAL]=false;
       } else if(oldOscar&&oldXimena){
         D.oscar=parseViejoFormato(wb.Sheets[oldOscar],'Oscar');
         D.ximena=parseViejoFormato(wb.Sheets[oldXimena],'Ximena');
+        D.calidad=calSheet?parseCalidad(wb.Sheets[calSheet]):[];
+        NUEVO_BY_SKILL[SKILL_ACTUAL]=false;
+      } else if(tieneNueva){
+        // Parsea todos los skills presentes en el excel de una sola vez
+        Object.keys(skillSheets).forEach(skill=>{
+          const sName=skillSheets[skill];
+          if(!sName) return;
+          const {inds,extras,agentes}=parseIndicadoresSkill(wb.Sheets[sName]);
+          IND_DEFS[skill]=inds; EXTRA_DEFS[skill]=extras; NUEVO_BY_SKILL[skill]=true;
+          SKILL_DATA[skill]={oscar:[], ximena:[], chat:agentes, calidad:[], file:file.name, fecha:fecha};
+        });
+        if(!skillSheets[SKILL_ACTUAL])
+          throw new Error('El archivo no trae la hoja "Indicadores_..._'+SKILL_ACTUAL.toUpperCase()+'" para este skill.');
+        const saved=SKILL_DATA[SKILL_ACTUAL];
+        D.oscar=[]; D.ximena=[]; D.chat=saved.chat; D.calidad=[];
       } else {
         throw new Error('No se encontraron las hojas de datos. Usa la plantilla proporcionada.');
       }
-      D.calidad=calSheet?parseCalidad(wb.Sheets[calSheet]):[];
+
       D.file=file.name;
-      D.fecha=new Date().toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+      D.fecha=fecha;
+      // Reflejar el formato del skill activo en el estado global de render
+      NUEVO_TEMPLATE = !!NUEVO_BY_SKILL[SKILL_ACTUAL];
+      INDS = NUEVO_TEMPLATE ? (IND_DEFS[SKILL_ACTUAL]||[]) : INDS_LEGACY;
+      document.body.classList.toggle('mode-nuevo', NUEVO_TEMPLATE);
       statusMap.clear(); audioStore.clear();
       document.getElementById('loading').style.display='none';
-      // Auto-guardar en caché de ambos skills si el Excel tiene datos de los dos
-      autoGuardarSkillData(file.name);
+      // Auto-guardar en caché de skills (solo aplica a la plantilla antigua;
+      // la plantilla nueva ya quedó cacheada arriba en SKILL_DATA por skill)
+      if(!tieneNueva) autoGuardarSkillData(file.name);
       unlockCards();
       refreshSupDropdown();
       initIndFilter();
+      renderPendientes();
+      actualizarSkillCards();
     }catch(err){
       document.getElementById('loading').style.display='none';
       alert('Error procesando el archivo:\n'+err.message);
@@ -1774,15 +2000,15 @@ function processFile(file){
 
 // ══ NAVEGACIÓN ══
 function unlockCards(){
-  const chatRows = D.chat||[]; const tot=(SKILL_ACTUAL==='chat'?chatRows.length:D.oscar.length+D.ximena.length);
+  const single = soloUnBucket();
+  const chatRows = D.chat||[]; const tot=(single?chatRows.length:D.oscar.length+D.ximena.length);
   document.getElementById('sdot').classList.add('on');
-  var skillLabel = SKILL_ACTUAL==='chat'?'Chat':'Inbound';
+  var skillLabel = (SKILLS_CONFIG[SKILL_ACTUAL]&&SKILLS_CONFIG[SKILL_ACTUAL].shortLabel)||'Inbound';
   document.getElementById('stxt').textContent=`✔ ${D.file} [${skillLabel}] — ${tot} asesores · ${D.calidad.length} registros de calidad`;
-  const isChat = typeof SKILL_ACTUAL!=='undefined' && SKILL_ACTUAL==='chat';
   const isAgente = typeof ROL_ACTUAL!=='undefined' && ROL_ACTUAL==='agente';
   const cardsToUnlock = isAgente
     ? [[2,'→ Ver mis datos'],[3,'→ Ver calidad']]
-    : isChat
+    : single
       ? [[1,'→ Ver indicadores'],[2,'→ Ver asesores']]
       : [[1,'→ Ver indicadores'],[2,'→ Ver asesores'],[3,'→ Ver errores'],[4,'→ Compromisos']];
   cardsToUnlock.forEach(([i,t])=>{
@@ -1804,25 +2030,28 @@ function showHome(){
   document.getElementById('home').style.display='block';
 }
 function sw(tab){
-  // In chat mode, redirect hidden tabs to dashboard
-  if(SKILL_ACTUAL==='chat' && (tab==='calidad'||tab==='compromisos')) tab='dashboard';
+  // En modo de un solo bucket (chat/rrss/email o plantilla nueva), no hay
+  // calidad/compromisos: redirigir esas pestañas al dashboard.
+  if(soloUnBucket() && (tab==='calidad'||tab==='compromisos')) tab='dashboard';
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('act'));
   document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('act'));
   document.getElementById('s-'+tab).classList.add('act');
-  const ti={dashboard:0,datos:1,calidad:2,evolucion:3,compromisos:4};
+  const ti={dashboard:0,datos:1,calidad:2,evolucion:3,compromisos:4,pendientes:5};
   document.querySelectorAll('.ntab')[ti[tab]].classList.add('act');
   if(tab==='compromisos') setTimeout(()=>{initCanvas('canvas-asesor');initCanvas('canvas-sup');},80);
   if(tab==='evolucion') setTimeout(()=>{ if(!EVOL_HIST.length) cargarEvolucion(); },100);
   // Update dashboard title
   if(tab==='dashboard'){
     const sel=document.getElementById('sel').value;
-    const isChat = typeof SKILL_ACTUAL!=='undefined' && SKILL_ACTUAL==='chat';
-  const lbl = isChat ? 'Chat — Antonio' : (sel==='oscar'?'Oscar':sel==='ximena'?'Ximena':'Promedio General');
+    const single = soloUnBucket();
+    const cfgLbl = (SKILLS_CONFIG[SKILL_ACTUAL]&&SKILLS_CONFIG[SKILL_ACTUAL].shortLabel)||'';
+    const lbl = single ? cfgLbl : (sel==='oscar'?'Oscar':sel==='ximena'?'Ximena':'Promedio General');
     document.getElementById('dtitle').textContent='Resumen del skill — '+lbl;
-    try{ if(D.oscar.length||D.ximena.length) rdash(); }catch(e){}
+    try{ if(D.oscar.length||D.ximena.length||(D.chat&&D.chat.length)) rdash(); }catch(e){}
   }
-  if(tab==='calidad')  try{ rcal(); }catch(e){}
-  if(tab==='datos')    try{ rdatos(); }catch(e){}
+  if(tab==='calidad')     try{ rcal(); }catch(e){}
+  if(tab==='datos')       try{ rdatos(); }catch(e){}
+  if(tab==='pendientes')  try{ renderPendientes(); }catch(e){}
 }
 
 function goToCompromisos() {
@@ -1831,10 +2060,41 @@ function goToCompromisos() {
   sw('compromisos');
 }
 
+function goToPendientes() {
+  document.getElementById('home').style.display = 'none';
+  document.getElementById('app').style.display  = 'block';
+  sw('pendientes');
+}
+
+// ══ TIPIFICACIONES PENDIENTES (hoja "Pendientes_Tipificación") ══
+function renderPendientes(){
+  const body=document.getElementById('pend-body');
+  if(!body) return;
+  const q=(document.getElementById('pend-srch')?.value||'').toLowerCase();
+  let rows=PENDIENTES||[];
+  if(q) rows=rows.filter(r=>r.agente.toLowerCase().includes(q));
+  const cntEl=document.getElementById('pend-cnt');
+  if(cntEl) cntEl.textContent=rows.length+' pendientes';
+  body.innerHTML=rows.length?rows.map((r,i)=>{
+    const bg=i%2===0?'':'style="background:#F8FAFF"';
+    const safeLink=r.link&&/^https?:\/\//i.test(r.link)?r.link:'';
+    const linkCell=safeLink
+      ?'<a href="'+cpEsc(safeLink)+'" target="_blank" rel="noopener noreferrer" style="color:var(--azul-lt);font-weight:700;text-decoration:none">Ver →</a>'
+      :'—';
+    return `<tr ${bg}><td>${i+1}</td>
+      <td style="text-align:left;font-weight:700;font-size:11px;white-space:nowrap">${cpEsc(r.agente)}</td>
+      <td>${cpEsc(r.cola)||'—'}</td><td>${cpEsc(r.macroproceso)||'—'}</td><td>${cpEsc(r.proceso)||'—'}</td>
+      <td>${cpEsc(r.subproceso1)||'—'}</td><td>${cpEsc(r.subproceso2)||'—'}</td>
+      <td style="text-align:left;max-width:260px;white-space:normal">${cpEsc(r.observaciones)||'—'}</td>
+      <td>${linkCell}</td></tr>`;
+  }).join(''):'<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--txt)">Sin registros. Carga un Excel con la hoja "Pendientes_Tipificación".</td></tr>';
+}
+
 function renderAll(){
   const sel=document.getElementById('sel').value;
-  const isChat = typeof SKILL_ACTUAL!=='undefined' && SKILL_ACTUAL==='chat';
-  const lbl = isChat ? 'Chat — Antonio' : (sel==='oscar'?'Oscar':sel==='ximena'?'Ximena':'Promedio General');
+  const single = soloUnBucket();
+  const cfgLbl = (SKILLS_CONFIG[SKILL_ACTUAL]&&SKILLS_CONFIG[SKILL_ACTUAL].shortLabel)||'';
+  const lbl = single ? cfgLbl : (sel==='oscar'?'Oscar':sel==='ximena'?'Ximena':'Promedio General');
   document.getElementById('dtitle').textContent=`Resumen del skill — ${lbl}`;
   document.getElementById('ci').textContent=`Corte: ${D.fecha} · ${D.file}`;
   document.getElementById('ft').textContent=`Skill Inbound — Uso interno · ${new Date().toLocaleDateString('es-CO')}`;
@@ -1843,7 +2103,7 @@ function renderAll(){
 
 // ══ HELPERS ══
 function getRows(){
-  if(typeof SKILL_ACTUAL!=='undefined'&&SKILL_ACTUAL==='chat') return [...(D.chat||[])];
+  if(soloUnBucket()) return [...(D.chat||[])];
   const s=document.getElementById('sel').value;
   if(s==='oscar')  return D.oscar;
   if(s==='ximena') return D.ximena;
@@ -1863,24 +2123,40 @@ function fv(v,f){
 }
 
 // ══ DASHBOARD ══
+function cntOK(rows,eC){ return rows.filter(r=>r[eC]==='OK'||r[eC]==='✔').length; }
+function cntNO(rows,eC){ return rows.filter(r=>r[eC]==='NO'||r[eC]==='✘').length; }
+
 function rdash(){
   const rows=getRows();
-  const aA=avg(rows,'M'),nA=avg(rows,'I'),adA=avg(rows,'U'),auA=avg(rows,'S');
-  const cAHT=cnt(rows,'N','✔');
-  const kpis=[
-    {l:'TOTAL AGENTES',v:rows.length,f:'0',s:'activos',bd:null},
-    {l:'AHT PROMEDIO',v:aA,f:'seg',s:'meta ≤ 370 seg',
-     bd:aA!==null?(aA<=370?'✔ Cumple meta':'✘ Fuera de meta'):'—',bc:aA!==null?(aA<=370?'kbdg cok':'kbdg cbd'):'kbdg cwn'},
-    {l:'NPS PROMEDIO',v:nA,f:'pct',s:'meta ≥ 80%',
-     bd:nA!==null?(nA>=.8?'✔ Cumple':nA>=.7?'~ Alerta':'✘ Fuera de meta'):'—',bc:nA!==null?(nA>=.8?'kbdg cok':nA>=.7?'kbdg cwn':'kbdg cbd'):'kbdg cwn'},
-    {l:'CUMPLEN AHT',v:cAHT,f:'0',s:'cumplen ≤370s',
-     bd:rows.length?Math.round(cAHT/rows.length*100)+'% del equipo':'—',
-     bc:rows.length&&cAHT/rows.length>=.7?'kbdg cok':rows.length&&cAHT/rows.length>=.5?'kbdg cwn':'kbdg cbd'},
-    {l:'ADHERENCIA',v:adA,f:'pct',s:'meta ≥ 95%',
-     bd:adA!==null?(adA>=.95?'✔ Cumple':adA>=.8?'~ Alerta':'✘ Fuera de meta'):'—',bc:adA!==null?(adA>=.95?'kbdg cok':adA>=.8?'kbdg cwn':'kbdg cbd'):'kbdg cwn'},
-    {l:'AUSENTISMO',v:auA,f:'pct2',s:'meta ≤ 5%',
-     bd:auA!==null?(auA<=.05?'✔ Cumple':auA<=.1?'~ Alerta':'✘ Fuera de meta'):'—',bc:auA!==null?(auA<=.05?'kbdg cok':auA<=.1?'kbdg cwn':'kbdg cbd'):'kbdg cwn'},
-  ];
+  // Los indicadores "clave" se ubican por nombre en vez de por letra fija,
+  // así funciona igual con la plantilla vieja (letras fijas) y la nueva
+  // (columnas dinámicas por categoría, distintas entre Inbound/Chat/RRSS/Email).
+  const findInd=re=>INDS.find(ind=>re.test(ind.nm));
+  const timeInd=findInd(/^(AHT|TMO|TMR)\b/i);
+  const npsInd =findInd(/^NPS$/i);
+  const adhInd =findInd(/ADHERENCIA/i);
+  const ausInd =findInd(/AUSENTISMO/i);
+  const calInd =findInd(/CALIDAD/i);
+
+  const aA =timeInd?avg(rows,timeInd.vC):null;
+  const nA =npsInd?avg(rows,npsInd.vC):null;
+  const adA=adhInd?avg(rows,adhInd.vC):null;
+  const auA=ausInd?avg(rows,ausInd.vC):null;
+  const cAHT=timeInd?cntOK(rows,timeInd.eC):0;
+  const mT=timeInd?timeInd.mV:370, mN=npsInd?npsInd.mV:.8, mAdh=adhInd?adhInd.mV:.95, mAus=ausInd?ausInd.mV:.05;
+
+  const kpis=[{l:'TOTAL AGENTES',v:rows.length,f:'0',s:'activos',bd:null}];
+  if(timeInd) kpis.push({l:timeInd.nm.toUpperCase()+' PROMEDIO',v:aA,f:'seg',s:'meta ≤ '+Math.round(mT)+' seg',
+    bd:aA!==null?(aA<=mT?'✔ Cumple meta':'✘ Fuera de meta'):'—',bc:aA!==null?(aA<=mT?'kbdg cok':'kbdg cbd'):'kbdg cwn'});
+  if(npsInd) kpis.push({l:'NPS PROMEDIO',v:nA,f:'pct',s:'meta ≥ '+Math.round(mN*100)+'%',
+    bd:nA!==null?(nA>=mN?'✔ Cumple':nA>=mN-.1?'~ Alerta':'✘ Fuera de meta'):'—',bc:nA!==null?(nA>=mN?'kbdg cok':nA>=mN-.1?'kbdg cwn':'kbdg cbd'):'kbdg cwn'});
+  if(timeInd) kpis.push({l:'CUMPLEN '+timeInd.nm.toUpperCase(),v:cAHT,f:'0',s:'cumplen meta ≤'+Math.round(mT)+'s',
+    bd:rows.length?Math.round(cAHT/rows.length*100)+'% del equipo':'—',
+    bc:rows.length&&cAHT/rows.length>=.7?'kbdg cok':rows.length&&cAHT/rows.length>=.5?'kbdg cwn':'kbdg cbd'});
+  if(adhInd) kpis.push({l:'ADHERENCIA',v:adA,f:'pct',s:'meta ≥ '+Math.round(mAdh*100)+'%',
+    bd:adA!==null?(adA>=mAdh?'✔ Cumple':adA>=mAdh-.15?'~ Alerta':'✘ Fuera de meta'):'—',bc:adA!==null?(adA>=mAdh?'kbdg cok':adA>=mAdh-.15?'kbdg cwn':'kbdg cbd'):'kbdg cwn'});
+  if(ausInd) kpis.push({l:'AUSENTISMO',v:auA,f:'pct2',s:'meta ≤ '+(mAus*100).toFixed(0)+'%',
+    bd:auA!==null?(auA<=mAus?'✔ Cumple':auA<=mAus*2?'~ Alerta':'✘ Fuera de meta'):'—',bc:auA!==null?(auA<=mAus?'kbdg cok':auA<=mAus*2?'kbdg cwn':'kbdg cbd'):'kbdg cwn'});
   document.getElementById('kgrid').innerHTML=kpis.map(k=>`
     <div class="kc"><div class="kh">${k.l}</div>
     <div class="kb"><div class="kv">${fv(k.v,k.f)}</div>
@@ -1892,7 +2168,7 @@ function rdash(){
     const bg=i%2===0?'':'style="background:#F8FAFF"';
     const pV=rows.map(r=>r[ind.vC]).filter(v=>typeof v==='number'&&v!==null);
     const pr=pV.length?pV.reduce((a,b)=>a+b,0)/pV.length:null;
-    const cm=cnt(rows,ind.eC,'✔'),nc=cnt(rows,ind.eC,'✘');
+    const cm=cntOK(rows,ind.eC),nc=cntNO(rows,ind.eC);
     const tot=cm+nc,pct=tot>0?cm/tot:0;
     let pFmt='—';
     if(pr!==null) pFmt=ind.aht?Math.round(pr)+' seg':ind.mV<=1?(pr*100).toFixed(2)+'%':pr.toFixed(1);
@@ -1902,27 +2178,32 @@ function rdash(){
       <td><span class="chip ${tot>0?cc(pct):'cwn'}">${tot>0?est(pct):'—'}</span></td></tr>`;
   }).join('');
 
-  // TOP 10 AHT
-  const aRows=[...rows].filter(r=>typeof r['M']==='number'&&r['M']>0).sort((a,b)=>a['M']-b['M']).slice(0,10);
-  const mxA=aRows.length?aRows[aRows.length-1]['M']:370;
+  // TOP 10 — mejor tiempo (AHT/TMO/TMR según el skill)
+  const t10aTitle=document.getElementById('t10a-title');
+  if(t10aTitle) t10aTitle.textContent='MEJOR '+(timeInd?timeInd.nm.toUpperCase():'AHT');
+  const aRows=timeInd?[...rows].filter(r=>typeof r[timeInd.vC]==='number'&&r[timeInd.vC]>0).sort((a,b)=>a[timeInd.vC]-b[timeInd.vC]).slice(0,10):[];
+  const mxA=aRows.length?aRows[aRows.length-1][timeInd.vC]:mT;
   document.getElementById('t10a').innerHTML=aRows.length?aRows.map((r,i)=>{
-    const v=r['M'],d=v-370,bp=Math.min(100,v/Math.max(mxA,370)*100);
+    const v=r[timeInd.vC],d=v-mT,bp=Math.min(100,v/Math.max(mxA,mT)*100);
     const rk=i===0?'g':i===1?'s':i===2?'b':'';
     return `<div class="t10r"><div class="t10rk ${rk}">${i+1}</div>
       <div style="flex:1;min-width:0"><div class="t10n">${r.nombre}</div>
-      <div class="bbg"><div class="bf ${v<=370?'bok':v<=450?'bwn':'bbd'}" style="width:${bp}%"></div></div></div>
+      <div class="bbg"><div class="bf ${v<=mT?'bok':v<=mT*1.2?'bwn':'bbd'}" style="width:${bp}%"></div></div></div>
       <div class="t10v">${Math.round(v)} seg</div>
       <div class="t10d ${d<=0?'dok':'dbd'}">${d<=0?'':'+'}${Math.round(d)}s</div></div>`;
-  }).join(''):'<div style="padding:20px;text-align:center;color:var(--txt);font-size:12px">Sin datos AHT</div>';
+  }).join(''):`<div style="padding:20px;text-align:center;color:var(--txt);font-size:12px">Sin datos de ${timeInd?timeInd.nm:'AHT'}</div>`;
 
-  // TOP 10 Calidad
-  const cRows=[...rows].filter(r=>typeof r['Y']==='number'&&r['Y']>0).sort((a,b)=>b['Y']-a['Y']).slice(0,10);
+  // TOP 10 — calidad (si el skill trae ese indicador)
+  const t10cTitle=document.getElementById('t10c-title');
+  if(t10cTitle) t10cTitle.textContent='NOTA '+(calInd?calInd.nm.toUpperCase():'CALIDAD');
+  const mCal=calInd?calInd.mV:.97;
+  const cRows=calInd?[...rows].filter(r=>typeof r[calInd.vC]==='number'&&r[calInd.vC]>0).sort((a,b)=>b[calInd.vC]-a[calInd.vC]).slice(0,10):[];
   document.getElementById('t10c').innerHTML=cRows.length?cRows.map((r,i)=>{
-    const v=r['Y'],d=v-.97,bp=Math.min(100,v*100);
+    const v=r[calInd.vC],d=v-mCal,bp=Math.min(100,v*100);
     const rk=i===0?'g':i===1?'s':i===2?'b':'';
     return `<div class="t10r"><div class="t10rk ${rk}">${i+1}</div>
       <div style="flex:1;min-width:0"><div class="t10n">${r.nombre}</div>
-      <div class="bbg"><div class="bf ${v>=.97?'bok':v>=.9?'bwn':'bbd'}" style="width:${bp}%"></div></div></div>
+      <div class="bbg"><div class="bf ${v>=mCal?'bok':v>=mCal*.9?'bwn':'bbd'}" style="width:${bp}%"></div></div></div>
       <div class="t10v">${(v*100).toFixed(1)}%</div>
       <div class="t10d ${d>=0?'dok':'dbd'}">${d>=0?'+':''}${(d*100).toFixed(1)}%</div></div>`;
   }).join(''):'<div style="padding:20px;text-align:center;color:var(--txt);font-size:12px">Sin datos de calidad</div>';
@@ -1932,10 +2213,11 @@ function rdash(){
 function rdatos(){
   const sup=document.getElementById('dsup').value;
   const q=(document.getElementById('dsrch').value||'').toLowerCase();
+  const cfgLbl=(SKILLS_CONFIG[SKILL_ACTUAL]&&SKILLS_CONFIG[SKILL_ACTUAL].shortLabel)||'';
   let rows=[];
-  if(SKILL_ACTUAL==='chat'){
-    // Chat: solo datos de Antonio y demás supervisores de chat
-    const chatRows = (D.chat||[]).map(r=>({...r,_sup:r.supervisor||'Antonio'}));
+  if(soloUnBucket()){
+    // Un solo bucket: todos los asesores del skill (sin split de supervisor)
+    const chatRows = (D.chat||[]).map(r=>({...r,_sup:r.supervisor||cfgLbl}));
     rows.push(...chatRows);
   } else {
     // Inbound: Oscar y Ximena
@@ -1950,7 +2232,9 @@ function rdatos(){
 
   // Build headers using only visible indicators
   const visibleInds = INDS.filter(ind => !IND_VISIBLE || IND_VISIBLE[ind.vC] !== false);
-  const indHeaders  = visibleInds.map(ind => '<th>' + ind.nm + '</th>').join('');
+  const extras = EXTRA_DEFS[SKILL_ACTUAL]||[];
+  const indHeaders  = visibleInds.map(ind => '<th>' + ind.nm + '</th>').join('')
+    + extras.map(ex => '<th>' + ex.label + '</th>').join('');
   document.getElementById('dhead').innerHTML = '<th>#</th><th>Asesor</th><th>Sup.</th>' + indHeaders;
 
   document.getElementById('dbody').innerHTML=rows.map((r,i)=>{
@@ -1962,6 +2246,9 @@ function rdatos(){
       const cls=ok?'vok':'vbd';
       const fmt=fmtInd(val,ind)||'—';
       return '<td class="' + cls + '">' + fmt + '</td>';
+    }).join('') + extras.map(ex=>{
+      const val=r[ex.key];
+      return '<td class="vna">' + (val===null||val===undefined||val===''?'—':val) + '</td>';
     }).join('');
     return `<tr ${bg}><td>${i+1}</td>
       <td style="text-align:left;font-weight:700;font-size:11px;white-space:nowrap">${r.nombre}</td>
@@ -3513,7 +3800,7 @@ function verDetalle(idx) {
 
 function actualizarSkillCards(){
   // Mostrar en las tarjetas del selector si ya tienen datos cargados
-  ['inbound','chat'].forEach(function(sk){
+  ['inbound','chat','rrss','email'].forEach(function(sk){
     const card = document.querySelector('.skill-card[onclick*="' + sk + '"]');
     if(!card) return;
     let badge = card.querySelector('.skill-loaded-badge');
@@ -3531,6 +3818,16 @@ function actualizarSkillCards(){
       if(badge) badge.remove();
     }
   });
+  // Badge de la tarjeta home "Tipificaciones Pendientes"
+  const b5=document.getElementById('b5');
+  if(b5){
+    if(PENDIENTES && PENDIENTES.length){
+      b5.textContent='→ ' + PENDIENTES.length + ' pendientes';
+      b5.style.color='#DC2626'; b5.style.background='rgba(220,38,38,.12)'; b5.style.borderColor='rgba(220,38,38,.3)';
+    } else {
+      b5.textContent='Carga un Excel con la hoja Pendientes_Tipificación';
+    }
+  }
 }
 
 
@@ -4123,6 +4420,10 @@ function confirmarFecha(){
 }
 
 </script>
+
+</div><!-- /#app — cierre que faltaba: sin esto, el modal de fecha, el chat-fab
+  y el chat-panel quedaban atrapados dentro de #app (display:none) y nunca
+  se mostraban al cargar un Excel desde la pantalla Home -->
 
 <div id="chat-panel">
   <!-- Header -->

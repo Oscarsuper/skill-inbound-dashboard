@@ -897,6 +897,13 @@ tbody td:first-child{color:var(--txt);font-size:10px}
         <p>Indicadores de correo.</p>
         <div class="skill-badge">Email</div>
       </div>
+      <div class="skill-card" onclick="seleccionarSkill('monitoreo')">
+        <div class="skill-tag">Transaccional</div>
+        <div class="skill-card-icon">🛡️</div>
+        <h3>Monitoreo</h3>
+        <p>Volumen de gestión por plataforma:<br>Feedzai, Smart Vista y FRAML.</p>
+        <div class="skill-badge">Monitoreo</div>
+      </div>
     </div>
     <button class="skill-back-btn" onclick="volverLoginDesdeSkill()">← Volver al inicio</button>
   </div>
@@ -1326,14 +1333,19 @@ let PUEDE_CARGAR  = false;         // true = habilitado para subir los Excel
 // SKILL CONFIG
 // ════════════════════════════════════════════════════════════
 const SKILLS_CONFIG = {
-  inbound: { label: 'Inbound 📞', shortLabel: 'Inbound', icon: '📞', color: '#4A1D96' },
-  chat:    { label: 'Chat 💬',    shortLabel: 'Chat',    icon: '💬', color: '#1D4ED8' },
-  rrss:    { label: 'RRSS 📱',    shortLabel: 'RRSS',    icon: '📱', color: '#DB2777' },
-  email:   { label: 'Email 📧',   shortLabel: 'Email',   icon: '📧', color: '#059669' },
+  inbound:   { label: 'Inbound 📞',   shortLabel: 'Inbound',   icon: '📞', color: '#4A1D96' },
+  chat:      { label: 'Chat 💬',      shortLabel: 'Chat',      icon: '💬', color: '#1D4ED8' },
+  rrss:      { label: 'RRSS 📱',      shortLabel: 'RRSS',      icon: '📱', color: '#DB2777' },
+  email:     { label: 'Email 📧',     shortLabel: 'Email',     icon: '📧', color: '#059669' },
+  monitoreo: { label: 'Monitoreo 🛡️', shortLabel: 'Monitoreo', icon: '🛡️', color: '#B45309' },
 };
 
 // Skills de "un solo bucket" (sin división por supervisor, solo Dashboard + Datos)
-const SIMPLE_SKILLS = ['chat', 'rrss', 'email'];
+const SIMPLE_SKILLS = ['chat', 'rrss', 'email', 'monitoreo'];
+
+// Monitoreo transaccional: no son indicadores con meta sino volúmenes de
+// gestión por plataforma, así que tiene su propia vista de dashboard.
+function esMonitoreo(skill){ return (skill||SKILL_ACTUAL)==='monitoreo'; }
 // ── Dos conceptos distintos, no confundirlos ──────────────────
 // soloUnBucket(): FORMA DE LOS DATOS. Los asesores van todos juntos, sin
 //   separar por supervisor. Pasa en chat/rrss/email y también en cualquier
@@ -1688,17 +1700,19 @@ function cerrarSesion(){
   const homeSkillBtn = document.getElementById('home-skill-btn');
   if(homeSkillBtn) homeSkillBtn.style.display = 'none';
   // Limpiar cache de datos al cerrar sesión
-  SKILL_DATA.inbound = null;
-  SKILL_DATA.chat    = null;
-  SKILL_DATA.rrss    = null;
-  SKILL_DATA.email   = null;
+  SKILL_DATA.inbound   = null;
+  SKILL_DATA.chat      = null;
+  SKILL_DATA.rrss      = null;
+  SKILL_DATA.email     = null;
+  SKILL_DATA.monitoreo = null;
+  MON_RESUMEN = null;
   PENDIENTES = [];
 }
 
 // ══ GLOBALS ══
 let D={oscar:[],ximena:[],chat:[],calidad:[],file:'',fecha:''};
 // Cache de datos por skill para no perder lo cargado al cambiar
-const SKILL_DATA = { inbound: null, chat: null, rrss: null, email: null };
+const SKILL_DATA = { inbound: null, chat: null, rrss: null, email: null, monitoreo: null };
 const audioStore=new Map(), statusMap=new Map();
 let activeAudio=null;
 
@@ -1726,9 +1740,16 @@ function fmtInd(v,ind){
   if(ind.fmt==='seg') return Math.round(v)+'s';
   if(ind.fmt==='pct1') return (v*100).toFixed(1)+'%';
   if(ind.fmt==='pct2') return (v*100).toFixed(2)+'%';
+  // 'num': conteos como los volúmenes de gestión del monitoreo
+  if(ind.fmt==='num') return Math.round(v).toLocaleString('es-CO');
   return v;
 }
-function meets(v,ind){ return ind.t==='inv'?v<=ind.mV:v>=ind.mV; }
+// Sin meta definida (mV null) no hay cumple/no cumple: devuelve null y
+// quien lo consuma lo pinta en neutro.
+function meets(v,ind){
+  if(!ind || ind.mV===null || ind.mV===undefined) return null;
+  return ind.t==='inv' ? v<=ind.mV : v>=ind.mV;
+}
 
 // ══ PARSING ══
 function ci(col){let n=0;for(let c of col)n=n*26+c.charCodeAt(0)-64;return n-1;}
@@ -1882,6 +1903,7 @@ const NUEVO_BY_SKILL = {};          // { inbound:true/false, chat:.., rrss:.., e
 const IND_DEFS  = {};               // indicadores dinámicos por skill (mismo shape que INDS_LEGACY)
 const EXTRA_DEFS = {};              // columnas informativas por skill (ej. PRODUCTIVIDAD)
 let PENDIENTES = [];                // hoja "Pendientes_Tipificación" (no depende del skill)
+let MON_RESUMEN = null;             // {total:{...}, promedio} del monitoreo transaccional
 
 // Dirección (t) y formato (fmt) esperados por nombre de categoría.
 // Si aparece una categoría nueva no listada aquí, se asume 'nor'/'pct1'.
@@ -1972,6 +1994,73 @@ function parseIndicadoresSkill(ws){
   return {inds, extras, agentes};
 }
 
+// ══════════════════════════════════════════════════════════════
+// MONITOREO TRANSACCIONAL — hoja "FINAL <MES>"
+// ──────────────────────────────────────────────────────────────
+// Estructura del archivo:
+//   · Tabla maestra (A:F): NOVEDADES | NOMBRE | FEEDZAI | SMART VISTA |
+//     FRAML | TOTAL GESTION, y al final las filas TOTAL y PROMEDIO.
+//   · A la derecha (H:M) el mismo listado partido en "pocas gestiones por
+//     novedad" y "sin novedad". Como se deduce de la novedad de cada
+//     asesor, solo se lee la tabla maestra y la división se recalcula.
+// ══════════════════════════════════════════════════════════════
+
+// Indicadores del skill: son volúmenes, sin meta (mV null = sin semáforo)
+const IND_MONITOREO = [
+  {n:1, nm:'FEEDZAI',       vC:'feedzai',    eC:'feedzai_ok',    mV:null, meta:'—', t:'nor', fmt:'num', aht:false},
+  {n:2, nm:'SMART VISTA',   vC:'smartvista', eC:'smartvista_ok', mV:null, meta:'—', t:'nor', fmt:'num', aht:false},
+  {n:3, nm:'FRAML',         vC:'framl',      eC:'framl_ok',      mV:null, meta:'—', t:'nor', fmt:'num', aht:false},
+  {n:4, nm:'TOTAL GESTIÓN', vC:'total',      eC:'total_ok',      mV:null, meta:'—', t:'nor', fmt:'num', aht:false},
+];
+
+function numeroLimpio(v){
+  if(v===null||v===undefined||v==='') return null;
+  if(typeof v==='number') return v;
+  var n=parseFloat(String(v).replace(/[^\d.,-]/g,'').replace(/\./g,'').replace(',','.'));
+  return isNaN(n)?null:n;
+}
+
+function parseMonitoreo(ws){
+  var range=XLSX.utils.decode_range(ws['!ref']||'A1:A1');
+  // Localizar la fila de encabezados por la columna del nombre
+  var hdr=-1;
+  for(var r=0;r<=Math.min(6,range.e.r);r++){
+    var v=gcv(ws,r,1);
+    if(v && String(v).toUpperCase().indexOf('NOMBRE')!==-1){ hdr=r; break; }
+  }
+  if(hdr===-1) return {agentes:[], total:null, promedio:null};
+
+  var agentes=[], total=null, promedio=null;
+  for(var r2=hdr+1;r2<=range.e.r;r2++){
+    var nom=gcv(ws,r2,1);
+    if(!nom || typeof nom!=='string' || !nom.trim()) continue;
+    var etiqueta=nom.trim().toUpperCase();
+
+    // Las filas de cierre no son asesores
+    if(etiqueta.indexOf('TOTAL')===0){
+      total={feedzai:numeroLimpio(gcv(ws,r2,2)), smartvista:numeroLimpio(gcv(ws,r2,3)),
+             framl:numeroLimpio(gcv(ws,r2,4)),   total:numeroLimpio(gcv(ws,r2,5))};
+      continue;
+    }
+    if(etiqueta.indexOf('PROMEDIO')===0){
+      promedio=numeroLimpio(gcv(ws,r2,5));
+      continue;
+    }
+
+    var fe=numeroLimpio(gcv(ws,r2,2)), sv=numeroLimpio(gcv(ws,r2,3)), fr=numeroLimpio(gcv(ws,r2,4));
+    var tt=numeroLimpio(gcv(ws,r2,5));
+    if(fe===null && sv===null && fr===null && tt===null) continue;
+    var nov=String(gcv(ws,r2,0)||'').trim();
+    agentes.push({
+      nombre: nom.trim().replace(/ /g,' ').replace(/\s+/g,' ').trim(),
+      supervisor:'', novedad: nov,
+      feedzai: fe, smartvista: sv, framl: fr,
+      total: tt!==null ? tt : (fe||0)+(sv||0)+(fr||0)
+    });
+  }
+  return {agentes:agentes, total:total, promedio:promedio};
+}
+
 // Hoja "Pendientes_Tipificación": Nombre_Agente, id_llamada_genesys, cola,
 // macroproceso, proceso, subproceso_uno, subproceso_dos, observaciones, Link_Gestion
 function parsePendientesTipificacion(ws){
@@ -2026,7 +2115,37 @@ function processFile(file){
         email:   wb.SheetNames.find(s=>/indicadores/i.test(s)&&/email/i.test(s)),
       };
       const tieneNueva=Object.values(skillSheets).some(Boolean);
+      // Monitoreo transaccional: hoja "FINAL <MES>" con los volúmenes de gestión
+      const monSheet=wb.SheetNames.find(s=>/^\s*final\b/i.test(s))
+        || wb.SheetNames.find(s=>/monitoreo/i.test(s));
       const fecha=new Date().toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+
+      if(monSheet && !tieneNueva && !newDatos){
+        // Archivo exclusivo de monitoreo transaccional
+        const mon=parseMonitoreo(wb.Sheets[monSheet]);
+        if(!mon.agentes.length)
+          throw new Error('La hoja "'+monSheet+'" no trae asesores con gestiones.');
+        MON_RESUMEN = {total:mon.total, promedio:mon.promedio};
+        IND_DEFS['monitoreo']   = IND_MONITOREO;
+        EXTRA_DEFS['monitoreo'] = [];
+        NUEVO_BY_SKILL['monitoreo'] = true;
+        SKILL_DATA['monitoreo'] = {oscar:[], ximena:[], chat:mon.agentes,
+                                   calidad:[], file:file.name, fecha:fecha};
+        if(SKILL_ACTUAL!=='monitoreo'){
+          // Se cargó desde otro canal: llevar al usuario al de monitoreo
+          seleccionarSkill('monitoreo');
+        }
+        D.oscar=[]; D.ximena=[]; D.chat=mon.agentes; D.calidad=[];
+        D.file=file.name; D.fecha=fecha;
+        NUEVO_TEMPLATE=true; INDS=IND_MONITOREO;
+        document.body.classList.add('mode-nuevo');
+        statusMap.clear(); audioStore.clear();
+        document.getElementById('loading').style.display='none';
+        unlockCards(); refreshSupDropdown(); initIndFilter();
+        renderPendientes(); actualizarSkillCards();
+        sincronizarConSupabase(file.name, ['monitoreo']);
+        return;
+      }
 
       if(newDatos){
         parseNuevoFormato(wb.Sheets[newDatos]);
@@ -2246,7 +2365,81 @@ function fv(v,f){
 function cntOK(rows,eC){ return rows.filter(r=>r[eC]==='OK'||r[eC]==='✔').length; }
 function cntNO(rows,eC){ return rows.filter(r=>r[eC]==='NO'||r[eC]==='✘').length; }
 
+// ══ DASHBOARD DE MONITOREO TRANSACCIONAL ═════════════════════
+// Vista aparte: son volúmenes de gestión por plataforma, no indicadores
+// con meta, así que no aplica el semáforo de cumple/no cumple.
+function miles(n){
+  return (n===null||n===undefined||isNaN(n)) ? '—' : Math.round(n).toLocaleString('es-CO');
+}
+
+function rdashMonitoreo(){
+  var rows=getRows();
+  var suma=function(c){ return rows.reduce(function(a,r){ return a+(typeof r[c]==='number'?r[c]:0); },0); };
+  var totFe=suma('feedzai'), totSv=suma('smartvista'), totFr=suma('framl'), totTt=suma('total');
+  var conNov=rows.filter(function(r){ return (r.novedad||'').trim(); });
+  var sinNov=rows.filter(function(r){ return !(r.novedad||'').trim(); });
+  var prom = rows.length ? totTt/rows.length : 0;
+
+  document.getElementById('kgrid').innerHTML=[
+    {l:'TOTAL GESTIONES', v:miles(totTt), s:'en el periodo'},
+    {l:'PROMEDIO POR ASESOR', v:miles(prom), s:rows.length+' asesores'},
+    {l:'FEEDZAI', v:miles(totFe), s:totTt?((totFe/totTt)*100).toFixed(1)+'% del total':''},
+    {l:'SMART VISTA', v:miles(totSv), s:totTt?((totSv/totTt)*100).toFixed(1)+'% del total':''},
+    {l:'FRAML', v:miles(totFr), s:totTt?((totFr/totTt)*100).toFixed(1)+'% del total':''},
+    {l:'CON NOVEDAD', v:conNov.length, s:'de '+rows.length+' asesores',
+     bd:sinNov.length+' sin novedad', bc:'kbdg cok'}
+  ].map(function(k){
+    return '<div class="kc"><div class="kh">'+k.l+'</div><div class="kb">'
+      +'<div class="kv">'+k.v+'</div><div class="ks">'+k.s+'</div>'
+      +(k.bd?'<span class="'+k.bc+'">'+k.bd+'</span>':'')+'</div></div>';
+  }).join('');
+
+  // Resumen por plataforma en la tabla de indicadores
+  document.getElementById('tind').innerHTML=[
+    ['FEEDZAI',totFe],['SMART VISTA',totSv],['FRAML',totFr]
+  ].map(function(p,i){
+    var bg=i%2===0?'':'style="background:#F8FAFF"';
+    var pct=totTt?(p[1]/totTt*100):0;
+    var promP=rows.length?p[1]/rows.length:0;
+    return '<tr '+bg+'><td>'+(i+1)+'</td><td>'+p[0]+'</td><td><b>—</b></td>'
+      +'<td class="nneu">'+miles(promP)+'</td>'
+      +'<td class="nok">'+miles(p[1])+'</td><td class="nbd">—</td>'
+      +'<td>'+pct.toFixed(1)+'%</td>'
+      +'<td><span class="chip cok">'+miles(p[1])+' gestiones</span></td></tr>';
+  }).join('')
+  + '<tr style="background:var(--gold-lt);font-weight:800"><td></td><td>TOTAL</td><td><b>—</b></td>'
+  + '<td class="nneu">'+miles(prom)+'</td><td class="nok">'+miles(totTt)+'</td>'
+  + '<td class="nbd">—</td><td>100%</td>'
+  + '<td><span class="chip cok">'+rows.length+' asesores</span></td></tr>';
+
+  // Los dos bloques del Excel: quienes tienen novedad y quienes no
+  var t10a=document.getElementById('t10a-title');
+  if(t10a) t10a.textContent='SIN NOVEDAD';
+  var t10c=document.getElementById('t10c-title');
+  if(t10c) t10c.textContent='POCAS GESTIONES POR NOVEDAD';
+
+  var maxTt=Math.max.apply(null, rows.map(function(r){ return r.total||0; }).concat([1]));
+  function pinta(lista, mostrarNovedad){
+    if(!lista.length) return '<div style="padding:20px;text-align:center;color:var(--txt);font-size:12px">Sin registros</div>';
+    return lista.slice().sort(function(a,b){ return (b.total||0)-(a.total||0); }).map(function(r,i){
+      var v=r.total||0, bp=Math.min(100, v/maxTt*100);
+      var rk=i===0?'g':i===1?'s':i===2?'b':'';
+      return '<div class="t10r"><div class="t10rk '+rk+'">'+(i+1)+'</div>'
+        +'<div style="flex:1;min-width:0"><div class="t10n">'+cpEsc(r.nombre)+'</div>'
+        +'<div class="bbg"><div class="bf bok" style="width:'+bp+'%"></div></div></div>'
+        +'<div class="t10v">'+miles(v)+'</div>'
+        +(mostrarNovedad
+          ? '<div class="t10d" style="color:var(--wn);min-width:118px;font-size:9px">'+cpEsc(r.novedad||'')+'</div>'
+          : '<div class="t10d dok">'+(totTt?((v/totTt)*100).toFixed(1)+'%':'')+'</div>')
+        +'</div>';
+    }).join('');
+  }
+  document.getElementById('t10a').innerHTML=pinta(sinNov,false);
+  document.getElementById('t10c').innerHTML=pinta(conNov,true);
+}
+
 function rdash(){
+  if(esMonitoreo()) return rdashMonitoreo();
   const rows=getRows();
   // Los indicadores "clave" se ubican por nombre en vez de por letra fija,
   // así funciona igual con la plantilla vieja (letras fijas) y la nueva
@@ -2353,9 +2546,12 @@ function rdatos(){
   // Build headers using only visible indicators
   const visibleInds = INDS.filter(ind => !IND_VISIBLE || IND_VISIBLE[ind.vC] !== false);
   const extras = EXTRA_DEFS[SKILL_ACTUAL]||[];
+  // En monitoreo la columna de supervisor no aplica; en su lugar va la novedad
+  const mon = esMonitoreo();
+  const colTercera = mon ? '<th>Novedad</th>' : '<th>Sup.</th>';
   const indHeaders  = visibleInds.map(ind => '<th>' + ind.nm + '</th>').join('')
     + extras.map(ex => '<th>' + ex.label + '</th>').join('');
-  document.getElementById('dhead').innerHTML = '<th>#</th><th>Asesor</th><th>Sup.</th>' + indHeaders;
+  document.getElementById('dhead').innerHTML = '<th>#</th><th>Asesor</th>' + colTercera + indHeaders;
 
   document.getElementById('dbody').innerHTML=rows.map((r,i)=>{
     const bg=i%2===0?'':'style="background:#F8FAFF"';
@@ -2363,17 +2559,22 @@ function rdatos(){
       const val=r[ind.vC];
       if(val===null||val===undefined||val==='') return '<td class="vna">—</td>';
       const ok=meets(val,ind);
-      const cls=ok?'vok':'vbd';
+      // Sin meta definida se muestra en neutro, sin verde ni rojo
+      const cls = ok===null ? 'nneu' : (ok?'vok':'vbd');
       const fmt=fmtInd(val,ind)||'—';
       return '<td class="' + cls + '">' + fmt + '</td>';
     }).join('') + extras.map(ex=>{
       const val=r[ex.key];
       return '<td class="vna">' + (val===null||val===undefined||val===''?'—':val) + '</td>';
     }).join('');
+    const tercera = mon
+      ? '<td style="text-align:center;font-size:9px;color:var(--wn);font-weight:700">'
+        + cpEsc(r.novedad||'') + '</td>'
+      : '<td style="text-align:center;font-size:10px;color:var(--azul3);font-weight:600">'
+        + (r._sup||r.supervisor||'') + '</td>';
     return `<tr ${bg}><td>${i+1}</td>
-      <td style="text-align:left;font-weight:700;font-size:11px;white-space:nowrap">${r.nombre}</td>
-      <td style="text-align:center;font-size:10px;color:var(--azul3);font-weight:600">${r._sup||r.supervisor||''}</td>
-      ${cells}</tr>`;
+      <td style="text-align:left;font-weight:700;font-size:11px;white-space:nowrap">${cpEsc(r.nombre)}</td>
+      ${tercera}${cells}</tr>`;
   }).join('');
 }
 
@@ -3955,7 +4156,7 @@ function verDetalle(idx) {
 
 function actualizarSkillCards(){
   // Mostrar en las tarjetas del selector si ya tienen datos cargados
-  ['inbound','chat','rrss','email'].forEach(function(sk){
+  ['inbound','chat','rrss','email','monitoreo'].forEach(function(sk){
     const card = document.querySelector('.skill-card[onclick*="' + sk + '"]');
     if(!card) return;
     let badge = card.querySelector('.skill-loaded-badge');

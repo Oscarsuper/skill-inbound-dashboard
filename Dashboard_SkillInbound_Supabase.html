@@ -165,11 +165,10 @@ body.mode-agente .hcards .nc:nth-child(1){display:none !important}
 body.mode-agente .hcards .nc:nth-child(4){display:none !important}
 body.mode-agente #btn-pdf{display:none !important}
 
-/* Chat/RRSS/Email mode: only Dashboard + Datos (no calidad/compromisos/evolución) */
+/* Chat/RRSS/Email: sin Calidad ni Compromisos (son propios de Inbound).
+   La Evolución sí está disponible en los cuatro canales. */
 body.mode-simple .ntab[data-tab="calidad"]{display:none !important}
 body.mode-simple .ntab[data-tab="compromisos"]{display:none !important}
-body.mode-simple .ntab[data-tab="evolucion"]{display:none !important}
-body.mode-simple #s-evolucion{display:none !important}
 body.mode-agente .ntab[data-tab="evolucion"]{display:none !important}
 body.mode-agente #s-evolucion{display:none !important}
 body.mode-simple #s-calidad{display:none !important}
@@ -181,10 +180,10 @@ body.mode-simple .hcards .nc[data-tab="compromisos"]{display:none !important}
 body.sin-carga .btn-carga{display:none !important}
 body.sin-carga #c5 .nbadge{display:none !important}
 
-/* Plantilla nueva (por categorías): sin PDF ni evolución, esquema distinto */
+/* Plantilla nueva (por categorías): el PDF sigue asumiendo el esquema viejo
+   de columnas fijas, así que se oculta. La Evolución sí funciona: se
+   reescribió sobre jsonb + indicadores dinámicos. */
 body.mode-nuevo #btn-pdf{display:none !important}
-body.mode-nuevo .ntab[data-tab="evolucion"]{display:none !important}
-body.mode-nuevo #s-evolucion{display:none !important}
 
 
 /* ═══ SKILL SELECTOR SCREEN ═══ */
@@ -985,6 +984,12 @@ tbody td:first-child{color:var(--txt);font-size:10px}
       <button class="ntab" data-tab="pendientes" onclick="sw('pendientes')">☎️ Pendientes</button>
     </div>
     <div class="nright">
+      <div class="slw" id="corte-wrap" title="Fecha del corte a consultar">
+        <span class="slbl">📅 Corte:</span>
+        <select class="asel" id="sel-corte" onchange="cambiarCorte(this.value)">
+          <option value="">Sin datos</option>
+        </select>
+      </div>
       <div class="slw" id="sel-wrap" title="Filtrar por supervisor">
         <span class="slbl">Ver:</span>
         <select class="asel" id="sel" onchange="renderAll()">
@@ -1087,11 +1092,26 @@ tbody td:first-child{color:var(--txt);font-size:10px}
     <!-- EVOLUCION -->
     <div class="sec" id="s-evolucion">
       <div class="card" style="margin-bottom:14px">
-        <div class="ch">EVOLUCION DIARIA POR ASESOR</div>
+        <div class="ch">EVOLUTIVO POR PERIODO — COMPARA LAS CARGAS REALIZADAS</div>
         <div style="padding:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--txt);margin-bottom:5px">PERIODO</label>
+            <select id="evol-periodo" onchange="renderEvolucion()"
+              style="border:1.5px solid var(--ln);border-radius:8px;padding:8px 12px;
+              font-size:13px;font-family:inherit;color:var(--dk);background:var(--w);cursor:pointer;min-width:180px">
+              <option value="">Todos los periodos</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--txt);margin-bottom:5px">INDICADOR</label>
+            <select id="evol-indicador" onchange="renderEvolucion()"
+              style="border:1.5px solid var(--ln);border-radius:8px;padding:8px 12px;
+              font-size:13px;font-family:inherit;color:var(--dk);background:var(--w);cursor:pointer;min-width:180px">
+            </select>
+          </div>
           <div style="position:relative">
-            <label style="display:block;font-size:11px;font-weight:700;color:var(--txt);margin-bottom:5px">ASESOR</label>
-            <input type="text" id="evol-asesor" placeholder="Buscar asesor..."
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--txt);margin-bottom:5px">ASESOR (opcional)</label>
+            <input type="text" id="evol-asesor" placeholder="Vacío = promedio del equipo"
               oninput="evolBuscarAsesor(this.value)"
               style="border:1.5px solid var(--ln);border-radius:8px;padding:8px 12px;
               font-size:13px;font-family:inherit;width:260px;color:var(--dk);background:var(--w)">
@@ -1099,45 +1119,30 @@ tbody td:first-child{color:var(--txt);font-size:10px}
               border:1px solid var(--ln);border-radius:8px;z-index:100;max-height:180px;
               overflow-y:auto;display:none;box-shadow:0 4px 20px rgba(0,0,0,.12)"></div>
           </div>
-          <div>
-            <label style="display:block;font-size:11px;font-weight:700;color:var(--txt);margin-bottom:5px">INDICADOR</label>
-            <select id="evol-indicador" onchange="renderEvolucion()"
-              style="border:1.5px solid var(--ln);border-radius:8px;padding:8px 12px;
-              font-size:13px;font-family:inherit;color:var(--dk);background:var(--w);cursor:pointer">
-              <option value="nps">NPS</option>
-              <option value="aht">AHT (seg)</option>
-              <option value="ausentismo">Ausentismo</option>
-              <option value="adherencia">Adherencia</option>
-              <option value="nota_calidad">Nota Calidad</option>
-              <option value="err_radicados">Err. Radicados</option>
-              <option value="mal_radicados">Mal Radicados</option>
-              <option value="eval_conocimiento">Eval. Conocimiento</option>
-              <option value="envio_encuesta">Envio Encuesta</option>
-              <option value="productividad">Productividad</option>
-              <option value="fcr">FCR</option>
-              <option value="tipificacion">Tipificacion</option>
-              <option value="desconexiones">Desconexiones</option>
-            </select>
-          </div>
-          <button onclick="cargarEvolucion()" style="background:var(--azul2);color:#fff;
+          <button onclick="evolLimpiarAsesor()" style="background:var(--bg);color:var(--txt);
+            border:1.5px solid var(--ln);border-radius:8px;padding:8px 14px;font-size:12px;
+            font-weight:700;font-family:inherit;cursor:pointer">Ver equipo</button>
+          <button onclick="cargarEvolucion(true)" style="background:var(--azul2);color:#fff;
             border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;
             font-family:inherit;cursor:pointer">&#128260; Actualizar</button>
         </div>
       </div>
 
+      <div class="kg" id="evol-kpis" style="grid-template-columns:repeat(4,1fr)"></div>
+
       <div class="card">
-        <div class="ch" id="evol-titulo">SELECCIONA UN ASESOR PARA VER SU EVOLUCION</div>
+        <div class="ch" id="evol-titulo">EVOLUTIVO</div>
         <div style="position:relative;height:380px;padding:16px">
           <canvas id="evol-chart"></canvas>
         </div>
         <div id="evol-empty" style="text-align:center;padding:40px;color:var(--txt);font-size:13px">
-          &#128202; Selecciona un asesor y un indicador para ver su evolucion diaria
+          &#128202; Cargando historial...
         </div>
       </div>
 
       <div class="card" style="margin-top:14px">
-        <div class="ch">TABLA DE VALORES POR FECHA</div>
-        <div class="dscroll" style="max-height:300px">
+        <div class="ch">TABLA DE VALORES POR FECHA DE CARGA</div>
+        <div class="dscroll" style="max-height:340px">
           <table><thead><tr id="evol-thead"></tr></thead><tbody id="evol-tbody"></tbody></table>
         </div>
       </div>
@@ -1417,6 +1422,8 @@ function toggleIndFilter(){
 // ════════════════════════════════════════════════════════════
 function seleccionarSkill(skill){
   SKILL_ACTUAL = skill;
+  // Se recuerda para volver aquí tras un F5, en vez de perder el contexto
+  try{ localStorage.setItem('skill_actual', skill); }catch(e){}
   const cfg = SKILLS_CONFIG[skill] || {};
   const icon  = cfg.icon  || '📋';
   const label = cfg.shortLabel || skill;
@@ -1468,9 +1475,14 @@ function seleccionarSkill(skill){
         if(typeof renderAll!=='undefined')renderAll();
         if(typeof refreshSupDropdown!=='undefined')refreshSupDropdown();
         if(typeof initIndFilter!=='undefined')initIndFilter();
+      } else {
+        // Sin cortes guardados para este skill: al menos refrescar el selector
+        try{ refreshCorteDropdown(); }catch(e){}
       }
     });
   }
+  // Mostrar las fechas disponibles de este skill en la barra
+  cargarCortesDisponibles(skill).then(function(){ try{ refreshCorteDropdown(); }catch(e){} });
 
   // Si había datos guardados, restaurar UI
   if(SKILL_DATA[skill]) {
@@ -1527,6 +1539,8 @@ function cambiarSkill(){
   // Limpiar D para el próximo skill
   D.oscar=[]; D.ximena=[]; D.chat=[]; D.calidad=[]; D.file=''; D.fecha='';
   SKILL_ACTUAL = null;
+  // Se sale a propósito del skill: que el F5 no lo devuelva ahí
+  try{ localStorage.removeItem('skill_actual'); }catch(e){}
   document.body.classList.remove('mode-chat','mode-inbound','mode-simple','mode-nuevo');
   // Reset status dot
   const sdot = document.getElementById('sdot');
@@ -1644,6 +1658,10 @@ async function restaurarSesion(){
     const res = await supa.from('perfiles').select('*').eq('id', data.session.user.id).single();
     if(res.error || !res.data || !res.data.activo){ await supa.auth.signOut(); return false; }
     aplicarPerfil(res.data);
+    // Volver al skill en el que estaba antes de recargar, con sus datos
+    let ultimo = null;
+    try{ ultimo = localStorage.getItem('skill_actual'); }catch(e){}
+    if(ultimo && SKILLS_CONFIG[ultimo]) seleccionarSkill(ultimo);
     return true;
   }catch(e){ return false; }
 }
@@ -1651,6 +1669,7 @@ async function restaurarSesion(){
 // Cerrar sesión
 function cerrarSesion(){
   if(supa){ try{ supa.auth.signOut(); }catch(e){} }
+  try{ localStorage.removeItem('skill_actual'); }catch(e){}
   ROL_ACTUAL    = 'supervisor';
   AGENTE_NOMBRE = null;
   SKILL_ACTUAL  = null;
@@ -2082,6 +2101,12 @@ async function sincronizarConSupabase(fileName, skills){
     (await guardarEnSupabase(skill, fileName, filas)) ? ok++ : fallo++;
   }
   if(PENDIENTES.length) await guardarPendientesEnSupabase();
+  // Refrescar la lista de cortes para que la fecha recién subida ya aparezca
+  if(ok){
+    for(const skill of skills){ if(skill) await cargarCortesDisponibles(skill); }
+    if(FECHA_CORTE) CORTE_ACTUAL[SKILL_ACTUAL]=FECHA_CORTE;
+    try{ refreshCorteDropdown(); }catch(e){}
+  }
   if(fallo && !ok)      mostrarNotif('No se pudo publicar en la base de datos', true);
   else if(fallo)        mostrarNotif('Publicado parcialmente ('+ok+' de '+(ok+fallo)+' skills)', true);
   else if(ok)           mostrarNotif('✔ Datos publicados — el equipo ya puede verlos');
@@ -2130,7 +2155,11 @@ function sw(tab){
   const ti={dashboard:0,datos:1,calidad:2,evolucion:3,compromisos:4,pendientes:5};
   document.querySelectorAll('.ntab')[ti[tab]].classList.add('act');
   if(tab==='compromisos') setTimeout(()=>{initCanvas('canvas-asesor');initCanvas('canvas-sup');},80);
-  if(tab==='evolucion') setTimeout(()=>{ if(!EVOL_HIST.length) cargarEvolucion(); },100);
+  // El historial se recarga si cambió de skill, para no mostrar el de otro canal
+  if(tab==='evolucion') setTimeout(()=>{
+    if(!EVOL_HIST.length || EVOL_SKILL!==SKILL_ACTUAL) cargarEvolucion(true);
+    else renderEvolucion();
+  },100);
   // Update dashboard title
   if(tab==='dashboard'){
     const sel=document.getElementById('sel').value;
@@ -4096,14 +4125,71 @@ async function guardarPendientesEnSupabase(){
   }catch(e){ console.warn('Error guardando pendientes:',e.message); return false; }
 }
 
-async function cargarDesdeSupabase(skill){
+// ══ CORTES DISPONIBLES ═══════════════════════════════════════
+// Cada carga de Excel deja un corte con su fecha. Aquí se listan para
+// poder consultar cualquier fecha anterior sin volver a subir el archivo.
+var CORTES_POR_SKILL = {};   // { inbound:[{fecha_corte,archivo,periodo}], ... }
+var CORTE_ACTUAL     = {};   // { inbound:'2026-07-31', ... } fecha en pantalla
+
+function fechaBonita(f){
+  if(!f) return '';
+  try{
+    return new Date(f+'T00:00:00').toLocaleDateString('es-CO',
+      {day:'2-digit',month:'long',year:'numeric'});
+  }catch(e){ return f; }
+}
+
+async function cargarCortesDisponibles(skill){
+  if(!supa) return [];
+  try{
+    var res=await supa.from('cortes').select('fecha_corte,archivo,periodo')
+      .eq('skill',skill).order('fecha_corte',{ascending:false});
+    if(res.error||!res.data) return [];
+    CORTES_POR_SKILL[skill]=res.data;
+    return res.data;
+  }catch(e){ return []; }
+}
+
+function refreshCorteDropdown(){
+  var sel=document.getElementById('sel-corte');
+  if(!sel) return;
+  var lista=CORTES_POR_SKILL[SKILL_ACTUAL]||[];
+  if(!lista.length){
+    sel.innerHTML='<option value="">Sin datos guardados</option>';
+    return;
+  }
+  var actual=CORTE_ACTUAL[SKILL_ACTUAL]||lista[0].fecha_corte;
+  sel.innerHTML=lista.map(function(c,i){
+    var etiqueta=fechaBonita(c.fecha_corte)+(i===0?'  (más reciente)':'');
+    return '<option value="'+c.fecha_corte+'"'
+      +(c.fecha_corte===actual?' selected':'')+'>'+etiqueta+'</option>';
+  }).join('');
+}
+
+// El usuario eligió otra fecha en la barra: se trae ese corte de la base
+async function cambiarCorte(fecha){
+  if(!fecha||!SKILL_ACTUAL) return;
+  mostrarNotif('Cargando corte del '+fechaBonita(fecha)+'...');
+  var ok=await cargarDesdeSupabase(SKILL_ACTUAL, fecha);
+  if(!ok){ mostrarNotif('No se pudo cargar ese corte',true); return; }
+  try{ unlockCards(); renderAll(); refreshSupDropdown(); initIndFilter(); }catch(e){}
+  mostrarNotif('Mostrando el corte del '+fechaBonita(fecha));
+}
+
+// fechaCorte opcional: si no se pasa, trae el corte más reciente del skill
+async function cargarDesdeSupabase(skill, fechaCorte){
   if(!supa) return false;
   try{
-    var res=await supa.from('cortes')
+    await cargarCortesDisponibles(skill);
+    var q=supa.from('cortes')
       .select('id,archivo,periodo,fecha_corte,indicadores_def,extras_def')
-      .eq('skill',skill).order('fecha_corte',{ascending:false}).limit(1);
+      .eq('skill',skill);
+    q = fechaCorte ? q.eq('fecha_corte',fechaCorte)
+                   : q.order('fecha_corte',{ascending:false}).limit(1);
+    var res=await q;
     if(res.error||!res.data||!res.data.length) return false;
     var corte=res.data[0];
+    CORTE_ACTUAL[skill]=corte.fecha_corte;
     var res2=await supa.from('indicadores').select('*').eq('corte_id',corte.id);
     if(res2.error||!res2.data||!res2.data.length) return false;
 
@@ -4137,10 +4223,11 @@ async function cargarDesdeSupabase(skill){
       D.ximena=filas.filter(function(r){return r.supervisor&&r.supervisor.toLowerCase()==='ximena';});
     }
     D.file=corte.archivo||'Base de datos';
-    D.fecha=corte.periodo||'';
+    D.fecha=corte.periodo||fechaBonita(corte.fecha_corte);
 
     SKILL_DATA[skill]={oscar:[...D.oscar],ximena:[...D.ximena],chat:[...D.chat],
                        calidad:[],file:D.file,fecha:D.fecha};
+    refreshCorteDropdown();
 
     if(skill==='inbound'){
       var res3=await supa.from('calidad').select('*').order('created_at',{ascending:false});
@@ -4373,82 +4460,124 @@ function cpAgregarVivo(m){
 }
 
 
-// ═══ EVOLUCION DIARIA ═══════════════════════════════════════
-var EVOL_HIST = [];       // [{fecha_corte, rows:[...]}]
-var EVOL_ASESOR = null;
-var evolChart = null;
+// ═══ EVOLUTIVO POR PERIODO ══════════════════════════════════
+// Compara los cortes (cargas de Excel) a lo largo del tiempo.
+// Funciona con el esquema jsonb, así que sirve igual para Inbound,
+// Chat, RRSS y Email, cada uno con sus propios indicadores.
 
-var EVOL_IND = {
-  nps:{label:'NPS',meta:.8,inv:false,pct:true},
-  aht:{label:'AHT (seg)',meta:370,inv:true,pct:false},
-  ausentismo:{label:'Ausentismo',meta:.05,inv:true,pct:true},
-  adherencia:{label:'Adherencia',meta:.95,inv:false,pct:true},
-  nota_calidad:{label:'Nota Calidad',meta:.97,inv:false,pct:true},
-  err_radicados:{label:'Err. Radicados',meta:0,inv:true,pct:true},
-  mal_radicados:{label:'Mal Radicados',meta:0,inv:true,pct:true},
-  eval_conocimiento:{label:'Eval. Conocimiento',meta:.9,inv:false,pct:true},
-  envio_encuesta:{label:'Envio Encuesta',meta:.7,inv:false,pct:true},
-  productividad:{label:'Productividad',meta:.95,inv:false,pct:true},
-  fcr:{label:'FCR',meta:.8,inv:false,pct:true},
-  tipificacion:{label:'Tipificacion',meta:1,inv:false,pct:true},
-  desconexiones:{label:'Desconexiones',meta:.04,inv:true,pct:true}
-};
+var EVOL_HIST   = [];    // [{fecha, rows:[{asesor, valores}]}] del skill activo
+var EVOL_SKILL  = null;  // skill al que corresponde EVOL_HIST
+var EVOL_ASESOR = null;  // null = promedio del equipo
+var evolChart   = null;
 
-async function cargarEvolucion(){
-  if(!supa){ mostrarNotif('Sin conexion a BD',true); return; }
-  var skill = SKILL_ACTUAL || 'inbound';
+// Indicadores disponibles según el skill activo (no una lista fija)
+function evolIndicadores(){
+  return (typeof INDS !== 'undefined' && INDS.length) ? INDS : INDS_LEGACY;
+}
+
+// Los cortes se agrupan por mes: "2026-08" -> "agosto de 2026"
+function evolPeriodoDe(fecha){ return (fecha||'').slice(0,7); }
+function evolPeriodoBonito(p){
+  if(!p) return '';
   try{
-    // Traer todos los cortes del skill ordenados por fecha
-    var resC = await supa.from('cortes')
-      .select('id,fecha_corte')
-      .eq('skill',skill)
-      .not('fecha_corte','is',null)
+    return new Date(p+'-01T00:00:00')
+      .toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+  }catch(e){ return p; }
+}
+
+async function cargarEvolucion(forzar){
+  if(!supa){ mostrarNotif('Sin conexión con la base de datos',true); return; }
+  var skill = SKILL_ACTUAL || 'inbound';
+  // Si ya está en memoria para este skill, no se vuelve a pedir
+  if(!forzar && EVOL_SKILL===skill && EVOL_HIST.length){ renderEvolucion(); return; }
+
+  var vacio=document.getElementById('evol-empty');
+  if(vacio){ vacio.style.display='block'; vacio.textContent='⏳ Cargando historial...'; }
+
+  try{
+    var resC = await supa.from('cortes').select('id,fecha_corte')
+      .eq('skill',skill).not('fecha_corte','is',null)
       .order('fecha_corte',{ascending:true});
+    if(resC.error) throw resC.error;
     if(!resC.data || !resC.data.length){
-      EVOL_HIST=[]; renderEvolucion();
-      mostrarNotif('No hay historial con fechas aun',true);
+      EVOL_HIST=[]; EVOL_SKILL=skill; renderEvolucion();
+      mostrarNotif('Todavía no hay cortes guardados para este skill',true);
       return;
     }
-    var ids = resC.data.map(function(c){return c.id;});
-    var resI = await supa.from('indicadores').select('*').in('corte_id',ids);
-    // Agrupar por fecha
+    var ids = resC.data.map(function(c){ return c.id; });
+    var resI = await supa.from('indicadores').select('corte_id,asesor,valores').in('corte_id',ids);
+    if(resI.error) throw resI.error;
+
     EVOL_HIST = resC.data.map(function(c){
       return {
         fecha: c.fecha_corte,
-        rows: (resI.data||[]).filter(function(r){return r.corte_id===c.id;})
+        rows: (resI.data||[]).filter(function(r){ return r.corte_id===c.id; })
+                             .map(function(r){
+                               var o=Object.assign({},r.valores||{});
+                               o.nombre=r.asesor;
+                               return o;
+                             })
       };
-    });
-    mostrarNotif('Historial cargado: '+EVOL_HIST.length+' dias');
+    }).filter(function(d){ return d.rows.length; });
+
+    EVOL_SKILL = skill;
+    evolRefrescarSelectores();
     renderEvolucion();
+    mostrarNotif('Historial cargado: '+EVOL_HIST.length+' corte(s)');
   }catch(e){
-    console.error('Error evolucion:',e);
-    mostrarNotif('Error cargando historial',true);
+    console.error('Error evolución:',e);
+    mostrarNotif('Error cargando el historial',true);
+    if(vacio) vacio.textContent='No se pudo cargar el historial.';
+  }
+}
+
+// Llena los desplegables de periodo e indicador según lo que exista
+function evolRefrescarSelectores(){
+  var selP=document.getElementById('evol-periodo');
+  if(selP){
+    var periodos=[];
+    EVOL_HIST.forEach(function(d){
+      var p=evolPeriodoDe(d.fecha);
+      if(periodos.indexOf(p)===-1) periodos.push(p);
+    });
+    periodos.sort().reverse();
+    var actual=selP.value;
+    selP.innerHTML='<option value="">Todos los periodos</option>'
+      + periodos.map(function(p){
+          return '<option value="'+p+'"'+(p===actual?' selected':'')+'>'
+                 + evolPeriodoBonito(p)+'</option>';
+        }).join('');
+  }
+  var selI=document.getElementById('evol-indicador');
+  if(selI){
+    var inds=evolIndicadores();
+    var actualI=selI.value;
+    selI.innerHTML=inds.map(function(ind){
+      return '<option value="'+ind.vC+'"'+(ind.vC===actualI?' selected':'')+'>'
+             + ind.nm+'</option>';
+    }).join('');
   }
 }
 
 function evolBuscarAsesor(q){
   var sugg=document.getElementById('evol-sugg');
-  if(!q||q.length<2){ sugg.style.display='none'; return; }
-  // Recolectar nombres unicos del historial
-  var nombres={};
+  if(!sugg) return;
+  if(!q || q.length<2){ sugg.style.display='none'; EVOL_ASESOR=null; return; }
+  var nombres=[];
   EVOL_HIST.forEach(function(d){
-    d.rows.forEach(function(r){ if(r.asesor) nombres[r.asesor]=1; });
+    d.rows.forEach(function(r){
+      if(r.nombre && nombres.indexOf(r.nombre)===-1 &&
+         r.nombre.toLowerCase().indexOf(q.toLowerCase())!==-1) nombres.push(r.nombre);
+    });
   });
-  // Tambien de los datos actuales
-  [].concat(D.oscar||[],D.ximena||[],D.chat||[]).forEach(function(r){
-    if(r.nombre) nombres[r.nombre]=1;
-  });
-  var lista=Object.keys(nombres).filter(function(n){
-    return n.toLowerCase().indexOf(q.toLowerCase())!==-1;
-  }).slice(0,8);
-  if(!lista.length){ sugg.style.display='none'; return; }
-  sugg.style.display='block';
-  sugg.innerHTML=lista.map(function(n){
-    return '<div onclick="evolSelAsesor(this.dataset.n)" data-n="'+n.replace(/"/g,'&quot;')+'" '
-      +'style="padding:9px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--ln)" '
-      +'onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'">'
-      +n+'</div>';
+  nombres=nombres.slice(0,8);
+  if(!nombres.length){ sugg.style.display='none'; return; }
+  sugg.innerHTML=nombres.map(function(n){
+    return '<div style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--ln)" '
+      +'onmouseover="this.style.background=\'#EFF6FF\'" onmouseout="this.style.background=\'\'" '
+      +'onclick="evolSelAsesor(\''+String(n).replace(/'/g,"\\'")+'\')">'+cpEsc(n)+'</div>';
   }).join('');
+  sugg.style.display='block';
 }
 
 function evolSelAsesor(n){
@@ -4458,77 +4587,157 @@ function evolSelAsesor(n){
   renderEvolucion();
 }
 
-function renderEvolucion(){
-  var indKey=document.getElementById('evol-indicador').value;
-  var ind=EVOL_IND[indKey];
-  var empty=document.getElementById('evol-empty');
+function evolLimpiarAsesor(){
+  EVOL_ASESOR=null;
+  var i=document.getElementById('evol-asesor');
+  if(i) i.value='';
+  var s=document.getElementById('evol-sugg');
+  if(s) s.style.display='none';
+  renderEvolucion();
+}
 
-  if(!EVOL_ASESOR || !EVOL_HIST.length){
-    empty.style.display='block';
+function renderEvolucion(){
+  var vacio  = document.getElementById('evol-empty');
+  var titulo = document.getElementById('evol-titulo');
+  var thead  = document.getElementById('evol-thead');
+  var tbody  = document.getElementById('evol-tbody');
+  var kpis   = document.getElementById('evol-kpis');
+  if(!thead || !tbody) return;
+
+  var inds   = evolIndicadores();
+  var selI   = document.getElementById('evol-indicador');
+  var indKey = selI ? selI.value : (inds[0] && inds[0].vC);
+  var ind    = inds.filter(function(x){ return x.vC===indKey; })[0] || inds[0];
+
+  var periodo = (document.getElementById('evol-periodo')||{}).value || '';
+  var hist = EVOL_HIST.filter(function(d){
+    return !periodo || evolPeriodoDe(d.fecha)===periodo;
+  });
+
+  if(!ind || !hist.length){
     if(evolChart){ evolChart.destroy(); evolChart=null; }
-    document.getElementById('evol-titulo').textContent='SELECCIONA UN ASESOR PARA VER SU EVOLUCION';
-    document.getElementById('evol-thead').innerHTML='';
-    document.getElementById('evol-tbody').innerHTML='';
+    if(vacio){
+      vacio.style.display='block';
+      vacio.textContent = EVOL_HIST.length
+        ? '📊 No hay cargas en el periodo seleccionado'
+        : '📊 Aún no hay cortes guardados. Carga un Excel para empezar el histórico.';
+    }
+    if(titulo) titulo.textContent='EVOLUTIVO';
+    if(kpis)  kpis.innerHTML='';
+    thead.innerHTML=''; tbody.innerHTML='';
     return;
   }
-  empty.style.display='none';
+  if(vacio) vacio.style.display='none';
 
-  // Recolectar valores del asesor por fecha
-  var labels=[], valores=[], metas=[];
-  EVOL_HIST.forEach(function(d){
-    var row=d.rows.find(function(r){return r.asesor===EVOL_ASESOR;});
-    if(row){
-      var v=row[indKey];
-      var fechaFmt=new Date(d.fecha+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'});
-      labels.push(fechaFmt);
-      if(v!==null&&v!==undefined){
-        valores.push(ind.pct ? +(v*100).toFixed(1) : +Number(v).toFixed(1));
-      } else {
-        valores.push(null);
+  // Serie: un punto por fecha de carga
+  var etiquetas=[], valores=[];
+  hist.forEach(function(d){
+    var filas = EVOL_ASESOR
+      ? d.rows.filter(function(r){ return r.nombre===EVOL_ASESOR; })
+      : d.rows;
+    var nums = filas.map(function(r){ return r[ind.vC]; })
+                    .filter(function(v){ return typeof v==='number' && !isNaN(v); });
+    var prom = nums.length ? nums.reduce(function(a,b){return a+b;},0)/nums.length : null;
+    etiquetas.push(fechaBonita(d.fecha).replace(' de '+new Date().getFullYear(),''));
+    valores.push(prom);
+  });
+
+  var meta   = ind.mV;
+  var esPct  = !ind.aht && meta!==null && meta<=1;
+  var factor = esPct ? 100 : 1;
+  var datos  = valores.map(function(v){ return v===null?null:+(v*factor).toFixed(2); });
+  var metaG  = meta===null?null:+(meta*factor).toFixed(2);
+  var quien  = EVOL_ASESOR || 'Promedio del equipo';
+
+  if(titulo) titulo.textContent='EVOLUTIVO: '+ind.nm+' — '+quien
+    + (periodo ? '  ·  '+evolPeriodoBonito(periodo) : '');
+
+  // Tarjetas resumen: primero, último, variación y mejor registro
+  if(kpis){
+    var conDato = datos.filter(function(v){ return v!==null; });
+    if(conDato.length){
+      var prim=conDato[0], ult=conDato[conDato.length-1];
+      var dif = +(ult-prim).toFixed(2);
+      // En indicadores invertidos (AHT, ausentismo) bajar es mejorar
+      var mejora = ind.t==='inv' ? dif<0 : dif>0;
+      var mejor  = ind.t==='inv' ? Math.min.apply(null,conDato) : Math.max.apply(null,conDato);
+      var uni    = esPct?'%':(ind.aht?'s':'');
+      kpis.innerHTML=[
+        {l:'CARGAS EN EL PERIODO', v:hist.length,     s:'cortes comparados', bd:null},
+        {l:'PRIMER REGISTRO',      v:prim+uni,        s:etiquetas[0],        bd:null},
+        {l:'ÚLTIMO REGISTRO',      v:ult+uni,         s:etiquetas[etiquetas.length-1],
+         bd:(dif===0?'sin cambio':(dif>0?'+':'')+dif+uni),
+         bc:dif===0?'kbdg cwn':(mejora?'kbdg cok':'kbdg cbd')},
+        {l:'MEJOR REGISTRO',       v:mejor+uni,       s:'meta '+(metaG!==null?metaG+uni:'—'), bd:null}
+      ].map(function(k){
+        return '<div class="kc"><div class="kh">'+k.l+'</div><div class="kb">'
+          +'<div class="kv" style="font-size:21px">'+k.v+'</div>'
+          +'<div class="ks">'+k.s+'</div>'
+          +(k.bd?'<span class="'+k.bc+'">'+k.bd+'</span>':'')+'</div></div>';
+      }).join('');
+    } else { kpis.innerHTML=''; }
+  }
+
+  // Gráfico
+  var cv=document.getElementById('evol-chart');
+  if(cv && typeof Chart!=='undefined'){
+    var ctx=cv.getContext('2d');
+    if(evolChart) evolChart.destroy();
+    var ds=[{
+      label: ind.nm+' — '+quien,
+      data: datos,
+      borderColor:'#7C3AED', backgroundColor:'rgba(124,58,237,.12)',
+      borderWidth:2.5, tension:.3, fill:true,
+      pointRadius:4, pointBackgroundColor:'#4A1D96', spanGaps:true
+    }];
+    if(metaG!==null) ds.push({
+      label:'Meta ('+metaG+(esPct?'%':(ind.aht?'s':''))+')',
+      data: etiquetas.map(function(){ return metaG; }),
+      borderColor:'#16A34A', borderWidth:1.5, borderDash:[6,4],
+      pointRadius:0, fill:false
+    });
+    evolChart=new Chart(ctx,{
+      type:'line',
+      data:{labels:etiquetas, datasets:ds},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{intersect:false, mode:'index'},
+        plugins:{legend:{labels:{font:{size:11}}}},
+        scales:{
+          y:{ beginAtZero:!ind.aht,
+              ticks:{ callback:function(v){ return v+(esPct?'%':(ind.aht?'s':'')); },
+                      font:{size:10} } },
+          x:{ ticks:{font:{size:10}} }
+        }
       }
-      metas.push(ind.pct ? ind.meta*100 : ind.meta);
-    }
-  });
+    });
+  }
 
-  document.getElementById('evol-titulo').textContent='EVOLUCION: '+ind.label+' - '+EVOL_ASESOR;
-
-  // Grafica
-  var ctx=document.getElementById('evol-chart').getContext('2d');
-  if(evolChart) evolChart.destroy();
-  evolChart=new Chart(ctx,{
-    type:'line',
-    data:{labels:labels,datasets:[
-      {label:ind.label,data:valores,borderColor:'#7C3AED',
-        backgroundColor:'rgba(124,58,237,.1)',borderWidth:2.5,pointRadius:5,
-        pointBackgroundColor:'#7C3AED',tension:.35,fill:true},
-      {label:'Meta',data:metas,borderColor:'#16A34A',borderWidth:1.5,
-        borderDash:[6,4],pointRadius:0,fill:false}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#6B7280'}},
-        tooltip:{callbacks:{label:function(c){
-          var v=c.parsed.y;
-          return c.dataset.label+': '+(ind.pct?v.toFixed(1)+'%':v.toFixed(0)+(indKey==='aht'?'s':''));
-        }}}},
-      scales:{x:{ticks:{color:'#6B7280'},grid:{color:'rgba(0,0,0,.05)'}},
-        y:{ticks:{color:'#6B7280',callback:function(v){return ind.pct?v+'%':v;}},
-          grid:{color:'rgba(0,0,0,.05)'}}}}
-  });
-
-  // Tabla
-  var thead=document.getElementById('evol-thead');
-  var tbody=document.getElementById('evol-tbody');
-  thead.innerHTML='<th>Fecha</th><th>'+ind.label+'</th><th>Meta</th><th>Estado</th>';
-  tbody.innerHTML=labels.map(function(lab,i){
-    var v=valores[i];
-    var meta=metas[i];
-    var cumple = v===null ? null : (ind.inv ? v<=meta : v>=meta);
-    var valStr = v===null ? '—' : (ind.pct ? v.toFixed(1)+'%' : v.toFixed(0)+(indKey==='aht'?'s':''));
-    var metaStr = ind.pct ? meta+'%' : meta+(indKey==='aht'?'s':'');
+  // Tabla: una fila por fecha de carga
+  thead.innerHTML='<th>#</th><th>Fecha de carga</th><th>'+cpEsc(ind.nm)
+    +'</th><th>Meta</th><th>Estado</th><th>vs. carga anterior</th>';
+  var prev=null;
+  tbody.innerHTML=hist.map(function(d,i){
+    var v=datos[i];
+    var cumple = (v===null||meta===null) ? null
+               : (ind.t==='inv' ? v<=metaG : v>=metaG);
+    var uni=esPct?'%':(ind.aht?'s':'');
     var estado = cumple===null ? '<span style="color:var(--txt)">Sin dato</span>'
-      : cumple ? '<span style="color:var(--ok);font-weight:700">Cumple</span>'
-      : '<span style="color:var(--bad);font-weight:700">No cumple</span>';
-    return '<tr><td>'+lab+'</td><td style="font-weight:700">'+valStr+'</td><td>'+metaStr+'</td><td>'+estado+'</td></tr>';
+      : cumple ? '<span style="color:var(--ok);font-weight:700">✔ Cumple</span>'
+               : '<span style="color:var(--bad);font-weight:700">✘ No cumple</span>';
+    var delta='—';
+    if(v!==null && prev!==null){
+      var dd=+(v-prev).toFixed(2);
+      var bien = ind.t==='inv' ? dd<0 : dd>0;
+      delta = dd===0 ? '<span style="color:var(--txt)">sin cambio</span>'
+        : '<span style="color:'+(bien?'var(--ok)':'var(--bad)')+';font-weight:700">'
+          +(dd>0?'+':'')+dd+uni+'</span>';
+    }
+    if(v!==null) prev=v;
+    return '<tr><td>'+(i+1)+'</td><td style="font-weight:700">'+fechaBonita(d.fecha)+'</td>'
+      +'<td class="nneu">'+(v===null?'—':v+uni)+'</td>'
+      +'<td>'+(metaG===null?'—':metaG+uni)+'</td>'
+      +'<td>'+estado+'</td><td>'+delta+'</td></tr>';
   }).join('');
 }
 

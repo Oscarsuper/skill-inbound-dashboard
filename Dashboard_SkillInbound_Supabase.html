@@ -2107,8 +2107,8 @@ async function sincronizarConSupabase(fileName, skills){
     if(FECHA_CORTE) CORTE_ACTUAL[SKILL_ACTUAL]=FECHA_CORTE;
     try{ refreshCorteDropdown(); }catch(e){}
   }
-  if(fallo && !ok)      mostrarNotif('No se pudo publicar en la base de datos', true);
-  else if(fallo)        mostrarNotif('Publicado parcialmente ('+ok+' de '+(ok+fallo)+' skills)', true);
+  if(fallo && !ok)      mostrarNotif('No se pudo publicar: '+(ULTIMO_ERROR_BD||'revisa la conexión'), true);
+  else if(fallo)        mostrarNotif('Publicado parcialmente ('+ok+' de '+(ok+fallo)+'): '+ULTIMO_ERROR_BD, true);
   else if(ok)           mostrarNotif('✔ Datos publicados — el equipo ya puede verlos');
 }
 
@@ -4099,10 +4099,14 @@ async function guardarEnSupabase(skill,fileName,filas){
     console.log('Guardado en Supabase — corte',corteId,'('+skill+')');
     return true;
   }catch(e){
-    console.warn('Error guardando '+skill+':',e.message);
+    // El motivo se muestra en pantalla: si falla en silencio es imposible
+    // saber si fue permisos, una columna que falta o la conexión.
+    console.error('Error guardando '+skill+':',e);
+    ULTIMO_ERROR_BD = (e && (e.message||e.hint||e.details)) || 'error desconocido';
     return false;
   }
 }
+var ULTIMO_ERROR_BD = '';
 
 async function guardarPendientesEnSupabase(){
   if(!supa || !PUEDE_CARGAR || !PENDIENTES.length) return false;
@@ -4150,6 +4154,17 @@ async function cargarCortesDisponibles(skill){
   }catch(e){ return []; }
 }
 
+function mesDe(f){ return (f||'').slice(0,7); }
+function mesBonito(m){
+  if(!m) return '';
+  try{
+    var s=new Date(m+'-01T00:00:00').toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+    return s.charAt(0).toUpperCase()+s.slice(1);
+  }catch(e){ return m; }
+}
+
+// El desplegable se agrupa por mes: se puede elegir un mes completo
+// (trae su corte más reciente) o una fecha puntual dentro de ese mes.
 function refreshCorteDropdown(){
   var sel=document.getElementById('sel-corte');
   if(!sel) return;
@@ -4159,21 +4174,46 @@ function refreshCorteDropdown(){
     return;
   }
   var actual=CORTE_ACTUAL[SKILL_ACTUAL]||lista[0].fecha_corte;
-  sel.innerHTML=lista.map(function(c,i){
-    var etiqueta=fechaBonita(c.fecha_corte)+(i===0?'  (más reciente)':'');
-    return '<option value="'+c.fecha_corte+'"'
-      +(c.fecha_corte===actual?' selected':'')+'>'+etiqueta+'</option>';
+  var meses=[];
+  lista.forEach(function(c){
+    var m=mesDe(c.fecha_corte);
+    if(meses.indexOf(m)===-1) meses.push(m);
+  });
+  sel.innerHTML=meses.map(function(m,mi){
+    var delMes=lista.filter(function(c){ return mesDe(c.fecha_corte)===m; });
+    var ops='<option value="mes:'+m+'">📆 Todo '+mesBonito(m)
+          +(delMes.length>1?'  ('+delMes.length+' cargas)':'')+'</option>'
+      + delMes.map(function(c,i){
+          var et='     '+fechaBonita(c.fecha_corte)
+                 + (mi===0&&i===0?'  (más reciente)':'');
+          return '<option value="'+c.fecha_corte+'"'
+                 +(c.fecha_corte===actual?' selected':'')+'>'+et+'</option>';
+        }).join('');
+    return '<optgroup label="'+mesBonito(m)+'">'+ops+'</optgroup>';
   }).join('');
 }
 
-// El usuario eligió otra fecha en la barra: se trae ese corte de la base
-async function cambiarCorte(fecha){
-  if(!fecha||!SKILL_ACTUAL) return;
-  mostrarNotif('Cargando corte del '+fechaBonita(fecha)+'...');
+// El usuario eligió otro corte en la barra. Acepta una fecha exacta
+// ("2026-07-31") o un mes completo ("mes:2026-07"), que resuelve al
+// corte más reciente de ese mes.
+async function cambiarCorte(valor){
+  if(!valor||!SKILL_ACTUAL) return;
+  var fecha=valor, etiqueta;
+  if(valor.indexOf('mes:')===0){
+    var m=valor.slice(4);
+    var delMes=(CORTES_POR_SKILL[SKILL_ACTUAL]||[])
+      .filter(function(c){ return mesDe(c.fecha_corte)===m; });
+    if(!delMes.length){ mostrarNotif('No hay cargas en ese mes',true); return; }
+    fecha=delMes[0].fecha_corte;   // la lista ya viene de más reciente a más antigua
+    etiqueta=mesBonito(m)+' (corte del '+fechaBonita(fecha)+')';
+  } else {
+    etiqueta='corte del '+fechaBonita(fecha);
+  }
+  mostrarNotif('Cargando '+etiqueta+'...');
   var ok=await cargarDesdeSupabase(SKILL_ACTUAL, fecha);
   if(!ok){ mostrarNotif('No se pudo cargar ese corte',true); return; }
   try{ unlockCards(); renderAll(); refreshSupDropdown(); initIndFilter(); }catch(e){}
-  mostrarNotif('Mostrando el corte del '+fechaBonita(fecha));
+  mostrarNotif('Mostrando '+etiqueta);
 }
 
 // fechaCorte opcional: si no se pasa, trae el corte más reciente del skill

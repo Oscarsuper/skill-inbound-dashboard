@@ -1329,10 +1329,19 @@ const SKILLS_CONFIG = {
 
 // Skills de "un solo bucket" (sin división por supervisor, solo Dashboard + Datos)
 const SIMPLE_SKILLS = ['chat', 'rrss', 'email'];
-// true cuando el skill activo no tiene split de supervisor (chat/rrss/email,
-// o cualquier skill cargado con la plantilla nueva por categorías)
+// ── Dos conceptos distintos, no confundirlos ──────────────────
+// soloUnBucket(): FORMA DE LOS DATOS. Los asesores van todos juntos, sin
+//   separar por supervisor. Pasa en chat/rrss/email y también en cualquier
+//   skill cargado con la plantilla nueva (que no trae columna de supervisor).
 function soloUnBucket(){
   return SIMPLE_SKILLS.includes(SKILL_ACTUAL) || !!(typeof NUEVO_TEMPLATE!=='undefined' && NUEVO_TEMPLATE);
+}
+
+// skillSimple(): QUÉ SECCIONES EXISTEN. Chat, RRSS y Email solo tienen
+//   Dashboard y Datos. Inbound siempre conserva Calidad y Compromisos,
+//   sin importar con qué plantilla se hayan cargado sus datos.
+function skillSimple(){
+  return SIMPLE_SKILLS.includes(SKILL_ACTUAL);
 }
 
 // Supervisores que pertenecen a cada skill (formato antiguo de plantilla)
@@ -2086,9 +2095,11 @@ function unlockCards(){
   var skillLabel = (SKILLS_CONFIG[SKILL_ACTUAL]&&SKILLS_CONFIG[SKILL_ACTUAL].shortLabel)||'Inbound';
   document.getElementById('stxt').textContent=`✔ ${D.file} [${skillLabel}] — ${tot} asesores · ${D.calidad.length} registros de calidad`;
   const isAgente = typeof ROL_ACTUAL!=='undefined' && ROL_ACTUAL==='agente';
+  // Qué tarjetas se desbloquean depende del skill, no de la plantilla usada:
+  // Inbound siempre conserva Calidad y Compromisos.
   const cardsToUnlock = isAgente
     ? [[2,'→ Ver mis datos'],[3,'→ Ver calidad']]
-    : single
+    : skillSimple()
       ? [[1,'→ Ver indicadores'],[2,'→ Ver asesores']]
       : [[1,'→ Ver indicadores'],[2,'→ Ver asesores'],[3,'→ Ver errores'],[4,'→ Compromisos']];
   cardsToUnlock.forEach(([i,t])=>{
@@ -2110,9 +2121,9 @@ function showHome(){
   document.getElementById('home').style.display='block';
 }
 function sw(tab){
-  // En modo de un solo bucket (chat/rrss/email o plantilla nueva), no hay
-  // calidad/compromisos: redirigir esas pestañas al dashboard.
-  if(soloUnBucket() && (tab==='calidad'||tab==='compromisos')) tab='dashboard';
+  // Chat/RRSS/Email no tienen Calidad ni Compromisos: se redirigen al
+  // dashboard. Inbound sí las conserva, venga de la plantilla que venga.
+  if(skillSimple() && (tab==='calidad'||tab==='compromisos')) tab='dashboard';
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('act'));
   document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('act'));
   document.getElementById('s-'+tab).classList.add('act');

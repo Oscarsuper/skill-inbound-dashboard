@@ -176,6 +176,11 @@ body.mode-simple #s-calidad{display:none !important}
 body.mode-simple #s-compromisos{display:none !important}
 body.mode-simple .hcards .nc[data-tab="calidad"]{display:none !important}
 body.mode-simple .hcards .nc[data-tab="compromisos"]{display:none !important}
+/* Sin permiso de carga: se oculta todo lo que suba archivos.
+   Es solo cosmético — quien mande igual es RLS en Supabase. */
+body.sin-carga .btn-carga{display:none !important}
+body.sin-carga #c5 .nbadge{display:none !important}
+
 /* Plantilla nueva (por categorías): sin PDF ni evolución, esquema distinto */
 body.mode-nuevo #btn-pdf{display:none !important}
 body.mode-nuevo .ntab[data-tab="evolucion"]{display:none !important}
@@ -828,19 +833,7 @@ tbody td:first-child{color:var(--txt);font-size:10px}
       </div>
     </div>
     <div class="login-title">Bienvenido</div>
-    <div class="login-sub">Selecciona tu rol e inicia sesión</div>
-
-    <!-- Selector de rol -->
-    <div class="login-roles">
-      <button class="login-role-btn active" id="rol-sup" onclick="setRol('supervisor')">
-        <span class="login-role-icon">🛡️</span>
-        Supervisor
-      </button>
-      <button class="login-role-btn" id="rol-agt" onclick="setRol('agente')">
-        <span class="login-role-icon">👤</span>
-        Asesor
-      </button>
-    </div>
+    <div class="login-sub">Inicia sesión para continuar</div>
 
     <div class="login-field">
       <label>USUARIO</label>
@@ -1304,20 +1297,24 @@ tbody td:first-child{color:var(--txt);font-size:10px}
 
 
 // ════════════════════════════════════════════════════════════
-// CREDENCIALES — Edita aquí los usuarios y contraseñas
+// AUTENTICACIÓN
 // ════════════════════════════════════════════════════════════
-const CREDS = {
-  supervisor: [
-    { user: 'oscar',  pass: 'super123' },
-    { user: 'ximena', pass: 'super123' },
-  ],
-  agente: [
-    { user: 'asesor', pass: 'asesor2024', nombre: null },
-  ]
-};
+// Las contraseñas NO viven aquí ni en ninguna tabla consultable:
+// las administra Supabase Auth, hasheadas con bcrypt en el esquema
+// `auth`, al que la llave pública `anon` no tiene acceso.
+//
+// Para crear o cambiar usuarios:
+//   Supabase → Authentication → Users
+// El rol y los permisos salen de la tabla `perfiles` (ver supabase_setup.sql).
+//
+// El usuario escribe solo "oscar"; la app le agrega este dominio interno
+// porque Supabase Auth identifica las cuentas por email.
+const AUTH_DOMINIO = '@skillinbound.local';
 
-let ROL_ACTUAL   = 'supervisor';   // 'supervisor' | 'agente'
+let ROL_ACTUAL    = 'supervisor';  // 'supervisor' | 'agente' — lo define el perfil
 let AGENTE_NOMBRE = null;          // Nombre del asesor logueado (para filtrar datos)
+let PERFIL        = null;          // Perfil completo del usuario conectado
+let PUEDE_CARGAR  = false;         // true = habilitado para subir los Excel
 
 
 // ════════════════════════════════════════════════════════════
@@ -1552,53 +1549,106 @@ function refreshSupDropdown(){
     + sups.map(s => '<option value="' + s + '"' + (s===current?' selected':'') + '>' + s + '</option>').join('');
 }
 
-function setRol(rol){
-  ROL_ACTUAL = rol;
-  document.getElementById('rol-sup').classList.toggle('active', rol === 'supervisor');
-  document.getElementById('rol-agt').classList.toggle('active', rol === 'agente');
-  document.getElementById('login-error').style.display = 'none';
-  document.getElementById('login-user').value = '';
-  document.getElementById('login-pass').value = '';
-  document.getElementById('login-user').focus();
-}
+// Aplica el perfil recibido de Supabase a la interfaz y entra al selector de skill.
+function aplicarPerfil(perfil){
+  PERFIL        = perfil;
+  ROL_ACTUAL    = perfil.rol || 'agente';
+  PUEDE_CARGAR  = !!perfil.puede_cargar;
+  AGENTE_NOMBRE = ROL_ACTUAL === 'agente' ? (perfil.nombre || null) : null;
 
-function loginSubmit(){
-  const user = document.getElementById('login-user').value.trim().toLowerCase();
-  const pass = document.getElementById('login-pass').value.trim();
-  const errEl = document.getElementById('login-error');
+  // Identidad para el chat interno
+  CP_UID = CP_USER_ID = perfil.usuario || '';
+  CP_UNOMBRE = CP_USER_NOMBRE = perfil.nombre || perfil.usuario || '';
 
-  const lista = CREDS[ROL_ACTUAL] || [];
-  const match = lista.find(c => c.user.toLowerCase() === user && c.pass === pass);
-
-  if(!match){
-    errEl.style.display = 'block';
-    errEl.textContent   = 'Usuario o contraseña incorrectos';
-    document.getElementById('login-pass').value = '';
-    document.getElementById('login-pass').focus();
-    return;
-  }
-
-  // Login exitoso
-  errEl.style.display = 'none';
-  AGENTE_NOMBRE = ROL_ACTUAL === 'agente' ? (match.nombre || null) : null;
-
-  // Aplicar modo al body
   document.body.classList.remove('mode-supervisor','mode-agente');
   document.body.classList.add('mode-' + ROL_ACTUAL);
+  // Quien no tiene permiso de carga no ve el botón de subir Excel
+  document.body.classList.toggle('sin-carga', !PUEDE_CARGAR);
 
-  // Ocultar login → mostrar selector de skill
+  document.getElementById('login-error').style.display = 'none';
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('home').style.display = 'none';
   document.getElementById('skill-screen').style.display = 'flex';
-  // El skill screen llevará al home o directamente a datos según el rol
+  document.body.classList.add('chat-fab-visible');
+  var fab = document.getElementById('chat-fab');
+  if(fab) fab.style.display = 'flex';
+  actualizarSkillCards();
+}
+
+async function loginSubmit(){
+  const userEl = document.getElementById('login-user');
+  const passEl = document.getElementById('login-pass');
+  const errEl  = document.getElementById('login-error');
+  const btn    = document.querySelector('.login-btn');
+  const user   = userEl.value.trim().toLowerCase();
+  const pass   = passEl.value;
+
+  const fallar = msg => {
+    errEl.style.display = 'block';
+    errEl.textContent   = msg;
+    passEl.value = '';
+    passEl.focus();
+    if(btn) btn.textContent = 'Ingresar →';
+  };
+
+  if(!user || !pass){ fallar('Escribe usuario y contraseña'); return; }
+  if(!supa){ fallar('Sin conexión con el servidor. Revisa tu internet.'); return; }
+
+  errEl.style.display = 'none';
+  if(btn) btn.textContent = 'Verificando...';
+
+  try{
+    // El usuario puede escribir "oscar" o el correo completo
+    const email = user.includes('@') ? user : user + AUTH_DOMINIO;
+    const { data, error } = await supa.auth.signInWithPassword({ email: email, password: pass });
+    if(error || !data || !data.user){ fallar('Usuario o contraseña incorrectos'); return; }
+
+    // El rol y los permisos salen de la tabla `perfiles`, nunca del navegador
+    const res = await supa.from('perfiles').select('*').eq('id', data.user.id).single();
+    if(res.error || !res.data){
+      await supa.auth.signOut();
+      fallar('Tu usuario no tiene un perfil asignado. Contacta al administrador.');
+      return;
+    }
+    if(!res.data.activo){
+      await supa.auth.signOut();
+      fallar('Tu usuario está inactivo. Contacta al administrador.');
+      return;
+    }
+
+    passEl.value = '';
+    aplicarPerfil(res.data);
+    cargarPendientesDesdeSupabase();
+  }catch(e){
+    fallar('Error de conexión. Intenta de nuevo.');
+  }finally{
+    if(btn) btn.textContent = 'Ingresar →';
+  }
+}
+
+// Si ya hay sesión válida guardada, entra directo sin pedir credenciales
+async function restaurarSesion(){
+  if(!supa) return false;
+  try{
+    const { data } = await supa.auth.getSession();
+    if(!data || !data.session) return false;
+    const res = await supa.from('perfiles').select('*').eq('id', data.session.user.id).single();
+    if(res.error || !res.data || !res.data.activo){ await supa.auth.signOut(); return false; }
+    aplicarPerfil(res.data);
+    return true;
+  }catch(e){ return false; }
 }
 
 // Cerrar sesión
 function cerrarSesion(){
+  if(supa){ try{ supa.auth.signOut(); }catch(e){} }
   ROL_ACTUAL    = 'supervisor';
   AGENTE_NOMBRE = null;
   SKILL_ACTUAL  = null;
-  document.body.classList.remove('mode-supervisor','mode-agente','chat-fab-visible');
+  PERFIL        = null;
+  PUEDE_CARGAR  = false;
+  CP_UID = CP_UNOMBRE = CP_USER_ID = CP_USER_NOMBRE = '';
+  document.body.classList.remove('mode-supervisor','mode-agente','chat-fab-visible','sin-carga');
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('skill-screen').style.display = 'none';
   document.getElementById('login-user').value  = '';
@@ -1609,10 +1659,12 @@ function cerrarSesion(){
   if(badge) badge.style.display = 'none';
   const homeSkillBtn = document.getElementById('home-skill-btn');
   if(homeSkillBtn) homeSkillBtn.style.display = 'none';
-  setRol('supervisor');
   // Limpiar cache de datos al cerrar sesión
   SKILL_DATA.inbound = null;
-  SKILL_DATA.chat = null;
+  SKILL_DATA.chat    = null;
+  SKILL_DATA.rrss    = null;
+  SKILL_DATA.email   = null;
+  PENDIENTES = [];
 }
 
 // ══ GLOBALS ══
@@ -1990,12 +2042,40 @@ function processFile(file){
       initIndFilter();
       renderPendientes();
       actualizarSkillCards();
+
+      // Publicar en Supabase para que el resto del equipo vea estos datos
+      sincronizarConSupabase(file.name, tieneNueva ? Object.keys(skillSheets).filter(s=>skillSheets[s]) : [SKILL_ACTUAL]);
     }catch(err){
       document.getElementById('loading').style.display='none';
       alert('Error procesando el archivo:\n'+err.message);
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// Sube a Supabase todo lo que se acaba de leer del Excel, para que los demás
+// supervisores lo vean sin tener que cargar el archivo ellos mismos.
+async function sincronizarConSupabase(fileName, skills){
+  if(!supa) return;
+  if(!PUEDE_CARGAR){
+    mostrarNotif('Datos cargados solo en tu pantalla (no tienes permiso para publicar)');
+    return;
+  }
+  mostrarNotif('Publicando datos para el equipo...');
+  let ok=0, fallo=0;
+  for(const skill of skills){
+    if(!skill) continue;
+    const cache=SKILL_DATA[skill];
+    const filas = cache
+      ? [...(cache.chat||[]), ...(cache.oscar||[]), ...(cache.ximena||[])]
+      : [...(D.chat||[]), ...(D.oscar||[]), ...(D.ximena||[])];
+    if(!filas.length) continue;
+    (await guardarEnSupabase(skill, fileName, filas)) ? ok++ : fallo++;
+  }
+  if(PENDIENTES.length) await guardarPendientesEnSupabase();
+  if(fallo && !ok)      mostrarNotif('No se pudo publicar en la base de datos', true);
+  else if(fallo)        mostrarNotif('Publicado parcialmente ('+ok+' de '+(ok+fallo)+' skills)', true);
+  else if(ok)           mostrarNotif('✔ Datos publicados — el equipo ya puede verlos');
 }
 
 // ══ NAVEGACIÓN ══
@@ -3890,135 +3970,132 @@ function mostrarNotif(msg,err){
   el._t=setTimeout(function(){el.style.opacity='0';},4000);
 }
 
-// Login override
-var _loginBase=loginSubmit;
-async function loginSubmit(){
-  if(!supa){_loginBase();return;}
-  var user=document.getElementById('login-user').value.trim().toLowerCase();
-  var pass=document.getElementById('login-pass').value.trim();
-  var errEl=document.getElementById('login-error');
-  var btn=document.querySelector('.login-btn');
-  if(!user||!pass){errEl.style.display='block';errEl.textContent='Escribe usuario y contrasena';return;}
-  if(btn) btn.textContent='Verificando...';
-  errEl.style.display='none';
-  try{
-    var res=await supa.from('usuarios').select('*').eq('user_id',user).eq('password',pass).eq('activo',true).limit(1);
-    var match=res.data&&res.data.length>0?res.data[0]:null;
-    if(!match){
-      var lista=CREDS[ROL_ACTUAL]||[];
-      var loc=lista.find(function(c){return c.user.toLowerCase()===user&&c.pass===pass;});
-      if(loc) match={user_id:user,nombre:loc.nombre||user,rol:ROL_ACTUAL};
-    if(match&&!match.nombre) match.nombre=user;
-    }
-    if(!match){
-      errEl.style.display='block';errEl.textContent='Usuario o contrasena incorrectos';
-      document.getElementById('login-pass').value='';
-      document.getElementById('login-pass').focus();
-      if(btn) btn.textContent='Ingresar >';return;
-    }
-    ROL_ACTUAL=match.rol||'agente';
-    AGENTE_NOMBRE=ROL_ACTUAL==='agente'?(match.nombre||null):null;
-    CP_UID=match.user_id||user;
-    CP_UNOMBRE=match.nombre||match.user_id||user;
-    CP_USER_ID=match.user_id||user;
-    CP_USER_NOMBRE=match.nombre||match.user_id||user;
-    document.body.classList.remove('mode-supervisor','mode-agente');
-    document.body.classList.add('mode-'+ROL_ACTUAL);
-    document.getElementById('rol-sup').classList.toggle('active',ROL_ACTUAL==='supervisor');
-    document.getElementById('rol-agt').classList.toggle('active',ROL_ACTUAL==='agente');
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('home').style.display='none';
-    document.getElementById('skill-screen').style.display='flex';
-    document.body.classList.add('chat-fab-visible');
-    var _fab2=document.getElementById('chat-fab');
-    if(_fab2) _fab2.style.display='flex';
-  var _fab=document.getElementById('chat-fab');
-  if(_fab) _fab.style.display='flex';
-  }catch(e){
-    errEl.style.display='block';errEl.textContent='Error de conexion. Intenta de nuevo.';
-  }finally{if(btn) btn.textContent='Ingresar >';}
-}
+// El login vive en loginSubmit() (Supabase Auth) — ya no hay override aquí.
 
-// Save/load from Supabase
-async function guardarEnSupabase(skill,fileName){
-  if(!supa) return;
+// ══ GUARDAR / CARGAR EN SUPABASE ═════════════════════════════
+// Los valores de cada asesor se guardan como jsonb, no en columnas fijas.
+// Gracias a eso un mismo esquema sirve para Inbound (AHT), Chat (TMO),
+// RRSS (TMR) y Email, y admite indicadores nuevos sin migrar la BD.
+// La definición de columnas del Excel viaja en cortes.indicadores_def,
+// así quien abre el dashboard reconstruye la misma tabla que viste tú.
+
+// Campos que no son indicadores y por eso no van dentro de `valores`
+var CAMPOS_BASE = ['nombre','cedula','supervisor','_sup'];
+
+async function guardarEnSupabase(skill,fileName,filas){
+  if(!supa || !PUEDE_CARGAR) return false;
   try{
     var fechaCorte = FECHA_CORTE || new Date().toISOString().slice(0,10);
-    // Borrar solo el corte del MISMO dia y skill (para no duplicar)
+    // Reemplazar el corte del mismo skill y fecha (evita duplicados al recargar)
     var old=await supa.from('cortes').select('id').eq('skill',skill).eq('fecha_corte',fechaCorte);
     if(old.data&&old.data.length>0){
       var ids=old.data.map(function(c){return c.id;});
       await supa.from('indicadores').delete().in('corte_id',ids);
       await supa.from('cortes').delete().in('id',ids);
     }
-    if(skill==='inbound') await supa.from('calidad').delete().eq('skill','inbound');
-    var periodo=new Date(fechaCorte).toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'});
-    var res=await supa.from('cortes').insert({skill:skill,archivo:fileName,periodo:periodo,fecha_corte:fechaCorte}).select().single();
+    var periodo=new Date(fechaCorte+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'});
+    var sesion=await supa.auth.getUser();
+    var uid=sesion&&sesion.data&&sesion.data.user?sesion.data.user.id:null;
+
+    var res=await supa.from('cortes').insert({
+      skill:skill, archivo:fileName, periodo:periodo, fecha_corte:fechaCorte,
+      indicadores_def: IND_DEFS[skill] || [],
+      extras_def:      EXTRA_DEFS[skill] || [],
+      cargado_por:     uid
+    }).select().single();
     if(res.error) throw res.error;
     var corteId=res.data.id;
-    var filas=skill==='chat'?(D.chat||[]):[...(D.oscar||[]),...(D.ximena||[])];
-    if(filas.length>0){
-      var rows=filas.map(function(r){return{
-        corte_id:corteId,skill:skill,supervisor:r.supervisor||'',asesor:r.nombre||'',
-        fecha_corte:fechaCorte,
-        err_radicados:r['C']!=null?r['C']:null,mal_radicados:r['E']!=null?r['E']:null,
-        eval_conocimiento:r['G']!=null?r['G']:null,nps:r['I']!=null?r['I']:null,
-        envio_encuesta:r['K']!=null?r['K']:null,aht:r['M']!=null?r['M']:null,
-        productividad:r['O']!=null?r['O']:null,fcr:r['Q']!=null?r['Q']:null,
-        ausentismo:r['S']!=null?r['S']:null,adherencia:r['U']!=null?r['U']:null,
-        tipificacion:r['W']!=null?r['W']:null,nota_calidad:r['Y']!=null?r['Y']:null,
-        desconexiones:r['AA']!=null?r['AA']:null
-      };});
-      var r2=await supa.from('indicadores').insert(rows);
-      if(r2.error) throw r2.error;
+
+    if(filas && filas.length){
+      var rows=filas.map(function(r){
+        var valores={};
+        Object.keys(r).forEach(function(k){
+          if(CAMPOS_BASE.indexOf(k)===-1) valores[k]=r[k];
+        });
+        return {corte_id:corteId, cedula:r.cedula!=null?String(r.cedula):null,
+                asesor:r.nombre||'', supervisor:r.supervisor||'', valores:valores};
+      });
+      // Se inserta por bloques para no exceder el límite de tamaño por request
+      for(var i=0;i<rows.length;i+=500){
+        var r2=await supa.from('indicadores').insert(rows.slice(i,i+500));
+        if(r2.error) throw r2.error;
+      }
     }
-    if(skill==='inbound'&&D.calidad&&D.calidad.length>0){
-      var cal=D.calidad.map(function(r){return{
-        skill:'inbound',asesor:r.asesor||'',supervisor:r.supervisor||'',
-        fecha:r.fecha||'',descripcion:r.descripcion||'',nota:r.nota!=null?r.nota:null,
-        estado:r.estado||'Pendiente',tipo_alerta:r.tipoAlerta||'',id_llamada:r.idLlamada||'',
-        analisis:r.analisis||'',oportunidad:r.oportunidad||'',plan_accion:r.planAccion||'',
-        from_compromisos:r._fromCompromisos||false
-      };});
-      await supa.from('calidad').insert(cal);
+    console.log('Guardado en Supabase — corte',corteId,'('+skill+')');
+    return true;
+  }catch(e){
+    console.warn('Error guardando '+skill+':',e.message);
+    return false;
+  }
+}
+
+async function guardarPendientesEnSupabase(){
+  if(!supa || !PUEDE_CARGAR || !PENDIENTES.length) return false;
+  try{
+    var hoy=FECHA_CORTE||new Date().toISOString().slice(0,10);
+    await supa.from('pendientes_tipificacion').delete().eq('fecha_carga',hoy);
+    var sesion=await supa.auth.getUser();
+    var uid=sesion&&sesion.data&&sesion.data.user?sesion.data.user.id:null;
+    var rows=PENDIENTES.map(function(p){return{
+      agente:p.agente, id_llamada:p.idLlamada, cola:p.cola,
+      macroproceso:p.macroproceso, proceso:p.proceso,
+      subproceso_1:p.subproceso1, subproceso_2:p.subproceso2,
+      observaciones:p.observaciones, link_gestion:p.link,
+      fecha_carga:hoy, cargado_por:uid};});
+    for(var i=0;i<rows.length;i+=500){
+      var r=await supa.from('pendientes_tipificacion').insert(rows.slice(i,i+500));
+      if(r.error) throw r.error;
     }
-    console.log('Guardado en Supabase corte:',corteId);
-    mostrarNotif('Datos sincronizados con la base de datos');
-  }catch(e){console.warn('Error guardando:',e.message);mostrarNotif('Sin conexion a BD',true);}
+    return true;
+  }catch(e){ console.warn('Error guardando pendientes:',e.message); return false; }
 }
 
 async function cargarDesdeSupabase(skill){
   if(!supa) return false;
   try{
-    var res=await supa.from('cortes').select('id,archivo,periodo,fecha_carga')
-      .eq('skill',skill).order('fecha_carga',{ascending:false}).limit(1);
-    if(!res.data||!res.data.length) return false;
+    var res=await supa.from('cortes')
+      .select('id,archivo,periodo,fecha_corte,indicadores_def,extras_def')
+      .eq('skill',skill).order('fecha_corte',{ascending:false}).limit(1);
+    if(res.error||!res.data||!res.data.length) return false;
     var corte=res.data[0];
     var res2=await supa.from('indicadores').select('*').eq('corte_id',corte.id);
-    if(!res2.data||!res2.data.length) return false;
+    if(res2.error||!res2.data||!res2.data.length) return false;
+
+    // Reconstruir la definición de indicadores tal como venía en el Excel
+    var defs=corte.indicadores_def||[];
+    if(defs.length){
+      IND_DEFS[skill]=defs;
+      EXTRA_DEFS[skill]=corte.extras_def||[];
+      NUEVO_BY_SKILL[skill]=true;
+    } else {
+      NUEVO_BY_SKILL[skill]=false;
+    }
+    if(SKILL_ACTUAL===skill){
+      NUEVO_TEMPLATE=!!NUEVO_BY_SKILL[skill];
+      INDS = NUEVO_TEMPLATE ? (IND_DEFS[skill]||[]) : INDS_LEGACY;
+      document.body.classList.toggle('mode-nuevo', NUEVO_TEMPLATE);
+    }
+
     var filas=res2.data.map(function(r){
-      function st(v,meta,inv){return v!=null?(inv?v<=meta:v>=meta)?'OK':'NO':null;}
-      return{nombre:r.asesor,supervisor:r.supervisor,
-        C:r.err_radicados,D:st(r.err_radicados,0,true),
-        E:r.mal_radicados,F:st(r.mal_radicados,0,true),
-        G:r.eval_conocimiento,H:st(r.eval_conocimiento,.9,false),
-        I:r.nps,J:st(r.nps,.8,false),
-        K:r.envio_encuesta,L:st(r.envio_encuesta,.7,false),
-        M:r.aht,N:st(r.aht,370,true),
-        O:r.productividad,P:st(r.productividad,.95,false),
-        Q:r.fcr,R:st(r.fcr,.8,false),
-        S:r.ausentismo,T:st(r.ausentismo,.05,true),
-        U:r.adherencia,V:st(r.adherencia,.95,false),
-        W:r.tipificacion,X:st(r.tipificacion,1,false),
-        Y:r.nota_calidad,Z:st(r.nota_calidad,.97,false),
-        AA:r.desconexiones,AB:st(r.desconexiones,.04,true)};
+      var row=Object.assign({}, r.valores||{});
+      row.nombre=r.asesor; row.supervisor=r.supervisor||''; row.cedula=r.cedula;
+      return row;
     });
-    if(skill==='chat'){D.chat=filas;}
-    else{
-      D.oscar=filas.filter(function(r){return r.supervisor&&r.supervisor.toLowerCase()!=='ximena';});
+
+    // Con la plantilla nueva no hay división por supervisor: todo en un bucket
+    if(NUEVO_BY_SKILL[skill] || SIMPLE_SKILLS.indexOf(skill)!==-1){
+      D.chat=filas; D.oscar=[]; D.ximena=[];
+    } else {
+      D.chat=[];
+      D.oscar=filas.filter(function(r){return !r.supervisor||r.supervisor.toLowerCase()!=='ximena';});
       D.ximena=filas.filter(function(r){return r.supervisor&&r.supervisor.toLowerCase()==='ximena';});
     }
-    D.file=corte.archivo||'Base de datos';D.fecha=corte.periodo||'';
+    D.file=corte.archivo||'Base de datos';
+    D.fecha=corte.periodo||'';
+
+    SKILL_DATA[skill]={oscar:[...D.oscar],ximena:[...D.ximena],chat:[...D.chat],
+                       calidad:[],file:D.file,fecha:D.fecha};
+
     if(skill==='inbound'){
       var res3=await supa.from('calidad').select('*').order('created_at',{ascending:false});
       if(res3.data) D.calidad=res3.data.map(function(r){return{
@@ -4026,11 +4103,31 @@ async function cargarDesdeSupabase(skill){
         nota:r.nota,estado:r.estado,tipoAlerta:r.tipo_alerta,idLlamada:r.id_llamada,
         analisis:r.analisis,oportunidad:r.oportunidad,planAccion:r.plan_accion,
         _fromCompromisos:r.from_compromisos,firmaAsesor:r.firma_asesor,firmaSupervisor:r.firma_supervisor};});
+      SKILL_DATA[skill].calidad=[...D.calidad];
     }
-    if(typeof autoGuardarSkillData==='function') autoGuardarSkillData(D.file);
-    console.log('Cargado desde Supabase:',filas.length,'asesores');
+    console.log('Cargado desde Supabase:',filas.length,'asesores ('+skill+')');
     return true;
   }catch(e){console.warn('Error cargando:',e.message);return false;}
+}
+
+// Trae los pendientes por tipificar más recientes que haya en la base
+async function cargarPendientesDesdeSupabase(){
+  if(!supa) return false;
+  try{
+    var ult=await supa.from('pendientes_tipificacion')
+      .select('fecha_carga').order('fecha_carga',{ascending:false}).limit(1);
+    if(ult.error||!ult.data||!ult.data.length) return false;
+    var res=await supa.from('pendientes_tipificacion').select('*')
+      .eq('fecha_carga',ult.data[0].fecha_carga);
+    if(res.error||!res.data||!res.data.length) return false;
+    PENDIENTES=res.data.map(function(r){return{
+      agente:r.agente||'', idLlamada:r.id_llamada||'', cola:r.cola||'',
+      macroproceso:r.macroproceso||'', proceso:r.proceso||'',
+      subproceso1:r.subproceso_1||'', subproceso2:r.subproceso_2||'',
+      observaciones:r.observaciones||'', link:r.link_gestion||''};});
+    try{ renderPendientes(); actualizarSkillCards(); }catch(e){}
+    return true;
+  }catch(e){ return false; }
 }
 
 
@@ -4057,6 +4154,10 @@ function cpAgregarEnVivo(m){
 
 document.addEventListener('DOMContentLoaded',function(){
   initSupabase();
+  // Si quedó sesión abierta, entrar directo y traer los pendientes publicados
+  restaurarSesion().then(function(ok){
+    if(ok) cargarPendientesDesdeSupabase();
+  });
   // Show chat fab if app is already visible (e.g. page refresh)
   setTimeout(function(){
     var app=document.getElementById('app');

@@ -426,13 +426,16 @@ tfoot td{padding:9px 10px;text-align:center;border-top:2px solid var(--ln)}
 tfoot td:first-child{text-align:left}
 tbody td:nth-child(2){text-align:left;font-weight:700}
 tbody td:first-child{color:var(--txt);font-size:10px}
-.nok{color:var(--ok);font-weight:700;font-family:'Courier New',Courier,monospace,monospace}
-.nbd{color:var(--bad);font-weight:700;font-family:'Courier New',Courier,monospace,monospace}
-.nneu{color:var(--azul3);font-weight:600;font-family:'Courier New',Courier,monospace,monospace}
-.ngray{color:#9CA3AF;font-family:'Courier New',Courier,monospace,monospace}
+/* Cifras con ancho fijo por dígito: las columnas quedan a plomo y se
+   comparan de un vistazo hacia abajo */
+.nok{color:var(--ok);font-weight:700;font-family:'Courier New',Courier,monospace;font-variant-numeric:tabular-nums}
+.nbd{color:var(--bad);font-weight:700;font-family:'Courier New',Courier,monospace;font-variant-numeric:tabular-nums}
+.nneu{color:var(--azul3);font-weight:600;font-family:'Courier New',Courier,monospace;font-variant-numeric:tabular-nums}
+.ngray{color:#9CA3AF;font-family:'Courier New',Courier,monospace;font-variant-numeric:tabular-nums}
 
 /* DASHBOARD */
-.kg{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:14px}
+/* Se acomodan solas: en pantallas angostas bajan de fila en vez de apretarse */
+.kg{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:9px;margin-bottom:14px}
 .kc{background:var(--w);border-radius:11px;border:1px solid var(--ln);overflow:hidden;
   transition:box-shadow .2s}
 .kc:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
@@ -468,10 +471,43 @@ tbody td:first-child{color:var(--txt);font-size:10px}
   font-size:11px;font-family:inherit;background:var(--w);color:var(--dk)}
 .fb input:focus,.fb select:focus{outline:none;border-color:var(--azul-lt)}
 .dscroll{overflow-x:auto}
+/* El encabezado se queda visible al desplazar tablas largas */
+.dscroll thead th{position:sticky;top:0;z-index:5}
+tfoot td{position:sticky;bottom:0;background:var(--gold-lt);z-index:4}
+
+/* ═══ TABLA DE INDICADORES PRINCIPALES ═══
+   Encabezado en dos filas (indicador arriba, Meta/Resultado abajo) y un
+   tinte alterno por indicador, para seguir cada pareja de columnas sin
+   perder la fila. Nada de esto altera los datos ni las acciones. */
+.tbl-prin .hgrupo th{
+  font-size:9.5px;letter-spacing:.4px;border-bottom:1px solid rgba(255,255,255,.18);
+  vertical-align:middle;
+}
+.tbl-prin .hsub th{
+  font-size:8px;font-weight:600;text-transform:none;letter-spacing:.2px;
+  color:rgba(255,255,255,.72);padding:4px 10px;
+}
+.tbl-prin .hsub th{position:sticky;top:29px;z-index:5}
+.tbl-prin th.g0,.tbl-prin td.g0{background:rgba(124,58,237,.05)}
+.tbl-prin thead th.g0{background:rgba(255,255,255,.07)}
+.tbl-prin td.vmeta{color:#9CA3AF;font-size:10px;font-family:'Courier New',Courier,monospace}
+.tbl-prin td{text-align:right;font-variant-numeric:tabular-nums}
+.tbl-prin td.col-fecha,.tbl-prin th.col-fecha{text-align:left;font-weight:700;white-space:nowrap}
+.tbl-prin td.col-acc{text-align:center;white-space:nowrap}
+/* Fines de semana atenuados: se distingue la semana laboral de un vistazo */
+.tbl-prin tbody tr.finde{background:#FAF8FF}
+.tbl-prin tbody tr.finde td.col-fecha{color:var(--azul3)}
+.tbl-prin tbody tr:hover{background:#EFF6FF}
+.tbl-prin .fila-prom td{background:var(--gold-lt);font-weight:800;border-top:2px solid var(--azul3)}
+.btn-fila{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;
+  padding:3px 8px;cursor:pointer;font-size:12px;margin-right:4px;transition:all .15s}
+.btn-fila:hover{background:#DBEAFE;transform:scale(1.08)}
+.btn-borrar{background:var(--bad-bg);border-color:#FCA5A5;margin-right:0}
+.btn-borrar:hover{background:#FECACA}
 /* Value display in datos */
-.vok{color:var(--ok);font-weight:700;font-family:'Courier New',Courier,monospace;font-size:10px}
-.vbd{color:var(--bad);font-weight:700;font-family:'Courier New',Courier,monospace;font-size:10px}
-.vna{color:#CBD5E1;font-size:10px}
+.vok{color:var(--ok);font-weight:700;font-family:'Courier New',Courier,monospace;font-size:10px;font-variant-numeric:tabular-nums}
+.vbd{color:var(--bad);font-weight:700;font-family:'Courier New',Courier,monospace;font-size:10px;font-variant-numeric:tabular-nums}
+.vna{color:#CBD5E1;font-size:10px;font-variant-numeric:tabular-nums}
 
 /* CALIDAD */
 .cstats{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
@@ -1117,7 +1153,7 @@ tbody td:first-child{color:var(--txt);font-size:10px}
       <div class="card">
         <div class="ch">INDICADORES PRINCIPALES — REGISTRO DIARIO <span class="chsub" id="prin-sub"></span></div>
         <div class="dscroll">
-          <table><thead><tr id="prin-head"></tr></thead>
+          <table class="tbl-prin"><thead id="prin-thead"></thead>
             <tbody id="prin-body"></tbody>
             <tfoot id="prin-foot"></tfoot>
           </table>
@@ -4802,7 +4838,7 @@ async function cargarPrincipales(){
 }
 
 function renderPrincipales(){
-  var head=document.getElementById('prin-head');
+  var head=document.getElementById('prin-thead');
   var body=document.getElementById('prin-body');
   var foot=document.getElementById('prin-foot');
   if(!head||!body) return;
@@ -4829,12 +4865,21 @@ function renderPrincipales(){
   var sub=document.getElementById('prin-sub');
   if(sub) sub.textContent = (SKILLS_CONFIG[SKILL_ACTUAL]||{}).shortLabel||'';
 
-  head.innerHTML='<th>Fecha</th>'
-    + IND_PRINCIPALES.map(function(ind){
-        return '<th>'+cpEsc(ind.nm)+'<br><span style="font-weight:400;opacity:.65">meta</span></th>'
-             + '<th>'+cpEsc(ind.nm)+'<br><span style="font-weight:400;opacity:.65">resultado</span></th>';
-      }).join('')
-    + (puede ? '<th>Acciones</th>' : '');
+  // Encabezado en dos filas, igual que el Excel: el nombre del indicador
+  // arriba abarcando sus dos columnas, y debajo Meta / Resultado.
+  head.innerHTML =
+    '<tr class="hgrupo">'
+      + '<th rowspan="2" class="col-fecha">Fecha</th>'
+      + IND_PRINCIPALES.map(function(ind,i){
+          return '<th colspan="2" class="g'+(i%2)+'">'+cpEsc(ind.nm)+'</th>';
+        }).join('')
+      + (puede ? '<th rowspan="2">Acciones</th>' : '')
+    + '</tr>'
+    + '<tr class="hsub">'
+      + IND_PRINCIPALES.map(function(ind,i){
+          return '<th class="g'+(i%2)+'">Meta</th><th class="g'+(i%2)+'">Resultado</th>';
+        }).join('')
+    + '</tr>';
 
   if(!filas.length){
     body.innerHTML='<tr><td colspan="'+(1+IND_PRINCIPALES.length*2+(puede?1:0))+'" '
@@ -4845,26 +4890,24 @@ function renderPrincipales(){
     return;
   }
 
-  body.innerHTML=filas.map(function(r,i){
-    var bg=i%2===0?'':'style="background:#F8FAFF"';
-    var celdas=IND_PRINCIPALES.map(function(ind){
+  body.innerHTML=filas.map(function(r){
+    var celdas=IND_PRINCIPALES.map(function(ind,gi){
       var v=r.valores||{};
       var meta=v[ind.key+'_meta'], res=v[ind.key+'_res'];
       var ok=prinCumple(res, meta, ind);
       var cls = ok===null ? 'vna' : (ok?'vok':'vbd');
-      return '<td class="vna" style="font-size:10px">'+prinFormato(meta,ind)+'</td>'
-           + '<td class="'+cls+'">'+prinFormato(res,ind)+'</td>';
+      return '<td class="vmeta g'+(gi%2)+'">'+prinFormato(meta,ind)+'</td>'
+           + '<td class="'+cls+' g'+(gi%2)+'">'+prinFormato(res,ind)+'</td>';
     }).join('');
     var acciones = puede
-      ? '<td style="white-space:nowrap">'
-        +'<button onclick="abrirPrincipal(\''+r.id+'\')" title="Editar" '
-        +'style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;'
-        +'padding:3px 8px;cursor:pointer;font-size:12px;margin-right:4px">✏️</button>'
-        +'<button onclick="eliminarPrincipal(\''+r.id+'\')" title="Eliminar" '
-        +'style="background:var(--bad-bg);border:1px solid #FCA5A5;border-radius:6px;'
-        +'padding:3px 8px;cursor:pointer;font-size:12px">🗑️</button></td>'
+      ? '<td class="col-acc">'
+        +'<button onclick="abrirPrincipal(\''+r.id+'\')" title="Editar" class="btn-fila">✏️</button>'
+        +'<button onclick="eliminarPrincipal(\''+r.id+'\')" title="Eliminar" class="btn-fila btn-borrar">🗑️</button></td>'
       : '';
-    return '<tr '+bg+'><td style="font-weight:700;white-space:nowrap">'
+    // Sábados y domingos van sombreados: ayudan a leer el mes de un vistazo
+    var dia=new Date(r.fecha+'T00:00:00').getDay();
+    var finde=(dia===0||dia===6) ? ' class="finde"' : '';
+    return '<tr'+finde+'><td class="col-fecha">'
       + fechaBonita(r.fecha)+'</td>'+celdas+acciones+'</tr>';
   }).join('');
 
@@ -4881,11 +4924,11 @@ function renderPrincipales(){
       var pr=reses.length?reses.reduce(function(a,b){return a+b;},0)/reses.length:null;
       var ok=prinCumple(pr,pm,ind);
       var cls = ok===null ? 'vna' : (ok?'vok':'vbd');
-      return '<td class="vna" style="font-size:10px">'+prinFormato(pm,ind)+'</td>'
+      return '<td class="vmeta">'+prinFormato(pm,ind)+'</td>'
            + '<td class="'+cls+'" style="font-weight:800">'+prinFormato(pr,ind)+'</td>';
     }).join('');
-    foot.innerHTML='<tr style="background:var(--gold-lt);font-weight:800">'
-      +'<td style="font-weight:800">PROMEDIO</td>'+proms+(puede?'<td></td>':'')+'</tr>';
+    foot.innerHTML='<tr class="fila-prom">'
+      +'<td class="col-fecha">PROMEDIO</td>'+proms+(puede?'<td></td>':'')+'</tr>';
   }
 }
 

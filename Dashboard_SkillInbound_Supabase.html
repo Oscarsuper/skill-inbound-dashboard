@@ -2136,12 +2136,18 @@ function processFile(file){
       const oldOscar=findSheet(wb,'Oscar');
       const oldXimena=findSheet(wb,'Ximena');
       const calSheet=findSheet(wb,'Calidad');
-      // Plantilla nueva por categorías: "Indicadores_<mes>_<SKILL>" (un excel, los 4 skills)
+      // Plantilla nueva por categorías: "Indicadores_<mes>_<SKILL>" (un excel, los 4 skills).
+      // Se excluyen las hojas de "Indicadores Principales": esos son los
+      // indicadores generales del skill y se capturan A MANO en la pestaña
+      // 📌 Principales, nunca desde el Excel. Sin esta exclusión, una hoja
+      // como "Indicadores Principales Inbound" se tomaría por error como la
+      // del canal Inbound, porque también contiene "indicadores" e "inbound".
+      const esHojaDeSkill = s => /indicadores/i.test(s) && !/principal/i.test(s);
       const skillSheets={
-        inbound: wb.SheetNames.find(s=>/indicadores/i.test(s)&&/inbound/i.test(s)),
-        chat:    wb.SheetNames.find(s=>/indicadores/i.test(s)&&/chat/i.test(s)),
-        rrss:    wb.SheetNames.find(s=>/indicadores/i.test(s)&&/rrss/i.test(s)),
-        email:   wb.SheetNames.find(s=>/indicadores/i.test(s)&&/email/i.test(s)),
+        inbound: wb.SheetNames.find(s=>esHojaDeSkill(s)&&/inbound/i.test(s)),
+        chat:    wb.SheetNames.find(s=>esHojaDeSkill(s)&&/chat/i.test(s)),
+        rrss:    wb.SheetNames.find(s=>esHojaDeSkill(s)&&/rrss/i.test(s)),
+        email:   wb.SheetNames.find(s=>esHojaDeSkill(s)&&/email/i.test(s)),
       };
       const tieneNueva=Object.values(skillSheets).some(Boolean);
       // Monitoreo transaccional: hoja "FINAL <MES>" con los volúmenes de gestión

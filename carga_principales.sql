@@ -1,0 +1,18 @@
+insert into public.indicadores_principales (skill, fecha, valores) values
+  ('inbound', '2026-08-01', '{"ns_meta": 0.8, "ns_res": 0.911, "na_meta": 0.97, "na_res": 0.987, "tmo_meta": 380.0, "tmo_res": 451.6, "aus_meta": 0.066, "aus_res": 0.0815, "adh_meta": 0.95, "adh_res": 0.867}'::jsonb),
+  ('inbound', '2026-08-02', '{"ns_meta": 0.8, "ns_res": 0.922, "na_meta": 0.97, "na_res": 0.98, "tmo_meta": 380.0, "tmo_res": 428.6, "aus_meta": 0.066, "aus_res": 0.0682, "adh_meta": 0.95, "adh_res": 0.886}'::jsonb),
+  ('inbound', '2026-08-03', '{"ns_meta": 0.8, "ns_res": 0.566, "na_meta": 0.97, "na_res": 0.958, "tmo_meta": 380.0, "tmo_res": 513.0, "aus_meta": 0.066, "aus_res": 0.0787, "adh_meta": 0.95, "adh_res": 0.878}'::jsonb),
+  ('inbound', '2026-08-04', '{"ns_meta": 0.8, "ns_res": 0.554, "na_meta": 0.97, "na_res": 0.931, "tmo_meta": 380.0, "tmo_res": 500.0, "aus_meta": 0.066, "aus_res": 0.0625, "adh_meta": 0.95, "adh_res": 0.906}'::jsonb),
+  ('inbound', '2026-08-05', '{"ns_meta": 0.8, "ns_res": 0.304, "na_meta": 0.97, "na_res": 0.883, "tmo_meta": 380.0, "tmo_res": 485.0, "aus_meta": 0.066, "aus_res": 0.0734, "adh_meta": 0.95, "adh_res": 0.901}'::jsonb),
+  ('inbound', '2026-08-06', '{"ns_meta": 0.8, "ns_res": 0.585, "na_meta": 0.97, "na_res": 0.966, "tmo_meta": 380.0, "tmo_res": 628.7, "aus_meta": 0.066, "aus_res": 0.0674, "adh_meta": 0.95, "adh_res": 0.887}'::jsonb),
+  ('inbound', '2026-08-07', '{"ns_meta": 0.8, "ns_res": 0.81, "na_meta": 0.97, "na_res": 0.929, "tmo_meta": 380.0, "tmo_res": 436.8, "aus_meta": 0.066, "aus_res": 0.1957, "adh_meta": 0.95, "adh_res": 0.764}'::jsonb),
+  ('inbound', '2026-08-08', '{"ns_meta": 0.8, "ns_res": 0.968, "na_meta": 0.97, "na_res": 0.997, "tmo_meta": 380.0, "tmo_res": 431.8, "aus_meta": 0.066, "aus_res": 0.0787, "adh_meta": 0.95, "adh_res": 0.853}'::jsonb),
+  ('inbound', '2026-08-09', '{"ns_meta": 0.8, "ns_res": 0.992, "na_meta": 0.97, "na_res": 0.989, "tmo_meta": 380.0, "tmo_res": 421.6, "aus_meta": 0.066, "aus_res": 0.0652, "adh_meta": 0.95, "adh_res": 0.907}'::jsonb),
+  ('inbound', '2026-08-10', '{"ns_meta": 0.8, "ns_res": 0.814, "na_meta": 0.97, "na_res": 0.975, "tmo_meta": 380.0, "tmo_res": 422.2, "aus_meta": 0.066, "aus_res": 0.0838, "adh_meta": 0.95, "adh_res": 0.856}'::jsonb),
+  ('inbound', '2026-08-11', '{"ns_meta": 0.8, "ns_res": 0.74, "na_meta": 0.97, "na_res": 0.976, "tmo_meta": 380.0, "tmo_res": 453.5, "aus_meta": 0.066, "aus_res": 0.0955, "adh_meta": 0.95, "adh_res": 0.859}'::jsonb),
+  ('inbound', '2026-08-12', '{"ns_meta": 0.8, "ns_res": 0.739, "na_meta": 0.97, "na_res": 0.982, "tmo_meta": 380.0, "tmo_res": 462.3, "aus_meta": 0.066, "aus_res": 0.1222, "adh_meta": 0.95, "adh_res": null}'::jsonb),
+  ('inbound', '2026-08-13', '{"ns_meta": 0.8, "ns_res": 0.828, "na_meta": 0.97, "na_res": 0.992, "tmo_meta": 380.0, "tmo_res": 447.6, "aus_meta": 0.066, "aus_res": 0.092, "adh_meta": 0.95, "adh_res": null}'::jsonb),
+  ('inbound', '2026-08-14', '{"ns_meta": 0.8, "ns_res": 0.66, "na_meta": 0.97, "na_res": 0.978, "tmo_meta": 380.0, "tmo_res": 459.8, "aus_meta": 0.066, "aus_res": null, "adh_meta": 0.95, "adh_res": null}'::jsonb),
+  ('inbound', '2026-08-15', '{"ns_meta": 0.8, "ns_res": 0.94, "na_meta": 0.97, "na_res": 0.993, "tmo_meta": 380.0, "tmo_res": 391.2, "aus_meta": 0.066, "aus_res": null, "adh_meta": 0.95, "adh_res": null}'::jsonb),
+  ('inbound', '2026-08-16', '{"ns_meta": 0.8, "ns_res": 0.933, "na_meta": 0.97, "na_res": 0.996, "tmo_meta": 380.0, "tmo_res": 432.6, "aus_meta": 0.066, "aus_res": null, "adh_meta": 0.95, "adh_res": null}'::jsonb)
+on conflict (skill, fecha) do update set valores = excluded.valores;

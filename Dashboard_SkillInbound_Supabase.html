@@ -490,6 +490,18 @@ tfoot td{position:sticky;bottom:0;background:var(--gold-lt);z-index:4}
 .tbl-prin .hsub th{position:sticky;top:29px;z-index:5}
 .tbl-prin th.g0,.tbl-prin td.g0{background:rgba(124,58,237,.05)}
 .tbl-prin thead th.g0{background:rgba(255,255,255,.07)}
+/* Bloque de volúmenes: separado del resto porque son conteos, no % */
+.tbl-prin th.gvol,.tbl-prin td.gvol{background:rgba(59,130,246,.07)}
+.tbl-prin thead th.gvol{background:rgba(255,255,255,.13)}
+.tbl-prin td.vvol{color:var(--azul2);font-weight:600;font-size:10px;
+  font-family:'Courier New',Courier,monospace}
+.tbl-prin td.gvol:last-of-type{border-right:2px solid var(--ln)}
+
+/* Vista previa dentro del formulario: confirma el % antes de guardar */
+.prin-previa{display:flex;flex-wrap:wrap;gap:14px;background:#F8F5FF;
+  border:1px solid #DDD6FE;border-radius:10px;padding:10px 12px;margin:4px 0 2px;
+  font-size:12px;color:#4A1D96}
+.prin-previa b{font-family:'Courier New',Courier,monospace;font-size:13px}
 .tbl-prin td.vmeta{color:#9CA3AF;font-size:10px;font-family:'Courier New',Courier,monospace}
 .tbl-prin td{text-align:right;font-variant-numeric:tabular-nums}
 .tbl-prin td.col-fecha,.tbl-prin th.col-fecha{text-align:left;font-weight:700;white-space:nowrap}
@@ -4779,46 +4791,85 @@ function cpAgregarVivo(m){
 
 // ═══ INDICADORES PRINCIPALES ════════════════════════════════
 // Registro diario de los indicadores generales del skill (no por asesor).
-// Se captura a mano en el dashboard y vive en Supabase, así queda guardado
-// sin depender de volver a subir un Excel.
-
-// Definición de los indicadores. Para agregar uno nuevo basta con sumarlo
-// aquí: la tabla, el formulario y los promedios se ajustan solos.
-const IND_PRINCIPALES = [
-  {key:'ns',  nm:'Nivel de Servicio', metaDef:0.80,  t:'nor', fmt:'pct1', ayuda:'% (ej. 91.1)'},
-  {key:'na',  nm:'Nivel de Atención', metaDef:0.97,  t:'nor', fmt:'pct1', ayuda:'% (ej. 98.7)'},
-  {key:'tmo', nm:'TMO',              metaDef:380,   t:'inv', fmt:'seg',  ayuda:'segundos (ej. 451.6)'},
-  {key:'aus', nm:'Ausentismo',       metaDef:0.066, t:'inv', fmt:'pct2', ayuda:'% (ej. 8.15)'},
-  {key:'adh', nm:'Adherencia',       metaDef:0.95,  t:'nor', fmt:'pct1', ayuda:'% (ej. 86.7)'},
-];
+// Se captura a mano en el dashboard y vive en Supabase.
+//
+// CÓMO SE CALCULA
+//   Se capturan los VOLÚMENES del día, no los porcentajes ya hechos:
+//       Nivel de Atención = atendidas / ofrecidas
+//       Nivel de Servicio = atendidas dentro de ANS / atendidas
+//   Así el porcentaje diario sale solo y, sobre todo, el promedio del mes
+//   queda PONDERADO: se suman numeradores y denominadores de todo el
+//   periodo en vez de promediar porcentajes. Promediar porcentajes le da
+//   el mismo peso a un domingo de 100 llamadas que a un lunes de 1.000 y
+//   distorsiona el resultado.
+//   El TMO del mes se pondera por el volumen de llamadas de cada día.
+//   Ausentismo y Adherencia siguen como promedio simple: ponderarlos
+//   requeriría las horas programadas, que hoy no se capturan.
 
 var PRINCIPALES = [];        // registros del skill actual
 var PRIN_EDITANDO = null;    // id del registro en edición, null si es nuevo
 var PRIN_SKILL = null;       // skill al que corresponde lo cargado
 
-function prinEsPct(ind){ return ind.fmt==='pct1' || ind.fmt==='pct2'; }
+// Lo que el usuario escribe cada día
+const PRIN_CAMPOS = [
+  {key:'ofrecidas', nm:'Llamadas ofrecidas',      tipo:'num', ayuda:'total que entraron a la cola'},
+  {key:'atendidas', nm:'Llamadas atendidas',      tipo:'num', ayuda:'contestadas por el equipo'},
+  {key:'en_ans',    nm:'Atendidas dentro de ANS', tipo:'num', ayuda:'contestadas dentro del umbral'},
+  {key:'tmo',       nm:'TMO',                     tipo:'seg', ayuda:'segundos (ej. 451.6)'},
+  {key:'aus',       nm:'Ausentismo',              tipo:'pct', ayuda:'% (ej. 8.15)'},
+  {key:'adh',       nm:'Adherencia',              tipo:'pct', ayuda:'% (ej. 86.7)'},
+];
 
-// El usuario escribe 91.1 y se guarda 0.911; si escribe 0.911 se respeta.
-function prinAFraccion(valor, ind){
+// Lo que se muestra en la tabla. `num`/`den` marcan las columnas con las
+// que se pondera el promedio del periodo.
+const IND_PRINCIPALES = [
+  {key:'ns',  nm:'Nivel de Servicio', metaDef:0.80,  t:'nor', fmt:'pct1', num:'en_ans',    den:'atendidas'},
+  {key:'na',  nm:'Nivel de Atención', metaDef:0.97,  t:'nor', fmt:'pct1', num:'atendidas', den:'ofrecidas'},
+  {key:'tmo', nm:'TMO',               metaDef:380,   t:'inv', fmt:'seg',  pesoPor:'atendidas'},
+  {key:'aus', nm:'Ausentismo',        metaDef:0.066, t:'inv', fmt:'pct2'},
+  {key:'adh', nm:'Adherencia',        metaDef:0.95,  t:'nor', fmt:'pct1'},
+];
+
+function prinEsPct(tipo){ return tipo==='pct'; }
+function prinNum(v){ return (typeof v==='number' && !isNaN(v)) ? v : null; }
+
+// El usuario escribe 8.15 y se guarda 0.0815; si escribe 0.0815 se respeta.
+function prinAFraccion(valor, tipo){
   if(valor===''||valor===null||valor===undefined) return null;
   var n=parseFloat(String(valor).replace(',','.'));
   if(isNaN(n)) return null;
-  if(!prinEsPct(ind)) return n;
+  if(!prinEsPct(tipo)) return n;
   return n>1 ? n/100 : n;
 }
-function prinAEntrada(valor, ind){
+function prinAEntrada(valor, tipo){
   if(valor===null||valor===undefined||valor==='') return '';
-  return prinEsPct(ind) ? +(valor*100).toFixed(2) : valor;
+  return prinEsPct(tipo) ? +(valor*100).toFixed(2) : valor;
 }
 function prinFormato(valor, ind){
   if(valor===null||valor===undefined||valor==='') return '—';
   if(ind.fmt==='seg')  return Math.round(valor)+'s';
+  if(ind.fmt==='num')  return Math.round(valor).toLocaleString('es-CO');
   if(ind.fmt==='pct2') return (valor*100).toFixed(2)+'%';
   return (valor*100).toFixed(1)+'%';
 }
 function prinCumple(res, meta, ind){
   if(res===null||res===undefined||meta===null||meta===undefined) return null;
   return ind.t==='inv' ? res<=meta : res>=meta;
+}
+
+// Resultado de un indicador para un día. Si hay volúmenes se derivan de
+// ellos; si no, se usa el porcentaje guardado (registros antiguos).
+function prinResultado(valores, ind){
+  var v=valores||{};
+  if(ind.num && ind.den){
+    var n=prinNum(v[ind.num]), d=prinNum(v[ind.den]);
+    if(n!==null && d) return n/d;
+  }
+  return prinNum(v[ind.key+'_res']);
+}
+function prinMeta(valores, ind){
+  var m=prinNum((valores||{})[ind.key+'_meta']);
+  return m===null ? ind.metaDef : m;
 }
 
 async function cargarPrincipales(){
@@ -4843,7 +4894,6 @@ function renderPrincipales(){
   var foot=document.getElementById('prin-foot');
   if(!head||!body) return;
 
-  // El input de mes arranca en el mes del último registro, o en el actual
   var inpMes=document.getElementById('prin-mes');
   if(inpMes && !inpMes.value){
     inpMes.value = PRINCIPALES.length
@@ -4865,24 +4915,26 @@ function renderPrincipales(){
   var sub=document.getElementById('prin-sub');
   if(sub) sub.textContent = (SKILLS_CONFIG[SKILL_ACTUAL]||{}).shortLabel||'';
 
-  // Encabezado en dos filas, igual que el Excel: el nombre del indicador
-  // arriba abarcando sus dos columnas, y debajo Meta / Resultado.
+  // Encabezado en dos filas: grupo de volúmenes + un grupo por indicador
   head.innerHTML =
     '<tr class="hgrupo">'
       + '<th rowspan="2" class="col-fecha">Fecha</th>'
+      + '<th colspan="3" class="gvol">Llamadas</th>'
       + IND_PRINCIPALES.map(function(ind,i){
           return '<th colspan="2" class="g'+(i%2)+'">'+cpEsc(ind.nm)+'</th>';
         }).join('')
       + (puede ? '<th rowspan="2">Acciones</th>' : '')
     + '</tr>'
     + '<tr class="hsub">'
+      + '<th class="gvol">Ofrecidas</th><th class="gvol">Atendidas</th><th class="gvol">En ANS</th>'
       + IND_PRINCIPALES.map(function(ind,i){
           return '<th class="g'+(i%2)+'">Meta</th><th class="g'+(i%2)+'">Resultado</th>';
         }).join('')
     + '</tr>';
 
+  var nCols = 1+3+IND_PRINCIPALES.length*2+(puede?1:0);
   if(!filas.length){
-    body.innerHTML='<tr><td colspan="'+(1+IND_PRINCIPALES.length*2+(puede?1:0))+'" '
+    body.innerHTML='<tr><td colspan="'+nCols+'" '
       +'style="text-align:center;padding:26px;color:var(--txt)">'
       +(puede ? 'Sin registros en este mes. Usa «＋ Agregar día» para empezar.'
               : 'Sin registros en este mes.')+'</td></tr>';
@@ -4891,9 +4943,13 @@ function renderPrincipales(){
   }
 
   body.innerHTML=filas.map(function(r){
+    var v=r.valores||{};
+    var vols=['ofrecidas','atendidas','en_ans'].map(function(k){
+      var n=prinNum(v[k]);
+      return '<td class="gvol vvol">'+(n===null?'—':Math.round(n).toLocaleString('es-CO'))+'</td>';
+    }).join('');
     var celdas=IND_PRINCIPALES.map(function(ind,gi){
-      var v=r.valores||{};
-      var meta=v[ind.key+'_meta'], res=v[ind.key+'_res'];
+      var meta=prinMeta(v,ind), res=prinResultado(v,ind);
       var ok=prinCumple(res, meta, ind);
       var cls = ok===null ? 'vna' : (ok?'vok':'vbd');
       return '<td class="vmeta g'+(gi%2)+'">'+prinFormato(meta,ind)+'</td>'
@@ -4904,31 +4960,81 @@ function renderPrincipales(){
         +'<button onclick="abrirPrincipal(\''+r.id+'\')" title="Editar" class="btn-fila">✏️</button>'
         +'<button onclick="eliminarPrincipal(\''+r.id+'\')" title="Eliminar" class="btn-fila btn-borrar">🗑️</button></td>'
       : '';
-    // Sábados y domingos van sombreados: ayudan a leer el mes de un vistazo
     var dia=new Date(r.fecha+'T00:00:00').getDay();
     var finde=(dia===0||dia===6) ? ' class="finde"' : '';
     return '<tr'+finde+'><td class="col-fecha">'
-      + fechaBonita(r.fecha)+'</td>'+celdas+acciones+'</tr>';
+      + fechaBonita(r.fecha)+'</td>'+vols+celdas+acciones+'</tr>';
   }).join('');
 
-  // Fila de promedios, calculada solo con los días que tienen dato
+  // ── Fila de totales del periodo ──
+  // NS y NA se ponderan sumando numeradores y denominadores; el TMO se
+  // pondera por llamadas atendidas. Ausentismo y Adherencia van como
+  // promedio simple, y se marcan con ~ para que se note la diferencia.
   if(foot){
-    var proms=IND_PRINCIPALES.map(function(ind){
-      var metas=[], reses=[];
+    var sum=function(k){
+      return filas.reduce(function(a,r){
+        var n=prinNum((r.valores||{})[k]); return a+(n===null?0:n);
+      },0);
+    };
+    var totOf=sum('ofrecidas'), totAt=sum('atendidas'), totAns=sum('en_ans');
+    var volsTot='<td class="gvol vvol"><b>'+(totOf?totOf.toLocaleString('es-CO'):'—')+'</b></td>'
+      +'<td class="gvol vvol"><b>'+(totAt?totAt.toLocaleString('es-CO'):'—')+'</b></td>'
+      +'<td class="gvol vvol"><b>'+(totAns?totAns.toLocaleString('es-CO'):'—')+'</b></td>';
+
+    var proms=IND_PRINCIPALES.map(function(ind,gi){
+      var metas=[];
       filas.forEach(function(r){
-        var v=r.valores||{};
-        if(typeof v[ind.key+'_meta']==='number') metas.push(v[ind.key+'_meta']);
-        if(typeof v[ind.key+'_res'] ==='number') reses.push(v[ind.key+'_res']);
+        var m=prinNum((r.valores||{})[ind.key+'_meta']);
+        metas.push(m===null?ind.metaDef:m);
       });
-      var pm=metas.length?metas.reduce(function(a,b){return a+b;},0)/metas.length:null;
-      var pr=reses.length?reses.reduce(function(a,b){return a+b;},0)/reses.length:null;
+      var pm=metas.length?metas.reduce(function(a,b){return a+b;},0)/metas.length:ind.metaDef;
+
+      var pr=null, aprox=false;
+      if(ind.num && ind.den){
+        var n=sum(ind.num), d=sum(ind.den);
+        if(d) pr=n/d;                       // ponderado real
+      }
+      if(pr===null && ind.pesoPor){
+        // TMO: ponderado por el volumen de llamadas de cada día
+        var acum=0, peso=0;
+        filas.forEach(function(r){
+          var val=prinResultado(r.valores,ind), w=prinNum((r.valores||{})[ind.pesoPor]);
+          if(val!==null && w){ acum+=val*w; peso+=w; }
+        });
+        if(peso) pr=acum/peso;
+      }
+      if(pr===null){
+        // Sin denominador disponible: promedio simple
+        var vals=[];
+        filas.forEach(function(r){
+          var val=prinResultado(r.valores,ind);
+          if(val!==null) vals.push(val);
+        });
+        if(vals.length){ pr=vals.reduce(function(a,b){return a+b;},0)/vals.length; aprox=true; }
+      }
       var ok=prinCumple(pr,pm,ind);
       var cls = ok===null ? 'vna' : (ok?'vok':'vbd');
-      return '<td class="vmeta">'+prinFormato(pm,ind)+'</td>'
-           + '<td class="'+cls+'" style="font-weight:800">'+prinFormato(pr,ind)+'</td>';
+      return '<td class="vmeta g'+(gi%2)+'">'+prinFormato(pm,ind)+'</td>'
+           + '<td class="'+cls+' g'+(gi%2)+'" style="font-weight:800" '
+           + 'title="'+(aprox?'Promedio simple':'Ponderado por volumen')+'">'
+           + (aprox?'~':'')+prinFormato(pr,ind)+'</td>';
     }).join('');
+
+    // Si el mes mezcla días con volúmenes y días que solo tienen el
+    // porcentaje, el ponderado solo abarca los primeros. Se avisa para que
+    // nadie lea esa cifra como si fuera del mes completo.
+    var conVol=filas.filter(function(r){ return prinNum((r.valores||{}).atendidas)!==null; }).length;
+    var aviso='';
+    if(conVol && conVol<filas.length){
+      aviso='<tr><td colspan="'+nCols+'" style="background:#FEF3C7;color:#92400E;'
+        +'font-size:11px;font-weight:600;text-align:left;padding:7px 12px">'
+        +'⚠ El ponderado cubre '+conVol+' de '+filas.length+' días: los demás se '
+        +'registraron solo como porcentaje, sin volúmenes. Complétalos con el ✏️ '
+        +'para que el total del mes quede exacto.</td></tr>';
+    }
     foot.innerHTML='<tr class="fila-prom">'
-      +'<td class="col-fecha">PROMEDIO</td>'+proms+(puede?'<td></td>':'')+'</tr>';
+      +'<td class="col-fecha">TOTAL / PONDERADO</td>'+volsTot+proms+(puede?'<td></td>':'')+'</tr>'
+      + aviso;
   }
 }
 
@@ -4943,24 +5049,71 @@ function abrirPrincipal(id){
   document.getElementById('prin-error').style.display='none';
 
   var v = reg ? (reg.valores||{}) : {};
-  document.getElementById('prin-campos').innerHTML = IND_PRINCIPALES.map(function(ind){
-    var meta = v[ind.key+'_meta'];
-    if(meta===undefined||meta===null) meta = ind.metaDef;
-    return '<div style="display:grid;grid-template-columns:1fr 110px 110px;gap:10px;'
-      +'align-items:center;margin-bottom:10px">'
-      +'<div><div style="font-size:12px;font-weight:700;color:#2B0B6B">'+cpEsc(ind.nm)+'</div>'
-      +'<div style="font-size:10px;color:#94A3B8">'+cpEsc(ind.ayuda)+'</div></div>'
-      +'<div><label style="font-size:9px;font-weight:700;color:#6B7280">META</label>'
-      +'<input type="number" step="any" id="prin-'+ind.key+'-meta" value="'+prinAEntrada(meta,ind)+'" '
-      +'style="width:100%;border:1.5px solid #DDD6FE;border-radius:8px;padding:7px;'
-      +'font-size:13px;font-family:inherit;outline:none"></div>'
-      +'<div><label style="font-size:9px;font-weight:700;color:#6B7280">RESULTADO</label>'
-      +'<input type="number" step="any" id="prin-'+ind.key+'-res" value="'+prinAEntrada(v[ind.key+'_res'],ind)+'" '
-      +'placeholder="—" style="width:100%;border:1.5px solid #DDD6FE;border-radius:8px;padding:7px;'
-      +'font-size:13px;font-family:inherit;outline:none"></div>'
+  var campos = PRIN_CAMPOS.map(function(c){
+    return '<div style="display:grid;grid-template-columns:1fr 130px;gap:10px;'
+      +'align-items:center;margin-bottom:9px">'
+      +'<div><div style="font-size:12px;font-weight:700;color:#2B0B6B">'+cpEsc(c.nm)+'</div>'
+      +'<div style="font-size:10px;color:#94A3B8">'+cpEsc(c.ayuda)+'</div></div>'
+      +'<input type="number" step="any" min="0" id="prin-c-'+c.key+'" '
+      +'value="'+prinAEntrada(v[c.key], c.tipo)+'" placeholder="—" '
+      +'oninput="prinPrevia()" '
+      +'style="width:100%;border:1.5px solid #DDD6FE;border-radius:8px;padding:8px;'
+      +'font-size:13px;font-family:inherit;outline:none;text-align:right">'
       +'</div>';
   }).join('');
+
+  // Metas del día, plegadas: casi nunca se tocan
+  var metas = '<details style="margin-top:6px">'
+    +'<summary style="font-size:11px;font-weight:700;color:#6B7280;cursor:pointer;'
+    +'padding:6px 0">Metas de este día (opcional)</summary>'
+    +'<div style="padding-top:8px">'
+    + IND_PRINCIPALES.map(function(ind){
+        var tipo = ind.fmt==='seg' ? 'seg' : 'pct';
+        return '<div style="display:grid;grid-template-columns:1fr 130px;gap:10px;'
+          +'align-items:center;margin-bottom:7px">'
+          +'<div style="font-size:11px;color:#6B7280">'+cpEsc(ind.nm)+'</div>'
+          +'<input type="number" step="any" id="prin-m-'+ind.key+'" '
+          +'value="'+prinAEntrada(prinMeta(v,ind), tipo)+'" '
+          +'style="width:100%;border:1.5px solid #EDE9FE;border-radius:8px;padding:6px;'
+          +'font-size:12px;font-family:inherit;outline:none;text-align:right">'
+          +'</div>';
+      }).join('')
+    +'</div></details>';
+
+  document.getElementById('prin-campos').innerHTML = campos
+    + '<div id="prin-previa" class="prin-previa"></div>' + metas;
+  prinPrevia();
   document.getElementById('prin-modal').style.display='flex';
+}
+
+// Muestra en vivo los porcentajes que salen de los volúmenes escritos,
+// para confirmar la cifra antes de guardar.
+function prinPrevia(){
+  var caja=document.getElementById('prin-previa');
+  if(!caja) return;
+  var leer=function(k){
+    var el=document.getElementById('prin-c-'+k);
+    if(!el) return null;
+    var n=parseFloat(String(el.value).replace(',','.'));
+    return isNaN(n)?null:n;
+  };
+  var of=leer('ofrecidas'), at=leer('atendidas'), ans=leer('en_ans');
+  var partes=[];
+  if(at!==null && of){
+    var na=at/of;
+    partes.push('<span>Nivel de Atención <b>'+(na*100).toFixed(1)+'%</b></span>');
+  }
+  if(ans!==null && at){
+    var ns=ans/at;
+    partes.push('<span>Nivel de Servicio <b>'+(ns*100).toFixed(1)+'%</b></span>');
+  }
+  if(at!==null && of!==null && at>of)
+    partes.push('<span style="color:#B45309">⚠ Las atendidas superan a las ofrecidas</span>');
+  if(ans!==null && at!==null && ans>at)
+    partes.push('<span style="color:#B45309">⚠ Las de ANS superan a las atendidas</span>');
+  caja.innerHTML = partes.length
+    ? partes.join('')
+    : '<span style="color:#94A3B8">Escribe los volúmenes y aquí verás los porcentajes</span>';
 }
 
 function cerrarPrincipal(){
@@ -4977,10 +5130,34 @@ async function guardarPrincipal(){
     return;
   }
   var valores={};
-  IND_PRINCIPALES.forEach(function(ind){
-    valores[ind.key+'_meta']=prinAFraccion(document.getElementById('prin-'+ind.key+'-meta').value, ind);
-    valores[ind.key+'_res'] =prinAFraccion(document.getElementById('prin-'+ind.key+'-res').value,  ind);
+  PRIN_CAMPOS.forEach(function(c){
+    valores[c.key]=prinAFraccion(document.getElementById('prin-c-'+c.key).value, c.tipo);
   });
+  IND_PRINCIPALES.forEach(function(ind){
+    var el=document.getElementById('prin-m-'+ind.key);
+    var tipo = ind.fmt==='seg' ? 'seg' : 'pct';
+    if(el) valores[ind.key+'_meta']=prinAFraccion(el.value, tipo);
+  });
+  // Se guarda también el porcentaje derivado, para que quede el histórico
+  IND_PRINCIPALES.forEach(function(ind){
+    if(ind.num && ind.den){
+      var n=prinNum(valores[ind.num]), d=prinNum(valores[ind.den]);
+      valores[ind.key+'_res'] = (n!==null && d) ? n/d : null;
+    } else {
+      valores[ind.key+'_res'] = prinNum(valores[ind.key]);
+    }
+  });
+
+  if(valores.atendidas!==null && valores.ofrecidas!==null && valores.atendidas>valores.ofrecidas){
+    err.style.display='block';
+    err.textContent='Las llamadas atendidas no pueden superar a las ofrecidas.';
+    return;
+  }
+  if(valores.en_ans!==null && valores.atendidas!==null && valores.en_ans>valores.atendidas){
+    err.style.display='block';
+    err.textContent='Las atendidas dentro de ANS no pueden superar al total de atendidas.';
+    return;
+  }
 
   btn.textContent='Guardando...'; btn.disabled=true;
   try{
@@ -4992,7 +5169,6 @@ async function guardarPrincipal(){
       r=await supa.from('indicadores_principales')
         .update({fecha:fecha, valores:valores}).eq('id',PRIN_EDITANDO);
     } else {
-      // Si ya existe ese día, se reemplaza en vez de duplicar
       var ya=PRINCIPALES.filter(function(x){return x.fecha===fecha;})[0];
       r = ya
         ? await supa.from('indicadores_principales').update({valores:valores}).eq('id',ya.id)

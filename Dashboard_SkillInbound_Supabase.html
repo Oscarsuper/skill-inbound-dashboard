@@ -507,6 +507,12 @@ tfoot td{position:sticky;bottom:0;background:var(--gold-lt);z-index:4}
 .pend-chip:hover{border-color:var(--azul3);color:var(--azul2)}
 .pend-chip.act{background:var(--azul2);border-color:var(--azul2);color:#fff}
 .pend-chip.act b{opacity:.9}
+/* Chulito para dar por tipificada la interacción */
+.pend-ok{width:30px;height:30px;border-radius:8px;cursor:pointer;
+  border:1.5px solid var(--ln);background:var(--w);color:var(--txt);
+  font-size:14px;font-weight:800;line-height:1;transition:all .15s}
+.pend-ok:hover{background:var(--ok);border-color:var(--ok);color:#fff;
+  transform:scale(1.12)}
 .pend-tag{display:inline-block;background:var(--gold-lt);color:var(--azul2);
   border:1px solid var(--ln);border-radius:20px;padding:2px 9px;
   font-size:9px;font-weight:800;white-space:nowrap}
@@ -2481,6 +2487,13 @@ function filtrarCanal(c){
   renderPendientes();
 }
 
+// Un decimal mientras el avance es bajo, para que no se quede en «0%»
+function pctAvance(n,tot){
+  if(!tot) return '0%';
+  var p=n/tot*100;
+  return (p>0 && p<10 ? p.toFixed(1) : Math.round(p))+'%';
+}
+
 function renderPendientes(){
   const body=document.getElementById('pend-body');
   const head=document.getElementById('pend-head');
@@ -2534,9 +2547,14 @@ function renderPendientes(){
   if(info){
     if(PEND_FECHA && todos.length){
       info.style.display='';
+      var tot=todos.length+PEND_HECHAS;
       info.innerHTML='📅 Archivo del <b>'+fechaBonita(PEND_FECHA)+'</b> · '
-        +todos.length.toLocaleString('es-CO')+' registros en '+canales.length+' canal(es). '
-        +'Cada carga reemplaza por completo la lista anterior.';
+        +'<b>'+todos.length.toLocaleString('es-CO')+'</b> por tipificar en '
+        +canales.length+' canal(es)'
+        +(PEND_HECHAS?' · <b style="color:var(--ok)">'+PEND_HECHAS.toLocaleString('es-CO')
+          +(PEND_HECHAS===1?' ya tipificada':' ya tipificadas')+'</b> de '
+          +tot.toLocaleString('es-CO')+' ('+pctAvance(PEND_HECHAS,tot)+')':'')
+        +'. Al marcar el ✔ la interacción desaparece para todo el equipo.';
     } else { info.style.display='none'; }
   }
 
@@ -2562,9 +2580,9 @@ function renderPendientes(){
     + '<th>Agente</th>'
     + (mostrarId?'<th>ID interacción</th>':'')
     + opcionales.map(function(c){ return '<th>'+c.nm+'</th>'; }).join('')
-    + '<th>Gestión</th>';
+    + '<th>Gestión</th><th>Tipificado</th>';
 
-  const nCols=1+(mostrarCanal?1:0)+1+(mostrarId?1:0)+opcionales.length+1;
+  const nCols=1+(mostrarCanal?1:0)+1+(mostrarId?1:0)+opcionales.length+2;
   if(!rows.length){
     body.innerHTML='<tr><td colspan="'+nCols+'" style="text-align:center;padding:26px;color:var(--txt)">'
       +(todos.length
@@ -2594,8 +2612,54 @@ function renderPendientes(){
           return '<td style="text-align:left;max-width:240px;white-space:normal">'
             + (cpEsc(r[c.k])||'—')+'</td>';
         }).join('')
-      + '<td>'+linkCell+'</td></tr>';
+      + '<td>'+linkCell+'</td>'
+      + '<td><button class="pend-ok" title="Marcar como tipificada" '
+        + 'onclick="marcarTipificado(&#39;'+String(r.id||'').replace(/[^0-9a-zA-Z-]/g,'')
+        + '&#39;)">✔</button></td>'
+      + '</tr>';
   }).join('');
+}
+
+// Marca una interacción como ya tipificada: desaparece de la lista de todos.
+async function marcarTipificado(id){
+  if(!id){ mostrarNotif('Esta fila no está publicada aún, vuelve a cargar el archivo',true); return; }
+  var i=PENDIENTES.findIndex(function(p){ return String(p.id)===String(id); });
+  if(i===-1) return;
+  var fila=PENDIENTES[i];
+
+  // Se quita de una vez para que la lista responda al instante
+  PENDIENTES.splice(i,1);
+  PEND_HECHAS++;
+  renderPendientes(); actualizarSkillCards();
+
+  var revertir=function(){
+    PENDIENTES.splice(i,0,fila); PEND_HECHAS--;
+    renderPendientes(); actualizarSkillCards();
+  };
+
+  if(!supa){ mostrarNotif('✔ Tipificada', false, {texto:'Deshacer', fn:revertir}); return; }
+  try{
+    var ses=await supa.auth.getUser();
+    var uid=ses&&ses.data&&ses.data.user?ses.data.user.id:null;
+    var r=await supa.from('pendientes_tipificacion')
+      .update({tipificado:true, tipificado_por:uid, tipificado_en:new Date().toISOString()})
+      .eq('id', fila.id);
+    if(r.error) throw r.error;
+    mostrarNotif('✔ Tipificada — ya no la ve el equipo', false, {
+      texto:'Deshacer',
+      fn:async function(){
+        try{
+          await supa.from('pendientes_tipificacion')
+            .update({tipificado:false, tipificado_por:null, tipificado_en:null})
+            .eq('id', fila.id);
+        }catch(e){}
+        revertir();
+      }
+    });
+  }catch(e){
+    revertir();
+    mostrarNotif('No se pudo marcar: '+(e.message||'error'), true);
+  }
 }
 
 
@@ -4501,7 +4565,7 @@ function initSupabase(){
   }catch(e){console.warn('Supabase no disponible:',e.message);}
 }
 
-function mostrarNotif(msg,err){
+function mostrarNotif(msg,err,accion){
   var el=document.getElementById('supa-notif');
   if(!el){el=document.createElement('div');el.id='supa-notif';
     el.style.cssText='position:fixed;bottom:90px;right:24px;z-index:99999;'
@@ -4512,8 +4576,17 @@ function mostrarNotif(msg,err){
   el.style.background=err?'#FEE2E2':'#DCFCE7';
   el.style.color=err?'#991B1B':'#166534';
   el.style.opacity='1';
+  // Acción opcional dentro del aviso, p.ej. deshacer un ✔ por error
+  if(accion && accion.texto && typeof accion.fn==='function'){
+    var b=document.createElement('button');
+    b.textContent=accion.texto;
+    b.style.cssText='margin-left:12px;border:1px solid currentColor;background:transparent;'
+      +'color:inherit;font:inherit;font-weight:800;padding:2px 10px;border-radius:6px;cursor:pointer';
+    b.onclick=function(){ el.style.opacity='0'; accion.fn(); };
+    el.appendChild(b);
+  }
   clearTimeout(el._t);
-  el._t=setTimeout(function(){el.style.opacity='0';},4000);
+  el._t=setTimeout(function(){el.style.opacity='0';}, accion?9000:4000);
 }
 
 // El login vive en loginSubmit() (Supabase Auth) — ya no hay override aquí.
@@ -4581,6 +4654,8 @@ var ULTIMO_ERROR_BD = '';
 
 // Fecha del archivo de pendientes que está en pantalla
 var PEND_FECHA = null;
+// Cuántas se han dado por tipificadas de este corte
+var PEND_HECHAS = 0;
 
 // Lee un archivo dedicado de pendientes por tipificar. Es independiente del
 // Excel de indicadores: puede traer la hoja "Pendientes_Tipificación" o ser
@@ -4612,11 +4687,15 @@ function procesarArchivoPendientes(file){
 
       PENDIENTES=filas;
       PEND_FECHA=fecha;
+      PEND_HECHAS=0;
       document.getElementById('loading').style.display='none';
       renderPendientes();
       actualizarSkillCards();
       mostrarNotif('Publicando '+filas.length+' pendientes...');
       var ok=await guardarPendientesEnSupabase(fecha);
+      // Se relee para que cada fila traiga su id de la base: sin id el ✔ no
+      // sabría cuál marcar.
+      if(ok) await cargarPendientesDesdeSupabase();
       mostrarNotif(ok ? '✔ '+filas.length+' pendientes publicados — el equipo ya los ve'
                       : 'Cargados en tu pantalla, pero no se pudieron publicar', !ok);
     }catch(err){
@@ -4669,7 +4748,7 @@ async function vaciarPendientes(){
       if(r.error) throw r.error;
     }catch(e){ ok=false; console.warn('Error vaciando pendientes:',e.message); }
   }
-  PENDIENTES=[]; PEND_FECHA=null; PEND_CANAL='';
+  PENDIENTES=[]; PEND_FECHA=null; PEND_CANAL=''; PEND_HECHAS=0;
   var inpF=document.getElementById('pend-fecha'); if(inpF) inpF.value='';
   var srch=document.getElementById('pend-srch'); if(srch) srch.value='';
   document.getElementById('loading').style.display='none';
@@ -4846,6 +4925,7 @@ async function cargarPendientesDesdeSupabase(){
     while(true){
       var res=await supa.from('pendientes_tipificacion').select('*')
         .eq('fecha_carga',ult.data[0].fecha_carga)
+        .eq('tipificado',false)
         .order('id',{ascending:true}).range(desde,desde+PASO-1);
       if(res.error) return false;
       if(!res.data||!res.data.length) break;
@@ -4853,9 +4933,14 @@ async function cargarPendientesDesdeSupabase(){
       if(res.data.length<PASO) break;
       desde+=PASO;
     }
-    if(!datos.length) return false;
     PEND_FECHA=ult.data[0].fecha_carga;
+    // Las ya tipificadas no se listan, pero sí se cuentan para el avance
+    var hechas=await supa.from('pendientes_tipificacion')
+      .select('id',{count:'exact',head:true})
+      .eq('fecha_carga',ult.data[0].fecha_carga).eq('tipificado',true);
+    PEND_HECHAS=(hechas && !hechas.error && hechas.count) || 0;
     PENDIENTES=datos.map(function(r){return{
+      id:r.id,
       canal:r.canal||'Otros',
       agente:r.agente||'', idLlamada:r.id_llamada||'', cola:r.cola||'',
       macroproceso:r.macroproceso||'', proceso:r.proceso||'',

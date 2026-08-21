@@ -375,3 +375,22 @@ end $$;
 --     Dar permiso carga: update public.perfiles set puede_cargar=true  where usuario='ximena';
 --     Desactivar:        update public.perfiles set activo=false       where usuario='6804111';
 -- ============================================================================
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  MARCAR COMO TIPIFICADA  (el ✔ de la tabla de pendientes)
+--  Al dar el chulito la interacción no se borra: se marca. Así queda el
+--  rastro de quién la cerró y cuándo, y se puede deshacer si fue por error.
+-- ═══════════════════════════════════════════════════════════════════════════
+alter table public.pendientes_tipificacion
+  add column if not exists tipificado     boolean not null default false,
+  add column if not exists tipificado_por uuid references auth.users(id) on delete set null,
+  add column if not exists tipificado_en  timestamptz;
+
+create index if not exists idx_pendientes_tipificado
+  on public.pendientes_tipificacion (fecha_carga, tipificado);
+
+-- Cualquiera que haya iniciado sesión puede marcar; cargar y vaciar siguen
+-- siendo solo de quien tenga permiso.
+drop policy if exists pendientes_update on public.pendientes_tipificacion;
+create policy pendientes_update on public.pendientes_tipificacion
+  for update to authenticated using (true) with check (true);

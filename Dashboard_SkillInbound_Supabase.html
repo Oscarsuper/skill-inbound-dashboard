@@ -1163,6 +1163,11 @@ tfoot td{position:sticky;bottom:0;background:var(--gold-lt);z-index:4}
           </button>
           <input type="file" id="pend-file" accept=".xlsx,.xls" style="display:none"
             onchange="if(this.files[0])procesarArchivoPendientes(this.files[0])">
+          <button class="ind-filter-btn" id="pend-btn-vaciar" onclick="vaciarPendientes()"
+            title="Borra todos los pendientes publicados"
+            style="background:#fff;color:var(--bad);border-color:var(--bad);padding:7px 14px;font-size:12px">
+            🗑 Vaciar
+          </button>
         </span>
         <span id="pend-aviso" style="font-size:11px;color:var(--wn);font-weight:700;display:none">
           Solo lectura — no tienes permiso para cargar
@@ -2531,7 +2536,7 @@ function renderPendientes(){
       info.style.display='';
       info.innerHTML='📅 Archivo del <b>'+fechaBonita(PEND_FECHA)+'</b> · '
         +todos.length.toLocaleString('es-CO')+' registros en '+canales.length+' canal(es). '
-        +'Al cargar otro con la misma fecha, se reemplaza.';
+        +'Cada carga reemplaza por completo la lista anterior.';
     } else { info.style.display='none'; }
   }
 
@@ -4629,7 +4634,11 @@ async function guardarPendientesEnSupabase(fecha){
   if(!supa || !PUEDE_CARGAR || !PENDIENTES.length) return false;
   try{
     var hoy=fecha||PEND_FECHA||new Date().toISOString().slice(0,10);
-    await supa.from('pendientes_tipificacion').delete().eq('fecha_carga',hoy);
+    // Los pendientes son una foto del momento, no un histórico: cada carga
+    // reemplaza todo lo anterior aunque venga con otra fecha, para que no se
+    // acumulen cortes viejos. PostgREST exige un filtro en el delete.
+    var borr=await supa.from('pendientes_tipificacion').delete().gte('id',0);
+    if(borr.error) throw borr.error;
     var sesion=await supa.auth.getUser();
     var uid=sesion&&sesion.data&&sesion.data.user?sesion.data.user.id:null;
     var rows=PENDIENTES.map(function(p){return{
@@ -4644,6 +4653,30 @@ async function guardarPendientesEnSupabase(fecha){
     }
     return true;
   }catch(e){ console.warn('Error guardando pendientes:',e.message); return false; }
+}
+
+// Deja la tabla en cero: borra lo publicado y limpia la pantalla.
+async function vaciarPendientes(){
+  if(!PUEDE_CARGAR){ mostrarNotif('No tienes permiso para vaciar',true); return; }
+  if(!confirm('¿Vaciar todos los pendientes por tipificar?\n\n'
+    +'Se borran los '+(PENDIENTES.length||0).toLocaleString('es-CO')
+    +' registros publicados y el equipo dejará de verlos.')) return;
+  document.getElementById('loading').style.display='flex';
+  var ok=true;
+  if(supa){
+    try{
+      var r=await supa.from('pendientes_tipificacion').delete().gte('id',0);
+      if(r.error) throw r.error;
+    }catch(e){ ok=false; console.warn('Error vaciando pendientes:',e.message); }
+  }
+  PENDIENTES=[]; PEND_FECHA=null; PEND_CANAL='';
+  var inpF=document.getElementById('pend-fecha'); if(inpF) inpF.value='';
+  var srch=document.getElementById('pend-srch'); if(srch) srch.value='';
+  document.getElementById('loading').style.display='none';
+  renderPendientes();
+  actualizarSkillCards();
+  mostrarNotif(ok ? '✔ Pendientes vaciados'
+                  : 'Se limpió tu pantalla, pero no se pudo borrar en la base', !ok);
 }
 
 // ══ CORTES DISPONIBLES ═══════════════════════════════════════
@@ -4807,11 +4840,22 @@ async function cargarPendientesDesdeSupabase(){
     var ult=await supa.from('pendientes_tipificacion')
       .select('fecha_carga').order('fecha_carga',{ascending:false}).limit(1);
     if(ult.error||!ult.data||!ult.data.length) return false;
-    var res=await supa.from('pendientes_tipificacion').select('*')
-      .eq('fecha_carga',ult.data[0].fecha_carga);
-    if(res.error||!res.data||!res.data.length) return false;
+    // PostgREST devuelve máximo 1.000 filas por consulta, y un corte trae
+    // varios miles: se pide por páginas hasta que se acabe.
+    var datos=[], desde=0, PASO=1000;
+    while(true){
+      var res=await supa.from('pendientes_tipificacion').select('*')
+        .eq('fecha_carga',ult.data[0].fecha_carga)
+        .order('id',{ascending:true}).range(desde,desde+PASO-1);
+      if(res.error) return false;
+      if(!res.data||!res.data.length) break;
+      datos=datos.concat(res.data);
+      if(res.data.length<PASO) break;
+      desde+=PASO;
+    }
+    if(!datos.length) return false;
     PEND_FECHA=ult.data[0].fecha_carga;
-    PENDIENTES=res.data.map(function(r){return{
+    PENDIENTES=datos.map(function(r){return{
       canal:r.canal||'Otros',
       agente:r.agente||'', idLlamada:r.id_llamada||'', cola:r.cola||'',
       macroproceso:r.macroproceso||'', proceso:r.proceso||'',

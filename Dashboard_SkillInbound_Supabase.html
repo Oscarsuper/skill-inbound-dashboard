@@ -1012,8 +1012,8 @@ tfoot td{position:sticky;bottom:0;background:var(--gold-lt);z-index:4}
       </div>
       <div class="nc" id="c5" onclick="goToPendientes()" style="border-color:rgba(220,38,38,.3)">
         <div class="nci" style="background:rgba(220,38,38,.15)">☎️</div><h3>Tipificaciones Pendientes</h3>
-        <p>Llamadas pendientes por tipificar, con acceso directo al formulario de gestión.</p>
-        <div class="nbadge" id="b5" style="color:#DC2626;background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.3)">Carga un Excel con la hoja Pendientes_Tipificación</div>
+        <p>Llamadas pendientes por tipificar, con su propio cargue de archivo y acceso al formulario de gestión.</p>
+        <div class="nbadge" id="b5" style="color:#DC2626;background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.3)">→ Cargar archivo de pendientes</div>
       </div>
     </div>
   </div>
@@ -1136,7 +1136,25 @@ tfoot td{position:sticky;bottom:0;background:var(--gold-lt);z-index:4}
         <label>Buscar:</label>
         <input type="text" id="pend-srch" placeholder="Nombre del agente..." oninput="renderPendientes()" style="width:210px">
         <span id="pend-cnt" style="font-size:11px;color:var(--txt)"></span>
+
+        <span style="flex:1"></span>
+
+        <!-- Carga propia: este archivo es independiente del Excel de indicadores -->
+        <span id="pend-carga-wrap" style="display:flex;align-items:center;gap:8px">
+          <label style="margin:0">Fecha:</label>
+          <input type="date" id="pend-fecha" style="width:150px">
+          <button class="ind-filter-btn" onclick="document.getElementById('pend-file').click()"
+            style="background:var(--azul2);color:#fff;border-color:var(--azul2);padding:7px 16px;font-size:12px">
+            ⬆ Cargar archivo de pendientes
+          </button>
+          <input type="file" id="pend-file" accept=".xlsx,.xls" style="display:none"
+            onchange="if(this.files[0])procesarArchivoPendientes(this.files[0])">
+        </span>
+        <span id="pend-aviso" style="font-size:11px;color:var(--wn);font-weight:700;display:none">
+          Solo lectura — no tienes permiso para cargar
+        </span>
       </div>
+      <div id="pend-info" style="font-size:11px;color:var(--txt);margin:-4px 0 10px;display:none"></div>
       <div class="card">
         <div class="ch">LLAMADAS PENDIENTES POR TIPIFICAR</div>
         <div class="dscroll">
@@ -2175,9 +2193,9 @@ function processFile(file){
     try{
       const wb=XLSX.read(e.target.result,{type:'array'});
 
-      // Hoja de pendientes por tipificar: independiente del skill/formato
-      const pendSheet=wb.SheetNames.find(s=>/pendientes/i.test(s)&&/tipific/i.test(s));
-      if(pendSheet) PENDIENTES=parsePendientesTipificacion(wb.Sheets[pendSheet]);
+      // Las tipificaciones pendientes NO se leen de aquí: tienen su propio
+      // cargador en la pestaña ☎️ Pendientes, con su propia fecha. Aunque el
+      // archivo traiga esa hoja, se ignora a propósito.
 
       // Detectar formato
       const newDatos=findSheet(wb,'Datos');
@@ -2302,7 +2320,7 @@ async function sincronizarConSupabase(fileName, skills){
     if(!filas.length) continue;
     (await guardarEnSupabase(skill, fileName, filas)) ? ok++ : fallo++;
   }
-  if(PENDIENTES.length) await guardarPendientesEnSupabase();
+  // Los pendientes se publican desde su propio cargador, no desde aquí.
   // Refrescar la lista de cortes para que la fecha recién subida ya aparezca
   if(ok){
     for(const skill of skills){ if(skill) await cargarCortesDisponibles(skill); }
@@ -2402,6 +2420,23 @@ function renderPendientes(){
   if(q) rows=rows.filter(r=>r.agente.toLowerCase().includes(q));
   const cntEl=document.getElementById('pend-cnt');
   if(cntEl) cntEl.textContent=rows.length+' pendientes';
+
+  // Cargar es solo para quien tenga permiso; los demás ven la tabla igual
+  const puede=!!PUEDE_CARGAR;
+  const wrap=document.getElementById('pend-carga-wrap');
+  if(wrap) wrap.style.display = puede ? 'flex' : 'none';
+  const avisoP=document.getElementById('pend-aviso');
+  if(avisoP) avisoP.style.display = puede ? 'none' : '';
+  const inpF=document.getElementById('pend-fecha');
+  if(inpF && !inpF.value) inpF.value = PEND_FECHA || new Date().toISOString().slice(0,10);
+  const info=document.getElementById('pend-info');
+  if(info){
+    if(PEND_FECHA && (PENDIENTES||[]).length){
+      info.style.display='';
+      info.innerHTML='📅 Archivo del <b>'+fechaBonita(PEND_FECHA)+'</b> · '
+        +(PENDIENTES||[]).length+' registros. Al cargar otro con la misma fecha, se reemplaza.';
+    } else { info.style.display='none'; }
+  }
   body.innerHTML=rows.length?rows.map((r,i)=>{
     const bg=i%2===0?'':'style="background:#F8FAFF"';
     const safeLink=r.link&&/^https?:\/\//i.test(r.link)?r.link:'';
@@ -4269,7 +4304,7 @@ function actualizarSkillCards(){
       b5.textContent='→ ' + PENDIENTES.length + ' pendientes';
       b5.style.color='#DC2626'; b5.style.background='rgba(220,38,38,.12)'; b5.style.borderColor='rgba(220,38,38,.3)';
     } else {
-      b5.textContent='Carga un Excel con la hoja Pendientes_Tipificación';
+      b5.textContent='→ Cargar archivo de pendientes';
     }
   }
 }
@@ -4397,10 +4432,55 @@ async function guardarEnSupabase(skill,fileName,filas){
 }
 var ULTIMO_ERROR_BD = '';
 
-async function guardarPendientesEnSupabase(){
+// Fecha del archivo de pendientes que está en pantalla
+var PEND_FECHA = null;
+
+// Lee un archivo dedicado de pendientes por tipificar. Es independiente del
+// Excel de indicadores: puede traer la hoja "Pendientes_Tipificación" o ser
+// un archivo suelto donde la primera hoja ya son los datos.
+function procesarArchivoPendientes(file){
+  if(!PUEDE_CARGAR){ mostrarNotif('No tienes permiso para cargar',true); return; }
+  var inpF=document.getElementById('pend-fecha');
+  var fecha=(inpF && inpF.value) ? inpF.value : new Date().toISOString().slice(0,10);
+  if(inpF) inpF.value=fecha;
+
+  document.getElementById('loading').style.display='flex';
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array'});
+      var hoja=wb.SheetNames.find(function(s){return /pendientes/i.test(s)&&/tipific/i.test(s);})
+            || wb.SheetNames.find(function(s){return /pendiente/i.test(s);})
+            || wb.SheetNames[0];
+      var filas=parsePendientesTipificacion(wb.Sheets[hoja]);
+      if(!filas.length)
+        throw new Error('La hoja "'+hoja+'" no tiene el formato esperado.\n\n'
+          +'Debe traer una fila de encabezados que empiece con "Nombre_Agente".');
+
+      PENDIENTES=filas;
+      PEND_FECHA=fecha;
+      document.getElementById('loading').style.display='none';
+      renderPendientes();
+      actualizarSkillCards();
+      mostrarNotif('Publicando '+filas.length+' pendientes...');
+      var ok=await guardarPendientesEnSupabase(fecha);
+      mostrarNotif(ok ? '✔ '+filas.length+' pendientes publicados — el equipo ya los ve'
+                      : 'Cargados en tu pantalla, pero no se pudieron publicar', !ok);
+    }catch(err){
+      document.getElementById('loading').style.display='none';
+      alert('Error procesando el archivo de pendientes:\n\n'+err.message);
+    }finally{
+      var fi=document.getElementById('pend-file');
+      if(fi) fi.value='';   // permite recargar el mismo archivo
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function guardarPendientesEnSupabase(fecha){
   if(!supa || !PUEDE_CARGAR || !PENDIENTES.length) return false;
   try{
-    var hoy=FECHA_CORTE||new Date().toISOString().slice(0,10);
+    var hoy=fecha||PEND_FECHA||new Date().toISOString().slice(0,10);
     await supa.from('pendientes_tipificacion').delete().eq('fecha_carga',hoy);
     var sesion=await supa.auth.getUser();
     var uid=sesion&&sesion.data&&sesion.data.user?sesion.data.user.id:null;
@@ -4582,6 +4662,7 @@ async function cargarPendientesDesdeSupabase(){
     var res=await supa.from('pendientes_tipificacion').select('*')
       .eq('fecha_carga',ult.data[0].fecha_carga);
     if(res.error||!res.data||!res.data.length) return false;
+    PEND_FECHA=ult.data[0].fecha_carga;
     PENDIENTES=res.data.map(function(r){return{
       agente:r.agente||'', idLlamada:r.id_llamada||'', cola:r.cola||'',
       macroproceso:r.macroproceso||'', proceso:r.proceso||'',

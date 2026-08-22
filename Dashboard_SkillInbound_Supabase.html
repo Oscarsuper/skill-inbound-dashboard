@@ -169,6 +169,17 @@ body.mode-agente #btn-pdf{display:none !important}
    La Evolución sí está disponible en los cuatro canales. */
 body.mode-simple .ntab[data-tab="calidad"]{display:none !important}
 body.mode-simple .ntab[data-tab="compromisos"]{display:none !important}
+/* Cuenta compartida de agentes: solo existe la pestaña de Pendientes */
+body.mode-tipificador .ntab{display:none !important}
+body.mode-tipificador .ntab[data-tab="pendientes"]{display:block !important}
+body.mode-tipificador #sel-wrap,
+body.mode-tipificador #corte-wrap,
+body.mode-tipificador #skill-badge-nav,
+body.mode-tipificador #btn-inicio,
+body.mode-tipificador #pend-aviso,
+body.mode-tipificador #btn-pdf,
+body.mode-tipificador #chat-fab,
+body.mode-tipificador #pend-carga-wrap{display:none !important}
 body.mode-agente .ntab[data-tab="evolucion"]{display:none !important}
 body.mode-agente #s-evolucion{display:none !important}
 body.mode-simple #s-calidad{display:none !important}
@@ -1077,7 +1088,7 @@ tfoot td{position:sticky;bottom:0;background:var(--gold-lt);z-index:4}
           <option value="ximena">Ximena</option>
         </select>
       </div>
-      <button class="btnhome" onclick="showHome()">⬅ Inicio</button>
+      <button class="btnhome" id="btn-inicio" onclick="showHome()">⬅ Inicio</button>
       <button class="btnhome" onclick="cerrarSesion()" style="color:rgba(252,165,165,.8);border-color:rgba(220,38,38,.3)" title="Cerrar sesión">⏻ Salir</button>
       <button class="btn-pdf" id="btn-pdf" onclick="openPM()" title="Descargar PDF con las 3 secciones">
         <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -1714,19 +1725,39 @@ function aplicarPerfil(perfil){
   CP_UID = CP_USER_ID = perfil.usuario || '';
   CP_UNOMBRE = CP_USER_NOMBRE = perfil.nombre || perfil.usuario || '';
 
-  document.body.classList.remove('mode-supervisor','mode-agente');
+  document.body.classList.remove('mode-supervisor','mode-agente','mode-tipificador');
   document.body.classList.add('mode-' + ROL_ACTUAL);
   // Quien no tiene permiso de carga no ve el botón de subir Excel
   document.body.classList.toggle('sin-carga', !PUEDE_CARGAR);
 
   document.getElementById('login-error').style.display = 'none';
   document.getElementById('login-screen').style.display = 'none';
+
+  // La cuenta compartida de agentes no escoge skill ni ve el resto del
+  // tablero: entra directo a tipificar.
+  if(ROL_ACTUAL === 'tipificador'){ entrarComoTipificador(); return; }
+
   document.getElementById('home').style.display = 'none';
   document.getElementById('skill-screen').style.display = 'flex';
   document.body.classList.add('chat-fab-visible');
   var fab = document.getElementById('chat-fab');
   if(fab) fab.style.display = 'flex';
   actualizarSkillCards();
+}
+
+// Pantalla única para quien solo viene a tipificar.
+function entrarComoTipificador(){
+  PUEDE_CARGAR = false;
+  SKILL_ACTUAL = SKILL_ACTUAL || 'inbound';
+  document.getElementById('skill-screen').style.display = 'none';
+  document.getElementById('home').style.display = 'none';
+  document.getElementById('app').style.display  = 'block';
+  var fab=document.getElementById('chat-fab'); if(fab) fab.style.display='none';
+  sw('pendientes');
+  cargarPendientesDesdeSupabase().then(function(){
+    try{ renderPendientes(); }catch(e){}
+  });
+  suscribirPendientes();
 }
 
 async function loginSubmit(){
@@ -1789,6 +1820,7 @@ async function restaurarSesion(){
     const res = await supa.from('perfiles').select('*').eq('id', data.session.user.id).single();
     if(res.error || !res.data || !res.data.activo){ await supa.auth.signOut(); return false; }
     aplicarPerfil(res.data);
+    if((res.data.rol||'') === 'tipificador') return true;   // ya entró a Pendientes
     // Volver al skill en el que estaba antes de recargar, con sus datos
     let ultimo = null;
     try{ ultimo = localStorage.getItem('skill_actual'); }catch(e){}
@@ -1807,7 +1839,10 @@ function cerrarSesion(){
   PERFIL        = null;
   PUEDE_CARGAR  = false;
   CP_UID = CP_UNOMBRE = CP_USER_ID = CP_USER_NOMBRE = '';
-  document.body.classList.remove('mode-supervisor','mode-agente','chat-fab-visible','sin-carga');
+  if(PEND_CANAL_RT){ try{ supa.removeChannel(PEND_CANAL_RT); }catch(e){} PEND_CANAL_RT=null; }
+  PENDIENTES=[]; PEND_FECHA=null; PEND_HECHAS=0; PEND_CANAL='';
+  document.body.classList.remove('mode-supervisor','mode-agente','mode-tipificador',
+    'chat-fab-visible','sin-carga');
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('skill-screen').style.display = 'none';
   document.getElementById('login-user').value  = '';
@@ -2458,7 +2493,7 @@ function sw(tab){
   }
   if(tab==='calidad')     try{ rcal(); }catch(e){}
   if(tab==='datos')       try{ rdatos(); }catch(e){}
-  if(tab==='pendientes')  try{ renderPendientes(); }catch(e){}
+  if(tab==='pendientes')  try{ renderPendientes(); suscribirPendientes(); }catch(e){}
   // Los principales se traen de Supabase, no dependen del Excel cargado
   if(tab==='principales') setTimeout(()=>{
     if(PRIN_SKILL!==SKILL_ACTUAL){ PRIN_SKILL=SKILL_ACTUAL; cargarPrincipales(); }
@@ -4758,6 +4793,45 @@ async function vaciarPendientes(){
                   : 'Se limpió tu pantalla, pero no se pudo borrar en la base', !ok);
 }
 
+// ══ TIEMPO REAL DE PENDIENTES ════════════════════════════════
+// Varios agentes trabajan la misma lista a la vez. Sin esto, dos personas
+// pueden abrir la misma interacción porque cada pantalla ve una foto vieja.
+var PEND_CANAL_RT = null, PEND_RECARGA_T = null;
+
+function suscribirPendientes(){
+  if(!supa || PEND_CANAL_RT) return;
+  try{
+    PEND_CANAL_RT = supa.channel('pendientes-vivo')
+      .on('postgres_changes',
+          {event:'*', schema:'public', table:'pendientes_tipificacion'},
+          function(p){ aplicarCambioPendiente(p); })
+      .subscribe();
+  }catch(e){ console.warn('Sin tiempo real en pendientes:', e.message); }
+}
+
+function aplicarCambioPendiente(p){
+  var ev=p.eventType||p.event;
+
+  // Alguien dio el chulito: se quita de esta pantalla también
+  if(ev==='UPDATE' && p.new && p.new.tipificado===true){
+    var i=PENDIENTES.findIndex(function(r){ return String(r.id)===String(p.new.id); });
+    if(i!==-1){
+      PENDIENTES.splice(i,1); PEND_HECHAS++;
+      renderPendientes(); try{ actualizarSkillCards(); }catch(e){}
+    }
+    return;
+  }
+
+  // Deshicieron un chulito, cargaron otro archivo o vaciaron: como pueden
+  // ser miles de filas de golpe, se relee una sola vez y no fila por fila.
+  if(PEND_RECARGA_T) clearTimeout(PEND_RECARGA_T);
+  PEND_RECARGA_T=setTimeout(function(){
+    cargarPendientesDesdeSupabase().then(function(){
+      try{ renderPendientes(); actualizarSkillCards(); }catch(e){}
+    });
+  }, 1200);
+}
+
 // ══ CORTES DISPONIBLES ═══════════════════════════════════════
 // Cada carga de Excel deja un corte con su fecha. Aquí se listan para
 // poder consultar cualquier fecha anterior sin volver a subir el archivo.
@@ -4918,7 +4992,12 @@ async function cargarPendientesDesdeSupabase(){
   try{
     var ult=await supa.from('pendientes_tipificacion')
       .select('fecha_carga').order('fecha_carga',{ascending:false}).limit(1);
-    if(ult.error||!ult.data||!ult.data.length) return false;
+    if(ult.error) return false;              // fallo de red: se deja lo que hay
+    if(!ult.data||!ult.data.length){         // vaciaron: hay que reflejarlo
+      PENDIENTES=[]; PEND_FECHA=null; PEND_HECHAS=0; PEND_CANAL='';
+      try{ renderPendientes(); actualizarSkillCards(); }catch(e){}
+      return false;
+    }
     // PostgREST devuelve máximo 1.000 filas por consulta, y un corte trae
     // varios miles: se pide por páginas hasta que se acabe.
     var datos=[], desde=0, PASO=1000;

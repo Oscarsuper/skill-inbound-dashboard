@@ -394,3 +394,70 @@ create index if not exists idx_pendientes_tipificado
 drop policy if exists pendientes_update on public.pendientes_tipificacion;
 create policy pendientes_update on public.pendientes_tipificacion
   for update to authenticated using (true) with check (true);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  CUENTA COMPARTIDA DE AGENTES  (rol 'tipificador')
+--  Una sola cuenta para que los agentes entren a tipificar. Solo ven la
+--  pestaña de Pendientes: ni indicadores, ni calidad, ni compromisos, y no
+--  pueden cargar ni vaciar. Sí pueden marcar el ✔.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- 1. El rol nuevo tiene que caber en el check de perfiles
+alter table public.perfiles drop constraint if exists perfiles_rol_check;
+alter table public.perfiles add  constraint perfiles_rol_check
+  check (rol in ('supervisor','agente','tipificador'));
+
+-- 2. Y crear_usuario debe aceptarlo en vez de degradarlo a 'agente'
+create or replace function public.crear_usuario(
+  p_usuario      text,
+  p_clave        text,
+  p_nombre       text,
+  p_rol          text    default 'agente',
+  p_puede_cargar boolean default false
+) returns uuid
+language plpgsql security definer set search_path = public, auth, extensions as $$
+declare
+  v_id    uuid := gen_random_uuid();
+  v_email text := lower(trim(p_usuario)) || '@skillinbound.local';
+  v_rol   text := lower(coalesce(p_rol,'agente'));
+begin
+  if v_rol not in ('supervisor','agente','tipificador') then v_rol := 'agente'; end if;
+
+  if exists (select 1 from auth.users u where u.email = v_email) then
+    select u.id into v_id from auth.users u where u.email = v_email;
+    update auth.users
+       set encrypted_password = extensions.crypt(p_clave, extensions.gen_salt('bf')),
+           updated_at = now()
+     where id = v_id;
+    update public.perfiles
+       set nombre = p_nombre, rol = v_rol, puede_cargar = p_puede_cargar, activo = true
+     where id = v_id;
+    return v_id;
+  end if;
+
+  insert into auth.users (
+    instance_id, id, aud, role, email, encrypted_password,
+    email_confirmed_at, created_at, updated_at,
+    raw_app_meta_data, raw_user_meta_data,
+    confirmation_token, recovery_token, email_change_token_new, email_change
+  ) values (
+    '00000000-0000-0000-0000-000000000000', v_id, 'authenticated', 'authenticated',
+    v_email, extensions.crypt(p_clave, extensions.gen_salt('bf')),
+    now(), now(), now(),
+    '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb,
+    '', '', '', ''
+  );
+  insert into public.perfiles (id, usuario, nombre, rol, puede_cargar, activo)
+  values (v_id, lower(trim(p_usuario)), p_nombre, v_rol, p_puede_cargar, true);
+  return v_id;
+end $$;
+
+revoke all on function public.crear_usuario(text,text,text,text,boolean)
+  from public, anon, authenticated;
+
+-- 3. La cuenta. CAMBIA LA CONTRASEÑA por la que vayas a repartir.
+select public.crear_usuario('agentes', 'Agentes2026*', 'AGENTES', 'tipificador', false);
+
+-- 4. Tiempo real: sin esto, el ✔ de un agente no le desaparece a los demás
+--    hasta que recarguen la página.
+alter publication supabase_realtime add table public.pendientes_tipificacion;

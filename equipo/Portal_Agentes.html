@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portal Agentes — Chat y RRSS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --azul:#2B0B6B;--azul2:#4A1D96;--azul3:#7C3AED;--lila:#A78BFA;
+  --bg:#F5F3FF;--w:#fff;--ln:#E4DDFB;--txt:#6B7280;--dk:#1E1235;
+  --ok:#16A34A;--ok-bg:#DCFCE7;--wn:#D97706;--wn-bg:#FEF3C7;--bad:#DC2626;--bad-bg:#FEE2E2;
+}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--dk)}
+button{font-family:inherit;cursor:pointer}
+
+/* ── LOGIN ── */
+#login{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:var(--azul);
+  background-image:radial-gradient(circle at 25% 20%,rgba(124,58,237,.30),transparent 45%),
+                   radial-gradient(circle at 75% 80%,rgba(74,29,150,.40),transparent 45%)}
+.lbox{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:20px;
+  padding:38px 34px;width:min(400px,92vw);backdrop-filter:blur(14px)}
+.lhead{display:flex;align-items:center;gap:11px;margin-bottom:24px}
+.llogo{width:44px;height:44px;border-radius:12px;font-size:22px;background:linear-gradient(135deg,#7C3AED,#4A1D96);
+  display:flex;align-items:center;justify-content:center}
+.lhead b{display:block;font-size:15px;color:#fff}
+.lhead span{font-size:10px;color:rgba(255,255,255,.4)}
+.lbox label{display:block;font-size:11px;font-weight:700;color:rgba(255,255,255,.55);
+  margin:0 0 6px;text-transform:uppercase;letter-spacing:.4px}
+.lbox input{width:100%;padding:12px 14px;margin-bottom:15px;border-radius:10px;font-size:14px;
+  border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.07);color:#fff;outline:none}
+.lbox input:focus{border-color:var(--lila)}
+.lbox input::placeholder{color:rgba(255,255,255,.28)}
+.lbtn{width:100%;padding:13px;border:none;border-radius:10px;font-size:14px;font-weight:800;color:#fff;
+  background:linear-gradient(135deg,#7C3AED,#4A1D96)}
+.lbtn:hover{filter:brightness(1.12)}
+.lerr{background:rgba(220,38,38,.15);border:1px solid rgba(248,113,113,.4);color:#FCA5A5;
+  padding:10px 13px;border-radius:9px;font-size:12px;font-weight:600;margin-bottom:14px;display:none}
+.ltip{font-size:11px;color:rgba(255,255,255,.35);text-align:center;margin-top:15px;line-height:1.6}
+
+/* ── BARRA ── */
+nav{background:linear-gradient(100deg,var(--azul),var(--azul2));padding:0 20px;min-height:60px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
+.nlogo{font-size:14px;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px}
+.ntabs{display:flex;gap:3px;flex:1;margin-left:10px}
+.ntab{padding:8px 15px;border-radius:8px;font-size:12.5px;font-weight:700;border:none;background:none;
+  color:rgba(255,255,255,.5);transition:.15s}
+.ntab:hover{color:#fff;background:rgba(167,139,250,.14)}
+.ntab.act{color:#fff;background:rgba(167,139,250,.22)}
+/* Nombre + cargar + salir, arriba a la derecha */
+.nder{display:flex;align-items:center;gap:10px;margin-left:auto}
+.navat{width:34px;height:34px;border-radius:50%;background:var(--lila);color:var(--azul);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+.nnom{color:#fff;font-size:12.5px;font-weight:700;line-height:1.25;max-width:220px}
+.nnom small{display:block;font-size:9.5px;color:rgba(255,255,255,.45);font-weight:600}
+.ncarga{padding:8px 15px;border-radius:9px;font-size:12px;font-weight:800;border:none;color:#fff;
+  background:linear-gradient(135deg,#7C3AED,#A78BFA)}
+.ncarga:hover{filter:brightness(1.12)}
+.nsalir{padding:8px 13px;border-radius:9px;font-size:11.5px;font-weight:700;background:none;
+  border:1px solid rgba(220,38,38,.35);color:rgba(252,165,165,.9)}
+.nsalir:hover{background:rgba(220,38,38,.18)}
+
+/* ── CUERPO ── */
+main{padding:24px 20px;max-width:1280px;margin:0 auto}
+.sec{display:none}.sec.act{display:block}
+h1{font-size:21px;margin-bottom:3px}
+.sub{font-size:12.5px;color:var(--txt);margin-bottom:20px}
+
+.card{background:var(--w);border:1px solid var(--ln);border-radius:14px;margin-bottom:18px;overflow:hidden}
+.ch{background:linear-gradient(100deg,var(--azul2),var(--azul3));color:#fff;padding:11px 17px;
+  font-size:12px;font-weight:800;letter-spacing:.4px}
+.ch small{font-weight:600;opacity:.72;margin-left:7px}
+
+/* Marcador global */
+.score{background:linear-gradient(120deg,var(--azul),var(--azul2));color:#fff;border-radius:16px;
+  padding:22px 26px;margin-bottom:20px;display:flex;align-items:center;gap:26px;flex-wrap:wrap}
+.score .big{font-size:46px;font-weight:800;letter-spacing:-1.5px;line-height:1}
+.score .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.7px;opacity:.6;font-weight:700;margin-bottom:4px}
+.score .barra{flex:1;min-width:210px}
+.score .pista{height:9px;border-radius:20px;background:rgba(255,255,255,.16);overflow:hidden;margin-top:9px}
+.score .fill{height:100%;border-radius:20px;background:linear-gradient(90deg,#A78BFA,#DDD6FE)}
+.score .mini{display:flex;gap:22px;font-size:12px}
+.score .mini b{display:block;font-size:20px;font-weight:800}
+
+/* Tarjetas de indicador */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:13px;margin-bottom:20px}
+.kpi{background:var(--w);border:1px solid var(--ln);border-radius:14px;padding:15px 16px;border-left:4px solid var(--ln)}
+.kpi .k-n{font-size:10px;font-weight:800;color:var(--txt);text-transform:uppercase;letter-spacing:.5px;
+  margin-bottom:8px;line-height:1.4;min-height:26px}
+.kpi .k-v{font-size:26px;font-weight:800;letter-spacing:-.6px}
+.kpi .k-m{font-size:10.5px;color:var(--txt);margin-top:4px;font-weight:600}
+.kpi.ok{border-left-color:var(--ok)}  .kpi.ok .k-v{color:var(--ok)}
+.kpi.bad{border-left-color:var(--bad)}.kpi.bad .k-v{color:var(--bad)}
+.pill{display:inline-block;font-size:9px;font-weight:800;padding:2px 9px;border-radius:20px;margin-top:7px}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.bad{background:var(--bad-bg);color:var(--bad)}
+
+/* Tablas */
+.scroll{overflow-x:auto;max-height:70vh;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:var(--azul2);color:#fff;padding:9px 11px;text-align:center;font-size:10px;font-weight:800;
+  text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0;z-index:2;white-space:nowrap}
+tbody td{padding:8px 11px;text-align:center;border-bottom:1px solid #F1EDFD}
+tbody tr:hover{background:#FAF8FF}
+.vacio{text-align:center;padding:40px 20px;color:var(--txt);font-size:13px;line-height:1.8}
+.vacio b{color:var(--dk);font-size:14px}
+
+/* Pantalla de bienvenida antes de cargar */
+.bien{background:var(--w);border:2px dashed var(--ln);border-radius:16px;padding:52px 26px;text-align:center}
+.bien .ic{font-size:46px;margin-bottom:14px}
+.bien h3{font-size:17px;margin-bottom:8px}
+.bien p{font-size:13px;color:var(--txt);line-height:1.75;max-width:440px;margin:0 auto 20px}
+.bien .btn-big{padding:13px 28px;border:none;border-radius:10px;font-size:14px;font-weight:800;color:#fff;
+  background:linear-gradient(135deg,#7C3AED,#4A1D96)}
+
+#notif{position:fixed;bottom:26px;right:26px;z-index:999;padding:11px 19px;border-radius:10px;
+  font-size:12.5px;font-weight:700;opacity:0;transition:opacity .35s;box-shadow:0 6px 24px rgba(0,0,0,.18);
+  pointer-events:none}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     AGENTES
+     El usuario y la contraseña son la MISMA cédula.
+     Para agregar o quitar gente, edita solo esta lista. El nombre debe
+     quedar igual que en el Excel: por ahí se cruzan los pendientes.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<script>
+const AGENTES = [
+  // ── CHAT ──
+  { ced:'1000049084', nombre:'OLAVE NIÑO LAURA VALENTINA',          canal:'Chat' },
+  { ced:'1006507935', nombre:'MONTALVO COLLAZOS KATERINE',          canal:'Chat' },
+  { ced:'1013681738', nombre:'NEIRA MANRIQUE SERGIO ANTONIO',       canal:'Chat' },
+  { ced:'1014241738', nombre:'GUTIERREZ ABELLA FRANCY LILIANA',     canal:'Chat' },
+  { ced:'1016712156', nombre:'MORENO ALEMAN YENNY ALEXANDRA',       canal:'Chat' },
+  { ced:'1020728543', nombre:'GOMEZ GONZALEZ MARIA FERNANDA',       canal:'Chat' },
+  { ced:'1028484955', nombre:'WALDORF CAMACHO ANGELA GABRIELA VON', canal:'Chat' },
+  { ced:'1043141989', nombre:'ARZUZA LLERENA KATHLEEN SMITH',       canal:'Chat' },
+  { ced:'1047448535', nombre:'LARA RAMIREZ LORAINE',                canal:'Chat' },
+  { ced:'1116498626', nombre:'GALVIS IBARRA LEIDY CAROLINA',        canal:'Chat' },
+  { ced:'1118809038', nombre:'DIAZ TAPIA MAYERLIS',                 canal:'Chat' },
+  { ced:'1143464574', nombre:'AMADOR GUTIERREZ JOSE DAVID',         canal:'Chat' },
+  { ced:'1152437383', nombre:'CABRERA MOCETON ERICK FELIPE',        canal:'Chat' },
+  { ced:'1193038890', nombre:'HERNANDEZ RODRIGUEZ LUIS EDUARDO',    canal:'Chat' },
+  { ced:'670302',     nombre:'PIÑANGO MORILLO DARWIN ALEXANDER',    canal:'Chat' },
+  { ced:'80085104',   nombre:'CORTES AMAYA JHON JAIRO',             canal:'Chat' },
+
+  // ── RRSS ──
+  { ced:'1001049308', nombre:'ALISON TATIANA RAMIREZ DUCUARA',      canal:'RRSS' },
+  { ced:'1013113316', nombre:'ESPINOSA MOJICA LAURA VALENTINA',     canal:'RRSS' },
+  { ced:'1033800581', nombre:'BEJARANO MARTINEZ MARIA DE LOS ANGELES AURORA', canal:'RRSS' },
+  { ced:'1143159843', nombre:'BOLAÑO BUELVAS EIMY DAYANA',          canal:'RRSS' },
+  { ced:'3385691',    nombre:'FERRER PERDOMO JHON LEONARD',         canal:'RRSS' },
+];
+</script>
+
+<div id="login">
+  <div class="lbox">
+    <div class="lhead">
+      <div class="llogo">🌾</div>
+      <div><b>Portal de Agentes</b><span>Chat y RRSS · Banco Agrario</span></div>
+    </div>
+    <div class="lerr" id="lerr"></div>
+    <label>Usuario (tu cédula)</label>
+    <input type="text" id="u" placeholder="Ej: 1000049084" inputmode="numeric" autocomplete="username">
+    <label>Contraseña (tu cédula)</label>
+    <input type="password" id="p" placeholder="••••••••" autocomplete="current-password">
+    <button class="lbtn" onclick="entrar()">Ingresar →</button>
+    <div class="ltip">Tu usuario y tu contraseña son el mismo número de cédula,<br>sin puntos ni espacios.</div>
+  </div>
+</div>
+
+<nav id="nav" style="display:none">
+  <div class="nlogo">🌾 Portal de Agentes</div>
+  <div class="ntabs" id="tabs"></div>
+  <div class="nder">
+    <div class="navat" id="avatar"></div>
+    <div class="nnom" id="nnom"></div>
+    <button class="ncarga" onclick="document.getElementById('fx').click()">⬆ Cargar archivo</button>
+    <input type="file" id="fx" accept=".xlsx,.xls" style="display:none"
+      onchange="if(this.files[0])leerExcel(this.files[0])">
+    <button class="nsalir" onclick="salir()">⏻ Salir</button>
+  </div>
+</nav>
+
+<main id="app" style="display:none">
+  <div class="sec act" id="s-pend">
+    <h1>Pendientes por tipificar</h1>
+    <div class="sub" id="pend-sub"></div>
+    <div id="pend-cuerpo"></div>
+  </div>
+  <div class="sec" id="s-ind">
+    <h1>Mis indicadores</h1>
+    <div class="sub" id="ind-sub"></div>
+    <div id="ind-cuerpo"></div>
+  </div>
+</main>
+
+<div id="notif"></div>
+
+<script>
+/* ══ ESTADO ══════════════════════════════════════════════════════════ */
+var YO = null;                    // el agente que inició sesión
+var MIS_IND = null;               // sus indicadores del Excel
+var MIS_PEND = [];                // sus pendientes por tipificar
+var CARGADO = false;              // ya se leyó un archivo
+var ARCHIVO = '';
+
+var esc = function(s){ return String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+/* Para comparar nombres sin que estorben tildes, dobles espacios o mayúsculas */
+var norm = function(s){ return String(s||'').trim().toUpperCase()
+  .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' '); };
+/* La cédula puede venir como número o con puntos */
+var ced = function(s){ return String(s==null?'':s).replace(/[^0-9]/g,''); };
+
+function aviso(msg, malo){
+  var n=document.getElementById('notif');
+  n.textContent=msg;
+  n.style.background = malo ? '#FEE2E2' : '#DCFCE7';
+  n.style.color      = malo ? '#991B1B' : '#166534';
+  n.style.opacity='1';
+  clearTimeout(n._t); n._t=setTimeout(function(){ n.style.opacity='0'; }, 3800);
+}
+
+/* ══ LOGIN ═══════════════════════════════════════════════════════════ */
+function entrar(){
+  var u=ced(document.getElementById('u').value);
+  var p=ced(document.getElementById('p').value);
+  var err=document.getElementById('lerr');
+
+  if(!u || !p){
+    err.textContent='Escribe tu cédula en los dos campos.';
+    err.style.display='block'; return;
+  }
+  var yo=AGENTES.filter(function(a){ return ced(a.ced)===u; })[0];
+  if(!yo || u!==p){
+    err.textContent='Cédula incorrecta. Recuerda: el usuario y la contraseña son tu misma cédula.';
+    err.style.display='block'; return;
+  }
+
+  YO=yo;
+  err.style.display='none';
+  document.getElementById('p').value='';
+  document.getElementById('login').style.display='none';
+  document.getElementById('nav').style.display='flex';
+  document.getElementById('app').style.display='block';
+
+  /* Nombre arriba a la derecha */
+  document.getElementById('nnom').innerHTML=esc(YO.nombre)+'<small>'+esc(YO.canal)+' · C.C. '+esc(YO.ced)+'</small>';
+  document.getElementById('avatar').textContent=iniciales(YO.nombre);
+  document.getElementById('tabs').innerHTML=
+      '<button class="ntab act" onclick="ir(\'pend\',this)">☎️ Pendientes por tipificar</button>'
+    + '<button class="ntab" onclick="ir(\'ind\',this)">📊 Mis indicadores</button>';
+  pintar();
+}
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Enter' && document.getElementById('login').style.display!=='none') entrar();
+});
+
+function iniciales(n){
+  var p=String(n||'').trim().split(/\s+/);
+  return ((p[0]||'')[0]||'')+((p[1]||'')[0]||'');
+}
+
+function salir(){
+  YO=null; MIS_IND=null; MIS_PEND=[]; CARGADO=false; ARCHIVO='';
+  document.getElementById('login').style.display='flex';
+  document.getElementById('nav').style.display='none';
+  document.getElementById('app').style.display='none';
+  document.getElementById('u').value=''; document.getElementById('p').value='';
+}
+
+function ir(cual, btn){
+  document.querySelectorAll('.sec').forEach(function(s){ s.classList.remove('act'); });
+  document.querySelectorAll('.ntab').forEach(function(t){ t.classList.remove('act'); });
+  document.getElementById('s-'+cual).classList.add('act');
+  btn.classList.add('act');
+}
+
+/* ══ LECTURA DEL EXCEL ═══════════════════════════════════════════════
+   Cada agente carga el mismo archivo, pero solo se guarda en memoria lo
+   que es suyo: sus indicadores (cruzados por cédula) y sus pendientes
+   (cruzados por nombre).                                              */
+var cel = function(ws,r,c){
+  var x=ws[XLSX.utils.encode_cell({r:r,c:c})];
+  return x ? (x.v!==undefined ? x.v : x.w) : null;
+};
+
+/* ── Hoja de indicadores ──────────────────────────────────────────────
+   Fila 1: el nombre de la categoría, combinado sobre 3 columnas.
+   Fila 2: cedula | nombre_completo | RESULTADO | META | CUMPLIMIENTO | …
+   El CUMPLIMIENTO es el puntaje ganado: trae el peso si cumplió, o 0.  */
+function leerHojaIndicadores(ws){
+  if(!ws || !ws['!ref']) return null;
+  var rg=XLSX.utils.decode_range(ws['!ref']);
+
+  /* Fila 1: al estar combinada, el nombre se arrastra a la derecha */
+  var cat=[], actual='';
+  for(var c=0;c<=rg.e.c;c++){
+    var v=cel(ws,0,c);
+    if(v!=null && String(v).trim()) actual=String(v).trim();
+    cat[c]=actual;
+  }
+  /* Fila 2: subtítulos */
+  var sub=[], colCed=-1, colNom=-1;
+  for(var c2=0;c2<=rg.e.c;c2++){
+    var s=String(cel(ws,1,c2)||'').trim();
+    sub[c2]=s;
+    if(/^c[eé]dula$/i.test(s))          colCed=c2;
+    else if(/nombre_completo|nombre/i.test(s) && colNom===-1) colNom=c2;
+  }
+  if(colCed===-1) return null;
+
+  /* Se agrupan las columnas por categoría */
+  var bloques=[];
+  for(var c3=0;c3<=rg.e.c;c3++){
+    if(c3===colCed||c3===colNom) continue;
+    if(!cat[c3] || /^agentes?$/i.test(cat[c3])) continue;
+    var b=bloques.filter(function(x){ return x.cat===cat[c3]; })[0];
+    if(!b){ b={cat:cat[c3], cols:[]}; bloques.push(b); }
+    b.cols.push({c:c3, sub:sub[c3]});
+  }
+
+  var filas=[];
+  for(var r=2;r<=rg.e.r;r++){
+    var cd=ced(cel(ws,r,colCed));
+    if(!cd) continue;
+    var reg={ ced:cd, nombre:String(cel(ws,r,colNom)||'').trim(), inds:[], extras:[] };
+    bloques.forEach(function(b){
+      var col=function(re){ return b.cols.filter(function(x){ return re.test(x.sub); })[0]; };
+      var cR=col(/^resultado$/i), cM=col(/^meta$/i), cC=col(/^cumplimiento$/i);
+      if(cR){
+        var res=cel(ws,r,cR.c), meta=cM?cel(ws,r,cM.c):null, pts=cC?cel(ws,r,cC.c):null;
+        reg.inds.push({ nombre:b.cat,
+          res: typeof res==='number'?res:null, resTxt: fmt(res,b.cat),
+          meta: typeof meta==='number'?meta:null, metaTxt: meta==null?'':fmt(meta,b.cat),
+          pts: typeof pts==='number'?pts:null });
+      } else {
+        /* Bloques sin RESULTADO/META, como PRODUCTIVIDAD: se listan tal cual */
+        b.cols.forEach(function(x){
+          var v=cel(ws,r,x.c);
+          if(v==null||v==='') return;
+          reg.extras.push({ grupo:b.cat, nombre:x.sub, texto:fmt(v,x.sub) });
+        });
+      }
+    });
+    filas.push(reg);
+  }
+  return filas;
+}
+
+/* Porcentajes entre 0 y 1; TMO y TMR en segundos */
+function fmt(v, nombre){
+  if(v==null||v==='') return '—';
+  if(typeof v!=='number') return String(v);
+  var n=String(nombre||'');
+  if(/tmo|tmr|aht/i.test(n)){
+    var t=Math.round(v), m=Math.floor(t/60), s=t%60;
+    return m+':'+(s<10?'0':'')+s;
+  }
+  if(/dias|d[ií]as|promedio_diario|contestados|mensual/i.test(n) && v>1)
+    return Math.round(v).toLocaleString('es-CO');
+  if(v>=0 && v<=1) return (v*100).toFixed(1).replace('.',',')+'%';
+  return Number.isInteger(v) ? v.toLocaleString('es-CO') : v.toFixed(1).replace('.',',');
+}
+
+/* ── Hoja de pendientes ─────────────────────────────────────────────── */
+function leerHojaPendientes(ws){
+  if(!ws || !ws['!ref']) return [];
+  var rg=XLSX.utils.decode_range(ws['!ref']);
+  var hdr=-1, col={};
+  for(var r=0;r<=Math.min(8,rg.e.r);r++){
+    var e={};
+    for(var c=0;c<=rg.e.c;c++){
+      var v=cel(ws,r,c); if(v==null) continue;
+      var t=String(v).trim().toLowerCase(); if(!t) continue;
+      if(e.agente===undefined && /nombre_agente|user_name|nombre|agente|asesor/.test(t)) e.agente=c;
+      else if(e.id===undefined   && (/^id[_\s]/.test(t)||/genesys|interacc/.test(t)))     e.id=c;
+      else if(e.link===undefined && /link|url|gesti/.test(t))                             e.link=c;
+      else if(e.cola===undefined && /^cola$/.test(t))                                     e.cola=c;
+      else if(e.macro===undefined && /macroproceso/.test(t))                              e.macro=c;
+      else if(e.proc===undefined  && /^proceso$/.test(t))                                 e.proc=c;
+      else if(e.s1===undefined    && /subproceso[_\s]*(uno|1)/.test(t))                   e.s1=c;
+      else if(e.s2===undefined    && /subproceso[_\s]*(dos|2)/.test(t))                   e.s2=c;
+      else if(e.obs===undefined   && /observaci/.test(t))                                 e.obs=c;
+    }
+    if(e.agente!==undefined && (e.id!==undefined||e.link!==undefined)){ hdr=r; col=e; break; }
+  }
+  if(hdr===-1) return [];
+  var txt=function(r,c){ return c===undefined ? '' : String(cel(ws,r,c)||'').trim(); };
+  var out=[];
+  for(var r2=hdr+1;r2<=rg.e.r;r2++){
+    var nom=txt(r2,col.agente); if(!nom) continue;
+    out.push({ agente:nom, idLlamada:txt(r2,col.id), link:txt(r2,col.link), cola:txt(r2,col.cola),
+      macroproceso:txt(r2,col.macro), proceso:txt(r2,col.proc),
+      subproceso1:txt(r2,col.s1), subproceso2:txt(r2,col.s2), observaciones:txt(r2,col.obs) });
+  }
+  return out;
+}
+
+function leerExcel(file){
+  if(typeof XLSX==='undefined'){
+    alert('No se pudo cargar el lector de Excel.\n\nRevisa tu conexión a internet y vuelve a abrir el archivo.');
+    return;
+  }
+  ARCHIVO=file.name;
+  var fr=new FileReader();
+  fr.onload=function(ev){
+    try{
+      var wb=XLSX.read(ev.target.result,{type:'array'});
+      var mios=null, pend=[];
+
+      wb.SheetNames.forEach(function(hoja){
+        /* Por ahora solo Chat y RRSS */
+        if(/indicadores/i.test(hoja)){
+          if(!/(chat|rrss|redes)/i.test(hoja)) return;
+          var filas=leerHojaIndicadores(wb.Sheets[hoja]);
+          if(!filas) return;
+          var yo=filas.filter(function(f){ return f.ced===ced(YO.ced); })[0];
+          if(yo){ yo.hoja=hoja; mios=yo; }
+          return;
+        }
+        if(/pendiente|tipific/i.test(hoja)) pend=pend.concat(leerHojaPendientes(wb.Sheets[hoja]));
+      });
+
+      /* Solo se conserva lo del agente: lo demás se descarta aquí mismo */
+      var yoN=norm(YO.nombre);
+      MIS_PEND = pend.filter(function(p){ return norm(p.agente)===yoN; });
+      MIS_IND  = mios;
+      CARGADO  = true;
+
+      pintar();
+      if(!mios && !MIS_PEND.length){
+        aviso('El archivo se leyó, pero no encontramos nada a tu nombre', true);
+      } else {
+        aviso('✔ Archivo cargado');
+      }
+    }catch(err){
+      alert('No se pudo leer el archivo:\n\n'+err.message
+        +'\n\nAsegúrate de cargar la plantilla del dashboard en formato Excel.');
+    }finally{
+      var f=document.getElementById('fx'); if(f) f.value='';
+    }
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+/* ══ PINTAR ══════════════════════════════════════════════════════════ */
+function pintar(){ pintarPendientes(); pintarIndicadores(); }
+
+function bienvenida(texto){
+  return '<div class="bien"><div class="ic">📂</div>'
+    +'<h3>Carga el archivo para empezar</h3>'
+    +'<p>'+texto+'</p>'
+    +'<button class="btn-big" onclick="document.getElementById(\'fx\').click()">⬆ Cargar archivo</button></div>';
+}
+
+function pintarPendientes(){
+  var cuerpo=document.getElementById('pend-cuerpo');
+  document.getElementById('pend-sub').textContent = CARGADO
+    ? 'Interacciones sin tipificar a tu nombre · Archivo: '+ARCHIVO
+    : 'Aquí verás tus interacciones sin tipificar.';
+
+  if(!CARGADO){
+    cuerpo.innerHTML=bienvenida('Sube el Excel del mes y aquí aparecerán solo '
+      +'las interacciones que están sin tipificar a tu nombre.');
+    return;
+  }
+  if(!MIS_PEND.length){
+    cuerpo.innerHTML='<div class="card"><div class="vacio">✅ <b>¡Vas al día!</b><br>'
+      +'No tienes interacciones pendientes por tipificar.</div></div>';
+    return;
+  }
+
+  /* Solo se muestran las columnas que traen datos */
+  var opc=[{k:'cola',nm:'Cola'},{k:'macroproceso',nm:'Macroproceso'},{k:'proceso',nm:'Proceso'},
+           {k:'subproceso1',nm:'Subproceso 1'},{k:'subproceso2',nm:'Subproceso 2'},
+           {k:'observaciones',nm:'Observaciones'}]
+    .filter(function(c){ return MIS_PEND.some(function(r){ return String(r[c.k]||'').trim(); }); });
+  var verId=MIS_PEND.some(function(r){ return String(r.idLlamada||'').trim(); });
+
+  var h='<div class="card"><div class="ch">MIS PENDIENTES<small>'
+    +MIS_PEND.length+' interacción(es)</small></div><div class="scroll"><table><thead><tr>'
+    +'<th>#</th>'+(verId?'<th>ID interacción</th>':'')
+    +opc.map(function(c){ return '<th>'+c.nm+'</th>'; }).join('')
+    +'<th>Gestión</th></tr></thead><tbody>';
+  MIS_PEND.forEach(function(r,i){
+    var link=/^https?:\/\//i.test(r.link||'')?r.link:'';
+    h+='<tr><td>'+(i+1)+'</td>'
+      +(verId?'<td style="font-family:monospace;font-size:9.5px;color:var(--txt)">'+esc(r.idLlamada)+'</td>':'')
+      +opc.map(function(c){ return '<td style="text-align:left">'+(esc(r[c.k])||'—')+'</td>'; }).join('')
+      +'<td>'+(link?'<a href="'+esc(link)+'" target="_blank" rel="noopener noreferrer" '
+        +'style="color:var(--azul3);font-weight:800;text-decoration:none">Ver →</a>':'—')+'</td></tr>';
+  });
+  cuerpo.innerHTML=h+'</tbody></table></div></div>';
+}
+
+function pintarIndicadores(){
+  var cuerpo=document.getElementById('ind-cuerpo');
+  document.getElementById('ind-sub').textContent = CARGADO
+    ? (MIS_IND ? 'Tus resultados de '+MIS_IND.hoja.replace(/_/g,' ') : '')
+    : 'Aquí verás tus resultados del mes.';
+
+  if(!CARGADO){
+    cuerpo.innerHTML=bienvenida('Sube el Excel del mes y aquí aparecerán tus '
+      +'indicadores con su meta y si la cumpliste.');
+    return;
+  }
+  if(!MIS_IND){
+    cuerpo.innerHTML='<div class="card"><div class="vacio">'
+      +'<b>No encontramos tus indicadores en este archivo.</b><br>'
+      +'Revisa que sea el Excel del mes correcto y que incluya la hoja de '
+      +esc(YO.canal)+'.</div></div>';
+    return;
+  }
+
+  /* Puntaje: el CUMPLIMIENTO trae el peso ganado en cada indicador */
+  var conPts=MIS_IND.inds.filter(function(i){ return i.pts!=null; });
+  var total=conPts.reduce(function(a,i){ return a+i.pts; }, 0);
+  var cumplidos=conPts.filter(function(i){ return i.pts>0; }).length;
+
+  var h='';
+  if(conPts.length){
+    var pct=Math.round(total*1000)/10;
+    h+='<div class="score">'
+      +'<div><div class="lbl">Cumplimiento total</div><div class="big">'
+        +String(pct).replace('.',',')+'%</div></div>'
+      +'<div class="barra"><div class="lbl">Avance</div>'
+        +'<div class="pista"><div class="fill" style="width:'+Math.min(100,pct)+'%"></div></div></div>'
+      +'<div class="mini">'
+        +'<div><div class="lbl">Cumple</div><b>'+cumplidos+'</b></div>'
+        +'<div><div class="lbl">No cumple</div><b>'+(conPts.length-cumplidos)+'</b></div>'
+        +'<div><div class="lbl">Indicadores</div><b>'+conPts.length+'</b></div>'
+      +'</div></div>';
+  }
+
+  h+='<div class="kpis">';
+  MIS_IND.inds.forEach(function(i){
+    var cls = i.pts==null ? '' : (i.pts>0 ? 'ok' : 'bad');
+    h+='<div class="kpi '+cls+'">'
+      +'<div class="k-n">'+esc(i.nombre)+'</div>'
+      +'<div class="k-v">'+esc(i.resTxt)+'</div>'
+      +(i.metaTxt?'<div class="k-m">Meta: '+esc(i.metaTxt)+'</div>':'')
+      +(cls?'<span class="pill '+cls+'">'+(cls==='ok'?'Cumple':'No cumple')+'</span>':'')
+      +'</div>';
+  });
+  h+='</div>';
+
+  /* Bloques sin meta, como PRODUCTIVIDAD */
+  if(MIS_IND.extras.length){
+    var grupos=[];
+    MIS_IND.extras.forEach(function(x){
+      var g=grupos.filter(function(y){ return y.nm===x.grupo; })[0];
+      if(!g){ g={nm:x.grupo, items:[]}; grupos.push(g); }
+      g.items.push(x);
+    });
+    grupos.forEach(function(g){
+      h+='<div class="card"><div class="ch">'+esc(g.nm)+'</div>'
+        +'<div class="scroll"><table><thead><tr>'
+        +g.items.map(function(x){ return '<th>'+esc(x.nombre)+'</th>'; }).join('')
+        +'</tr></thead><tbody><tr>'
+        +g.items.map(function(x){ return '<td style="font-weight:700">'+esc(x.texto)+'</td>'; }).join('')
+        +'</tr></tbody></table></div></div>';
+    });
+  }
+  cuerpo.innerHTML=h;
+}
+</script>
+</body>
+</html>

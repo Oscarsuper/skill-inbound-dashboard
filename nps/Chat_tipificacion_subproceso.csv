@@ -1,0 +1,82 @@
+﻿SUBPROCESO,Encuestas,Promotores,Neutros,Detractores,%Detractores,NPS,NPS Junio,Detrac Junio,NPS Julio,Detrac Julio,NPS Agosto,Detrac Agosto
+Activación de cuenta,1.0,0.0,0.0,1.0,100.0,-100.0,-100.0,1.0,,,,
+Cambio a Bico,2.0,0.0,0.0,2.0,100.0,-100.0,-100.0,1.0,-100.0,1.0,,
+Creación de novedad,1.0,0.0,0.0,1.0,100.0,-100.0,,,-100.0,1.0,,
+Error al subir archivo plano,2.0,0.0,0.0,2.0,100.0,-100.0,-100.0,1.0,,,-100.0,1.0
+Solicitud de Rediferido,1.0,0.0,0.0,1.0,100.0,-100.0,,,-100.0,1.0,,
+Solicitud de Replica de PQR,1.0,0.0,0.0,1.0,100.0,-100.0,,,,,-100.0,1.0
+Agendamiento devolución de llamada,2.0,0.0,1.0,1.0,50.0,-50.0,-50.0,1.0,,,,
+Activación SIN TD.,2.0,0.0,1.0,1.0,50.0,-50.0,,,-100.0,1.0,0.0,0.0
+Información general,34.0,10.0,3.0,21.0,61.8,-32.4,-12.5,8.0,-45.5,8.0,-57.1,5.0
+Persona Juridica,8.0,2.0,2.0,4.0,50.0,-25.0,0.0,1.0,100.0,0.0,-60.0,3.0
+Olvido de Usuario o Contraseña,4.0,1.0,1.0,2.0,50.0,-25.0,100.0,0.0,-66.7,2.0,,
+Información Estado actual de PQR,43.0,16.0,6.0,21.0,48.8,-11.6,9.1,4.0,0.0,6.0,-37.5,11.0
+Bloqueo posible fraude,1.0,0.0,1.0,0.0,0.0,0.0,,,,,0.0,0.0
+Código de Juzgado no corresponde al tipo de deposito o juzgado asignado,2.0,1.0,0.0,1.0,50.0,0.0,,,0.0,1.0,,
+Fallas en biometria,2.0,1.0,0.0,1.0,50.0,0.0,,,0.0,1.0,,
+Fallas tecnicas,88.0,38.0,12.0,38.0,43.2,0.0,,,7.9,30.0,-50.0,8.0
+Problemas de información y trazabilidad BRE-B,2.0,1.0,0.0,1.0,50.0,0.0,,,100.0,0.0,-100.0,1.0
+"Asesoria creación de usuarios, desbloqueo de usuarios, perfiles, montos y niveles de firma",2.0,1.0,0.0,1.0,50.0,0.0,,,-100.0,1.0,100.0,0.0
+Tasas y Tarifas,4.0,2.0,0.0,2.0,50.0,0.0,-100.0,1.0,100.0,0.0,0.0,1.0
+Recordación de usuario.,2.0,1.0,0.0,1.0,50.0,0.0,,,0.0,1.0,,
+Asesoria inscripción de terceros o cargue archivo plano,2.0,1.0,0.0,1.0,50.0,0.0,100.0,0.0,,,-100.0,1.0
+PSE,26.0,12.0,5.0,9.0,34.6,11.5,0.0,4.0,44.4,2.0,-16.7,3.0
+Soporte y acompañamiento en la Banca,2113.0,1170.0,252.0,691.0,32.7,22.7,27.4,274.0,26.3,198.0,11.7,219.0
+Radicación de PQR,47.0,26.0,6.0,15.0,31.9,23.4,52.9,2.0,0.0,10.0,25.0,3.0
+"Bloqueos de Banca (Pin, Contraseña, Token, Usuario).",4.0,2.0,1.0,1.0,25.0,25.0,,,100.0,0.0,0.0,1.0
+Otros Depósitos Especiales,161.0,95.0,12.0,54.0,33.5,25.5,17.0,20.0,25.0,21.0,35.4,13.0
+Persona Natural,107.0,60.0,16.0,31.0,29.0,27.1,17.9,12.0,32.3,18.0,33.3,1.0
+Asesoría transacciones,11.0,7.0,0.0,4.0,36.4,27.3,0.0,1.0,-20.0,3.0,100.0,0.0
+Solicitudes de certificaciones y soportes,363.0,213.0,40.0,110.0,30.3,28.4,51.8,15.0,23.9,43.0,18.8,52.0
+Información y ofrecimiento tarjeta de credito / Requisitos,7.0,4.0,1.0,2.0,28.6,28.6,66.7,0.0,33.3,1.0,-100.0,1.0
+Lectura PQR,3.0,1.0,2.0,0.0,0.0,33.3,50.0,0.0,0.0,0.0,,
+Actualización de Datos,100.0,57.0,20.0,23.0,23.0,34.0,36.4,7.0,31.7,10.0,34.6,6.0
+Consulta de saldo,76.0,47.0,9.0,20.0,26.3,35.5,29.4,4.0,34.1,12.0,46.7,4.0
+Sincronización de productos.,14.0,8.0,3.0,3.0,21.4,35.7,,,25.0,3.0,100.0,0.0
+"Asesoria creación, desbloqueo, perfiles de usuarios o esquemas de aprobación",14.0,9.0,1.0,4.0,28.6,35.7,0.0,1.0,0.0,2.0,62.5,1.0
+Información de apertura de Bico / Bloqueo / Cancelación,39.0,26.0,3.0,10.0,25.6,41.0,60.0,1.0,39.1,6.0,36.4,3.0
+Información y/o aclaración condiciones del producto,721.0,465.0,87.0,169.0,23.4,41.1,32.3,61.0,46.8,58.0,42.0,50.0
+"Bloqueo por backoffice, politica de seguridad",7.0,5.0,0.0,2.0,28.6,42.9,33.3,1.0,100.0,0.0,0.0,1.0
+Información y ofrecimiento de cuentas / Requisitos,28.0,18.0,4.0,6.0,21.4,42.9,50.0,1.0,23.5,5.0,85.7,0.0
+Soporte y acompañamiento en Bico,111.0,74.0,12.0,25.0,22.5,44.1,26.5,10.0,51.6,12.0,53.8,3.0
+Errores en la transferencia BRE-B,31.0,21.0,3.0,7.0,22.6,45.2,22.2,3.0,50.0,3.0,66.7,1.0
+Depósitos Judiciales Remates,11.0,8.0,0.0,3.0,27.3,45.5,42.9,2.0,0.0,1.0,100.0,0.0
+Ola invernal,19.0,13.0,2.0,4.0,21.1,47.4,50.0,1.0,30.0,3.0,100.0,0.0
+Asesoría transferencias o pagos por PSE,23.0,16.0,2.0,5.0,21.7,47.8,100.0,0.0,60.0,1.0,33.3,4.0
+Soporte y acompañamiento en el portal,63.0,45.0,4.0,14.0,22.2,49.2,40.0,6.0,47.8,5.0,60.0,3.0
+Compra de cartera,32.0,23.0,2.0,7.0,21.9,50.0,30.8,4.0,62.5,3.0,66.7,0.0
+Asesoria enrolamiento Soft token,4.0,3.0,0.0,1.0,25.0,50.0,,,0.0,1.0,100.0,0.0
+Estado de la solicitud de crédito,77.0,56.0,6.0,15.0,19.5,53.2,44.8,7.0,76.5,3.0,14.3,5.0
+Asesoria y acompañamiento en Bico,155.0,115.0,10.0,30.0,19.4,54.8,45.9,8.0,57.3,17.0,58.6,5.0
+Solicitud de Prórroga,9.0,5.0,4.0,0.0,0.0,55.6,80.0,0.0,0.0,0.0,50.0,0.0
+Información y/o aclaración condiciones,16.0,12.0,1.0,3.0,18.8,56.2,0.0,2.0,100.0,0.0,50.0,1.0
+No registra en Cifin,10.0,7.0,2.0,1.0,10.0,60.0,100.0,0.0,50.0,1.0,60.0,0.0
+Información y ofrecimiento de credito / Requisitos,352.0,266.0,39.0,47.0,13.4,62.2,59.7,19.0,68.8,16.0,52.6,12.0
+Pago Minimo o Total,43.0,32.0,6.0,5.0,11.6,62.8,78.6,0.0,52.9,3.0,58.3,2.0
+Asesoría Registro,17.0,13.0,2.0,2.0,11.8,64.7,50.0,1.0,100.0,0.0,63.6,1.0
+Embargos de alimentos (cuotas alimentarias),42.0,33.0,4.0,5.0,11.9,66.7,83.3,1.0,50.0,3.0,66.7,1.0
+Información o Estado del giro,285.0,212.0,56.0,17.0,6.0,68.4,61.8,4.0,62.0,6.0,79.8,7.0
+Inconsistencias en cobros y registros BRE-B,4.0,3.0,1.0,0.0,0.0,75.0,100.0,0.0,50.0,0.0,100.0,0.0
+"Pago Minimo, Total o numero de obligación",761.0,644.0,47.0,70.0,9.2,75.4,77.9,24.0,73.5,31.0,74.3,15.0
+Crédito asociativo con Prosperidad Social,41.0,36.0,1.0,4.0,9.8,78.0,78.0,4.0,,,,
+Estado del producto,10.0,9.0,0.0,1.0,10.0,80.0,66.7,1.0,100.0,0.0,,
+Información Plan Alivios Especiales,10.0,8.0,2.0,0.0,0.0,80.0,50.0,0.0,80.0,0.0,100.0,0.0
+Información Alternativas de pago,21.0,18.0,2.0,1.0,4.8,81.0,100.0,0.0,90.0,0.0,57.1,1.0
+Bloqueo contra retiro,7.0,6.0,1.0,0.0,0.0,85.7,100.0,0.0,100.0,0.0,75.0,0.0
+Bloqueo de producto,29.0,26.0,2.0,1.0,3.4,86.2,90.0,0.0,78.6,1.0,100.0,0.0
+Pago no aplicado,1.0,1.0,0.0,0.0,0.0,100.0,100.0,0.0,,,,
+Incidencias en la apertura,1.0,1.0,0.0,0.0,0.0,100.0,,,100.0,0.0,,
+Información casas de cobranza,4.0,4.0,0.0,0.0,0.0,100.0,100.0,0.0,100.0,0.0,100.0,0.0
+Falta de beneficios,1.0,1.0,0.0,0.0,0.0,100.0,100.0,0.0,,,,
+Pago domiciliado,1.0,1.0,0.0,0.0,0.0,100.0,,,100.0,0.0,,
+Colombia Mayor,11.0,11.0,0.0,0.0,0.0,100.0,100.0,0.0,100.0,0.0,100.0,0.0
+Demora en llegada clave temporal,1.0,1.0,0.0,0.0,0.0,100.0,,,,,100.0,0.0
+Asesoría cuentas maestras,1.0,1.0,0.0,0.0,0.0,100.0,,,100.0,0.0,,
+Asesoría App (Aplicación Movil),1.0,1.0,0.0,0.0,0.0,100.0,,,,,100.0,0.0
+Activación Ecommers,3.0,3.0,0.0,0.0,0.0,100.0,100.0,0.0,100.0,0.0,,
+Cambio a Giro,1.0,1.0,0.0,0.0,0.0,100.0,100.0,0.0,,,,
+Cancelación cuenta Digital,1.0,1.0,0.0,0.0,0.0,100.0,100.0,0.0,,,,
+Cambio de tasa DTF a IBR,1.0,1.0,0.0,0.0,0.0,100.0,100.0,0.0,,,,
+Requisitos / Condiciones,4.0,4.0,0.0,0.0,0.0,100.0,,,100.0,0.0,100.0,0.0
+Proceso activación Tarjeta de Crédito,1.0,1.0,0.0,0.0,0.0,100.0,,,100.0,0.0,,
+Soporte apertura,2.0,2.0,0.0,0.0,0.0,100.0,100.0,0.0,100.0,0.0,,

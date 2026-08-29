@@ -203,7 +203,7 @@ const AGENTES = [
     <div class="navat" id="avatar"></div>
     <div class="nnom" id="nnom"></div>
     <button class="ncarga" onclick="document.getElementById('fx').click()">⬆ Cargar archivo</button>
-    <input type="file" id="fx" accept=".xlsx,.xls" style="display:none"
+    <input type="file" id="fx" accept=".xlsx,.xlsm,.xls,.ods" style="display:none"
       onchange="if(this.files[0])leerExcel(this.files[0])">
     <button class="nsalir" onclick="salir()">⏻ Salir</button>
   </div>
@@ -583,7 +583,8 @@ function leerExcel(file){
       }
     }catch(err){
       alert('No se pudo leer el archivo:\n\n'+err.message
-        +'\n\nAsegúrate de cargar la plantilla del dashboard en formato Excel.');
+        +'\n\nAsegúrate de cargar la plantilla del dashboard (.xlsx de Excel '
+        +'o .ods de LibreOffice).');
     }finally{
       var f=document.getElementById('fx'); if(f) f.value='';
     }

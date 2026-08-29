@@ -128,6 +128,10 @@ tbody tr:hover{background:#FAF8FF}
   color:#fff;font-family:inherit;font-size:11px;font-weight:800;border-radius:8px;
   padding:5px 13px;cursor:pointer;transition:all .15s;white-space:nowrap}
 .aud-ver:hover{background:#fff;color:var(--azul2);border-color:#fff}
+.aud-cop{border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;
+  font-family:inherit;font-size:11px;font-weight:700;border-radius:8px;
+  padding:5px 11px;cursor:pointer;opacity:.85;transition:all .15s;white-space:nowrap}
+.aud-cop:hover{opacity:1;background:rgba(255,255,255,.16)}
 .aud-body{padding:6px 18px 16px}
 .aud-item{padding:13px 0;border-bottom:1px solid #F1EDFD}
 .aud-item:last-child{border-bottom:none}
@@ -137,6 +141,8 @@ tbody tr:hover{background:#FAF8FF}
 .aud-obs.vacio{color:var(--txt);font-style:italic}
 .aud-cnt{display:inline-block;background:var(--gold-lt,#EDE9FE);color:var(--azul2);
   border-radius:20px;padding:3px 12px;font-size:11px;font-weight:800;margin-bottom:14px}
+.aud-tip{background:#FEF3C7;border:1px solid #FDE68A;color:#92400E;border-radius:10px;
+  padding:10px 15px;font-size:11.5px;line-height:1.6;margin:0 0 16px}
 
 #notif{position:fixed;bottom:26px;right:26px;z-index:999;padding:11px 19px;border-radius:10px;
   font-size:12.5px;font-weight:700;opacity:0;transition:opacity .35s;box-shadow:0 6px 24px rgba(0,0,0,.18);
@@ -511,6 +517,33 @@ function abrirGestion(url){
   window.open(url,'_blank','noopener,noreferrer');
 }
 
+/* El destino de la interacción va después del # y lo resuelve la propia
+   aplicación del CRM, no el servidor. Si el agente aún no ha iniciado
+   sesión, el CRM lo lleva a autenticarse y al volver lo deja en su bandeja,
+   perdiendo el destino. Copiar el enlace y pegarlo en la pestaña donde ya
+   tiene sesión abierta sí llega a la interacción. */
+function copiarEnlace(url, btn){
+  if(!/^https?:\/\//i.test(url||'')){ aviso('Ese registro no trae link', true); return; }
+  var listo=function(){
+    var antes=btn.textContent;
+    btn.textContent='✔ Copiado';
+    setTimeout(function(){ btn.textContent=antes; }, 2000);
+    aviso('Enlace copiado — pégalo en la pestaña donde ya tienes el CRM abierto');
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(listo, function(){ copiarAntiguo(url, listo); });
+  } else { copiarAntiguo(url, listo); }
+}
+function copiarAntiguo(url, listo){
+  var t=document.createElement('textarea');
+  t.value=url; t.setAttribute('readonly','');
+  t.style.cssText='position:fixed;top:-1000px;opacity:0';
+  document.body.appendChild(t); t.select();
+  try{ document.execCommand('copy'); listo(); }
+  catch(e){ aviso('No se pudo copiar. El enlace está en el título del botón.', true); }
+  t.remove();
+}
+
 /* Excel entrega la fecha como número de serie o como texto */
 function fechaSerie(v){
   if(v==null||v==='') return null;
@@ -614,8 +647,12 @@ function pintarAuditorias(){
     return;
   }
 
+  var conLink=MIS_AUD.filter(function(a){ return a.link; }).length;
   var h='<div class="aud-cnt">'+MIS_AUD.length
     +(MIS_AUD.length===1?' acompañamiento':' acompañamientos')+'</div>';
+  if(conLink) h+='<div class="aud-tip">💡 Abre primero el CRM e inicia sesión; '
+    +'después oprime <b>Ver interacción</b>. Si te deja en tu bandeja en vez de la '
+    +'interacción, usa <b>Copiar enlace</b> y pégalo en la pestaña del CRM.</div>';
   MIS_AUD.forEach(function(a){
     var conObs=a.obs.filter(function(o){ return o.texto; }).length;
     h+='<div class="aud">'
@@ -626,7 +663,10 @@ function pintarAuditorias(){
             + esc(idBonito(a.idInter))+'</span>' : '')
       + (a.link
           ? '<button class="aud-ver" onclick="abrirGestion(this.dataset.url)" '
-            +'data-url="'+esc(a.link)+'">Ver interacción →</button>' : '')
+            +'data-url="'+esc(a.link)+'">Ver interacción →</button>'
+            +'<button class="aud-cop" title="'+esc(a.link)+'" '
+            +'onclick="copiarEnlace(this.dataset.url,this)" '
+            +'data-url="'+esc(a.link)+'">⧉ Copiar enlace</button>' : '')
       +'<span class="n">'+conObs+' de '+a.obs.length+' criterios con observación</span></div>'
       +'<div class="aud-body">';
     a.obs.forEach(function(o){

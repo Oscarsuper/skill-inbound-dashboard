@@ -114,6 +114,23 @@ tbody tr:hover{background:#FAF8FF}
 .bien .btn-big{padding:13px 28px;border:none;border-radius:10px;font-size:14px;font-weight:800;color:#fff;
   background:linear-gradient(135deg,#7C3AED,#4A1D96)}
 
+/* Auditoría lado a lado: lo que califica es la observación escrita */
+.aud{background:var(--w);border:1px solid var(--ln);border-radius:14px;
+  margin-bottom:16px;overflow:hidden}
+.aud-cab{background:linear-gradient(100deg,var(--azul2),var(--azul3));color:#fff;
+  padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.aud-cab .f{font-size:13.5px;font-weight:800}
+.aud-cab .n{font-size:10.5px;opacity:.75;margin-left:auto;font-weight:600}
+.aud-body{padding:6px 18px 16px}
+.aud-item{padding:13px 0;border-bottom:1px solid #F1EDFD}
+.aud-item:last-child{border-bottom:none}
+.aud-crit{font-size:10px;font-weight:800;color:var(--azul3);text-transform:uppercase;
+  letter-spacing:1px;margin-bottom:6px}
+.aud-obs{font-size:13px;line-height:1.65;color:var(--dk);white-space:pre-wrap}
+.aud-obs.vacio{color:var(--txt);font-style:italic}
+.aud-cnt{display:inline-block;background:var(--gold-lt,#EDE9FE);color:var(--azul2);
+  border-radius:20px;padding:3px 12px;font-size:11px;font-weight:800;margin-bottom:14px}
+
 #notif{position:fixed;bottom:26px;right:26px;z-index:999;padding:11px 19px;border-radius:10px;
   font-size:12.5px;font-weight:700;opacity:0;transition:opacity .35s;box-shadow:0 6px 24px rgba(0,0,0,.18);
   pointer-events:none}
@@ -196,6 +213,11 @@ const AGENTES = [
     <div class="sub" id="ind-sub"></div>
     <div id="ind-cuerpo"></div>
   </div>
+  <div class="sec" id="s-aud">
+    <h1>Mis auditorías</h1>
+    <div class="sub" id="aud-sub"></div>
+    <div id="aud-cuerpo"></div>
+  </div>
 </main>
 
 <div id="notif"></div>
@@ -205,6 +227,7 @@ const AGENTES = [
 var YO = null;                    // el agente que inició sesión
 var MIS_IND = null;               // sus indicadores del Excel
 var MIS_PEND = [];                // sus pendientes por tipificar
+var MIS_AUD = [];                 // sus auditorías de lado a lado
 var CARGADO = false;              // ya se leyó un archivo
 var ARCHIVO = '';
 
@@ -253,7 +276,8 @@ function entrar(){
   document.getElementById('avatar').textContent=iniciales(YO.nombre);
   document.getElementById('tabs').innerHTML=
       '<button class="ntab act" onclick="ir(\'pend\',this)">☎️ Pendientes por tipificar</button>'
-    + '<button class="ntab" onclick="ir(\'ind\',this)">📊 Mis indicadores</button>';
+    + '<button class="ntab" onclick="ir(\'ind\',this)">📊 Mis indicadores</button>'
+    + '<button class="ntab" onclick="ir(\'aud\',this)">📝 Mis auditorías</button>';
   pintar();
 }
 
@@ -267,7 +291,7 @@ function iniciales(n){
 }
 
 function salir(){
-  YO=null; MIS_IND=null; MIS_PEND=[]; CARGADO=false; ARCHIVO='';
+  YO=null; MIS_IND=null; MIS_PEND=[]; MIS_AUD=[]; CARGADO=false; ARCHIVO='';
   document.getElementById('login').style.display='flex';
   document.getElementById('nav').style.display='none';
   document.getElementById('app').style.display='none';
@@ -402,6 +426,75 @@ function leerHojaPendientes(ws){
   return out;
 }
 
+/* ── Hoja de auditorías «lado a lado» ────────────────────────────────
+   Primera columna: el nombre del agente. Una columna de fecha. Todas las
+   demás son criterios, y el supervisor escribe una observación en cada
+   una. No hay nota: lo que califica es lo que quede escrito. Si mañana
+   se agregan criterios nuevos, aparecen solos.                        */
+function leerHojaAuditorias(ws){
+  if(!ws || !ws['!ref']) return [];
+  var rg=XLSX.utils.decode_range(ws['!ref']);
+
+  var hdr=-1, colNom=-1, colFecha=-1, crit=[];
+  for(var r=0; r<=Math.min(8,rg.e.r); r++){
+    var nom=-1, fec=-1, cs=[];
+    for(var c=0; c<=rg.e.c; c++){
+      var v=cel(ws,r,c); if(v==null) continue;
+      var t=String(v).trim(); if(!t) continue;
+      var tl=t.toLowerCase();
+      if(nom===-1 && /nombre|agente|asesor/.test(tl)){ nom=c; continue; }
+      if(fec===-1 && /fecha/.test(tl)){ fec=c; continue; }
+      if(nom!==-1) cs.push({c:c, nm:t});
+    }
+    if(nom!==-1 && cs.length){ hdr=r; colNom=nom; colFecha=fec; crit=cs; break; }
+  }
+  if(hdr===-1) return [];
+
+  var out=[];
+  for(var r2=hdr+1; r2<=rg.e.r; r2++){
+    var nombre=String(cel(ws,r2,colNom)||'').trim();
+    if(!nombre) continue;
+    var obs=[];
+    crit.forEach(function(k){
+      var v=cel(ws,r2,k.c);
+      var txt=(v==null?'':String(v)).trim();
+      obs.push({ criterio:k.nm, texto:txt });
+    });
+    /* Una fila sin una sola observación es un agente aún sin auditar */
+    if(!obs.some(function(x){ return x.texto; })) continue;
+    out.push({ agente:nombre, fecha:fechaTexto(colFecha===-1?null:cel(ws,r2,colFecha)),
+               orden:fechaOrden(colFecha===-1?null:cel(ws,r2,colFecha)), obs:obs });
+  }
+  return out;
+}
+
+/* Excel entrega la fecha como número de serie o como texto */
+function fechaSerie(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number'){
+    var d=new Date(Math.round((v-25569)*86400000));
+    return isNaN(d.getTime())?null:d;
+  }
+  if(v instanceof Date) return v;
+  var s=String(v).trim();
+  var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){
+    var a=m[3].length===2?('20'+m[3]):m[3];
+    return new Date(+a, +m[2]-1, +m[1]);
+  }
+  var d2=new Date(s);
+  return isNaN(d2.getTime())?null:d2;
+}
+function fechaTexto(v){
+  var d=fechaSerie(v);
+  if(!d) return String(v==null?'':v).trim();
+  return d.toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'});
+}
+function fechaOrden(v){
+  var d=fechaSerie(v);
+  return d ? d.getTime() : 0;
+}
+
 function leerExcel(file){
   if(typeof XLSX==='undefined'){
     alert('No se pudo cargar el lector de Excel.\n\nRevisa tu conexión a internet y vuelve a abrir el archivo.');
@@ -412,7 +505,7 @@ function leerExcel(file){
   fr.onload=function(ev){
     try{
       var wb=XLSX.read(ev.target.result,{type:'array'});
-      var mios=null, pend=[];
+      var mios=null, pend=[], aud=[];
 
       wb.SheetNames.forEach(function(hoja){
         /* Por ahora solo Chat y RRSS */
@@ -424,17 +517,23 @@ function leerExcel(file){
           if(yo){ yo.hoja=hoja; mios=yo; }
           return;
         }
-        if(/pendiente|tipific/i.test(hoja)) pend=pend.concat(leerHojaPendientes(wb.Sheets[hoja]));
+        if(/pendiente|tipific/i.test(hoja)){
+          pend=pend.concat(leerHojaPendientes(wb.Sheets[hoja])); return;
+        }
+        if(/lado\s*a\s*lado|auditor|acompa/i.test(hoja))
+          aud=aud.concat(leerHojaAuditorias(wb.Sheets[hoja]));
       });
 
       /* Solo se conserva lo del agente: lo demás se descarta aquí mismo */
       var yoN=norm(YO.nombre);
       MIS_PEND = pend.filter(function(p){ return norm(p.agente)===yoN; });
+      MIS_AUD  = aud.filter(function(a){ return norm(a.agente)===yoN; })
+                    .sort(function(a,b){ return b.orden-a.orden; });   // la más reciente arriba
       MIS_IND  = mios;
       CARGADO  = true;
 
       pintar();
-      if(!mios && !MIS_PEND.length){
+      if(!mios && !MIS_PEND.length && !MIS_AUD.length){
         aviso('El archivo se leyó, pero no encontramos nada a tu nombre', true);
       } else {
         aviso('✔ Archivo cargado');
@@ -450,7 +549,46 @@ function leerExcel(file){
 }
 
 /* ══ PINTAR ══════════════════════════════════════════════════════════ */
-function pintar(){ pintarPendientes(); pintarIndicadores(); }
+function pintar(){ pintarPendientes(); pintarIndicadores(); pintarAuditorias(); }
+
+function pintarAuditorias(){
+  var cuerpo=document.getElementById('aud-cuerpo');
+  document.getElementById('aud-sub').textContent = CARGADO
+    ? 'Acompañamientos lado a lado registrados a tu nombre · Archivo: '+ARCHIVO
+    : 'Aquí verás las observaciones de tus acompañamientos.';
+
+  if(!CARGADO){
+    cuerpo.innerHTML=bienvenida('Sube el Excel y aquí aparecerán las observaciones '
+      +'de cada acompañamiento que te hayan hecho.');
+    return;
+  }
+  if(!MIS_AUD.length){
+    cuerpo.innerHTML='<div class="card"><div class="vacio">'
+      +'<b>Todavía no tienes auditorías registradas.</b><br>'
+      +'Cuando tu supervisor haga el acompañamiento, las observaciones aparecerán aquí.'
+      +'</div></div>';
+    return;
+  }
+
+  var h='<div class="aud-cnt">'+MIS_AUD.length
+    +(MIS_AUD.length===1?' acompañamiento':' acompañamientos')+'</div>';
+  MIS_AUD.forEach(function(a){
+    var conObs=a.obs.filter(function(o){ return o.texto; }).length;
+    h+='<div class="aud">'
+      +'<div class="aud-cab"><span class="f">📝 '
+        +(a.fecha?esc(a.fecha):'Sin fecha registrada')+'</span>'
+      +'<span class="n">'+conObs+' de '+a.obs.length+' criterios con observación</span></div>'
+      +'<div class="aud-body">';
+    a.obs.forEach(function(o){
+      h+='<div class="aud-item">'
+        +'<div class="aud-crit">'+esc(o.criterio)+'</div>'
+        +'<div class="aud-obs'+(o.texto?'':' vacio')+'">'
+        +(o.texto?esc(o.texto):'Sin observación en este acompañamiento')+'</div></div>';
+    });
+    h+='</div></div>';
+  });
+  cuerpo.innerHTML=h;
+}
 
 function bienvenida(texto){
   return '<div class="bien"><div class="ic">📂</div>'

@@ -505,16 +505,10 @@ function idBonito(txt){
   return partes.length ? partes[partes.length-1] : '';
 }
 
-/* El agente necesita el CRM al lado del portal, no encima: se abre en una
-   ventana aparte. Si el navegador bloquea la ventana, se cae a una pestaña. */
+/* Se abre en una pestaña nueva del mismo Chrome, sin tocar el portal. */
 function abrirGestion(url){
   if(!/^https?:\/\//i.test(url||'')){ aviso('Ese registro no trae link', true); return; }
-  var alto=Math.max(600, Math.round(screen.availHeight*0.9));
-  var ancho=Math.max(900, Math.round(screen.availWidth*0.62));
-  var v=window.open(url,'gestionCRM',
-    'noopener,noreferrer,width='+ancho+',height='+alto+',left='+
-    Math.round(screen.availWidth-ancho)+',top=0,scrollbars=yes,resizable=yes');
-  if(!v) window.open(url,'_blank','noopener,noreferrer');
+  window.open(url,'_blank','noopener,noreferrer');
 }
 
 /* Excel entrega la fecha como número de serie o como texto */

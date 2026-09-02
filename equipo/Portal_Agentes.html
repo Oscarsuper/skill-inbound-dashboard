@@ -95,6 +95,7 @@ h1{font-size:21px;margin-bottom:3px}
 .kpi.bad{border-left-color:var(--bad)}.kpi.bad .k-v{color:var(--bad)}
 .pill{display:inline-block;font-size:9px;font-weight:800;padding:2px 9px;border-radius:20px;margin-top:7px}
 .pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.sin{background:#F1F5F9;color:var(--txt)}
 
 /* Tablas */
 .scroll{overflow-x:auto;max-height:70vh;overflow-y:auto}
@@ -370,10 +371,13 @@ function leerHojaIndicadores(ws){
       var cR=col(/^resultado$/i), cM=col(/^meta$/i), cC=col(/^cumplimiento$/i);
       if(cR){
         var res=cel(ws,r,cR.c), meta=cM?cel(ws,r,cM.c):null, pts=cC?cel(ws,r,cC.c):null;
+        var nRes = typeof res==='number'?res:null;
+        var nMeta= typeof meta==='number'?meta:null;
+        var nPts = typeof pts==='number'?pts:null;
         reg.inds.push({ nombre:b.cat,
-          res: typeof res==='number'?res:null, resTxt: fmt(res,b.cat),
-          meta: typeof meta==='number'?meta:null, metaTxt: meta==null?'':fmt(meta,b.cat),
-          pts: typeof pts==='number'?pts:null });
+          res:nRes, resTxt: fmt(res,b.cat),
+          meta:nMeta, metaTxt: meta==null?'':fmt(meta,b.cat),
+          pts:nPts, estado: veredicto(b.cat, nRes, nMeta, nPts) });
       } else {
         /* Bloques sin RESULTADO/META, como PRODUCTIVIDAD: se listan tal cual */
         b.cols.forEach(function(x){
@@ -386,6 +390,21 @@ function leerHojaIndicadores(ws){
     filas.push(reg);
   }
   return filas;
+}
+
+/* En estos indicadores un número menor es mejor: no se cumple superando la
+   meta sino quedando por debajo. */
+var MENOR_ES_MEJOR = /tmo|tmr|aht|tiempo|ausent|abandon|desconex|error|mal\s*radicad|mora|espera/i;
+
+/* Cumple o no cumple sale de comparar el resultado con la meta, no de la
+   columna CUMPLIMIENTO: esa es un puntaje que el supervisor calcula aparte y,
+   si queda en cero, un 98% de adherencia aparecía en rojo.
+   El único caso que sí necesita esa columna es cuando resultado y meta son
+   cero: ahí no se distingue «cumplió con meta cero» de «no hay medición». */
+function veredicto(nombre, res, meta, pts){
+  if(res==null || meta==null) return 'sin';
+  if(res===0 && meta===0) return (pts!=null && pts>0) ? 'ok' : 'sin';
+  return (MENOR_ES_MEJOR.test(nombre) ? res<=meta : res>=meta) ? 'ok' : 'bad';
 }
 
 /* Porcentajes entre 0 y 1; TMO y TMR en segundos */
@@ -741,33 +760,32 @@ function pintarIndicadores(){
   }
 
   /* Puntaje: el CUMPLIMIENTO trae el peso ganado en cada indicador */
-  var conPts=MIS_IND.inds.filter(function(i){ return i.pts!=null; });
-  var total=conPts.reduce(function(a,i){ return a+i.pts; }, 0);
-  var cumplidos=conPts.filter(function(i){ return i.pts>0; }).length;
+  var medidos=MIS_IND.inds.filter(function(i){ return i.estado!=='sin'; });
+  var cumplidos=medidos.filter(function(i){ return i.estado==='ok'; }).length;
 
   var h='';
-  if(conPts.length){
-    var pct=Math.round(total*1000)/10;
+  if(medidos.length){
+    var pct=Math.round(cumplidos/medidos.length*1000)/10;
     h+='<div class="score">'
-      +'<div><div class="lbl">Cumplimiento total</div><div class="big">'
-        +String(pct).replace('.',',')+'%</div></div>'
-      +'<div class="barra"><div class="lbl">Avance</div>'
+      +'<div><div class="lbl">Indicadores en meta</div><div class="big">'
+        +cumplidos+' de '+medidos.length+'</div></div>'
+      +'<div class="barra"><div class="lbl">'+String(pct).replace('.',',')+'% cumplido</div>'
         +'<div class="pista"><div class="fill" style="width:'+Math.min(100,pct)+'%"></div></div></div>'
       +'<div class="mini">'
         +'<div><div class="lbl">Cumple</div><b>'+cumplidos+'</b></div>'
-        +'<div><div class="lbl">No cumple</div><b>'+(conPts.length-cumplidos)+'</b></div>'
-        +'<div><div class="lbl">Indicadores</div><b>'+conPts.length+'</b></div>'
+        +'<div><div class="lbl">No cumple</div><b>'+(medidos.length-cumplidos)+'</b></div>'
       +'</div></div>';
   }
 
   h+='<div class="kpis">';
   MIS_IND.inds.forEach(function(i){
-    var cls = i.pts==null ? '' : (i.pts>0 ? 'ok' : 'bad');
+    var e=i.estado, cls=(e==='ok'||e==='bad')?e:'';
     h+='<div class="kpi '+cls+'">'
       +'<div class="k-n">'+esc(i.nombre)+'</div>'
       +'<div class="k-v">'+esc(i.resTxt)+'</div>'
       +(i.metaTxt?'<div class="k-m">Meta: '+esc(i.metaTxt)+'</div>':'')
-      +(cls?'<span class="pill '+cls+'">'+(cls==='ok'?'Cumple':'No cumple')+'</span>':'')
+      +(cls?'<span class="pill '+cls+'">'+(cls==='ok'?'Cumple':'No cumple')+'</span>'
+           :'<span class="pill sin">Sin medición</span>')
       +'</div>';
   });
   h+='</div>';

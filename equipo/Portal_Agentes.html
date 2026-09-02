@@ -95,7 +95,6 @@ h1{font-size:21px;margin-bottom:3px}
 .kpi.bad{border-left-color:var(--bad)}.kpi.bad .k-v{color:var(--bad)}
 .pill{display:inline-block;font-size:9px;font-weight:800;padding:2px 9px;border-radius:20px;margin-top:7px}
 .pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.bad{background:var(--bad-bg);color:var(--bad)}
-.pill.sin{background:#F1F5F9;color:var(--txt)}
 
 /* Tablas */
 .scroll{overflow-x:auto;max-height:70vh;overflow-y:auto}
@@ -371,25 +370,62 @@ function leerHojaIndicadores(ws){
       var cR=col(/^resultado$/i), cM=col(/^meta$/i), cC=col(/^cumplimiento$/i);
       if(cR){
         var res=cel(ws,r,cR.c), meta=cM?cel(ws,r,cM.c):null, pts=cC?cel(ws,r,cC.c):null;
-        var nRes = typeof res==='number'?res:null;
-        var nMeta= typeof meta==='number'?meta:null;
-        var nPts = typeof pts==='number'?pts:null;
+        var nRes=aNumero(res), nMeta=aNumero(meta), nPts=aNumero(pts);
         reg.inds.push({ nombre:b.cat,
-          res:nRes, resTxt: fmt(res,b.cat),
-          meta:nMeta, metaTxt: meta==null?'':fmt(meta,b.cat),
+          res:nRes, resTxt: fmt(nRes==null?res:nRes, b.cat),
+          meta:nMeta, metaTxt: nMeta==null?'':fmt(nMeta, b.cat),
           pts:nPts, estado: veredicto(b.cat, nRes, nMeta, nPts) });
       } else {
         /* Bloques sin RESULTADO/META, como PRODUCTIVIDAD: se listan tal cual */
         b.cols.forEach(function(x){
           var v=cel(ws,r,x.c);
           if(v==null||v==='') return;
-          reg.extras.push({ grupo:b.cat, nombre:x.sub, texto:fmt(v,x.sub) });
+          var n=aNumero(v);
+          reg.extras.push({ grupo:b.cat, nombre:x.sub, texto:fmt(n==null?v:n, x.sub) });
         });
       }
     });
     filas.push(reg);
   }
   return filas;
+}
+
+/* Las celdas no siempre vienen como número: a veces quedan escritas como
+   texto —«98,0 %», «0,05», «13:23»— y así no se pueden comparar con la meta.
+   Aquí se convierten a número; el porcentaje queda en fracción, igual que
+   cuando Excel lo guarda como número. */
+function aNumero(v){
+  if(typeof v==='number') return v;
+  if(v==null) return null;
+  var t=String(v).replace(/\u00a0/g,' ').trim();
+  if(!t) return null;
+  if(/^\d{1,3}:\d{2}(:\d{2})?$/.test(t)){            // mm:ss o hh:mm:ss
+    var p=t.split(':').map(Number);
+    return p.length===2 ? p[0]*60+p[1] : p[0]*3600+p[1]*60+p[2];
+  }
+  var pct=/%/.test(t);
+  t=t.replace(/%/g,'').replace(/\s+/g,'');
+  /* Punto y coma pueden ser decimal o miles según quién escriba. El que
+     aparezca de último manda: en «1.234,5» decide la coma, en «1,234.5»
+     el punto. Con uno solo, ese es el decimal. */
+  var pp=t.lastIndexOf('.'), pc=t.lastIndexOf(',');
+  if(pp>=0 && pc>=0){
+    if(pc>pp) t=t.replace(/\./g,'').replace(',', '.');
+    else      t=t.replace(/,/g,'');
+  } else if(pc>=0) t=t.replace(',', '.');
+  if(!/^-?\d*\.?\d+$/.test(t)) return null;
+  var n=parseFloat(t);
+  if(isNaN(n)) return null;
+  return pct ? n/100 : n;
+}
+
+/* Si el resultado quedó en escala 0-100 y la meta en 0-1 —o al revés—, la
+   comparación daría cualquier cosa. Se llevan las dos a la misma escala. */
+function mismaEscala(res, meta){
+  if(res==null || meta==null) return [res, meta];
+  if(meta>0 && meta<=1 && res>1)  return [res/100, meta];
+  if(res>0 && res<=1 && meta>1 && meta<=100) return [res, meta/100];
+  return [res, meta];
 }
 
 /* En estos indicadores un número menor es mejor: no se cumple superando la
@@ -402,9 +438,11 @@ var MENOR_ES_MEJOR = /tmo|tmr|aht|tiempo|ausent|abandon|desconex|error|mal\s*rad
    El único caso que sí necesita esa columna es cuando resultado y meta son
    cero: ahí no se distingue «cumplió con meta cero» de «no hay medición». */
 function veredicto(nombre, res, meta, pts){
-  if(res==null || meta==null) return 'sin';
-  if(res===0 && meta===0) return (pts!=null && pts>0) ? 'ok' : 'sin';
-  return (MENOR_ES_MEJOR.test(nombre) ? res<=meta : res>=meta) ? 'ok' : 'bad';
+  /* Solo dos estados: cumple o no cumple. Una celda vacía no puede dar por
+     cumplido nada, así que cuenta como no cumple y se nota a simple vista. */
+  if(res==null || meta==null) return 'bad';
+  var e=mismaEscala(res, meta), r=e[0], m=e[1];
+  return (MENOR_ES_MEJOR.test(nombre) ? r<=m : r>=m) ? 'ok' : 'bad';
 }
 
 /* Porcentajes entre 0 y 1; TMO y TMR en segundos */
@@ -760,7 +798,7 @@ function pintarIndicadores(){
   }
 
   /* Puntaje: el CUMPLIMIENTO trae el peso ganado en cada indicador */
-  var medidos=MIS_IND.inds.filter(function(i){ return i.estado!=='sin'; });
+  var medidos=MIS_IND.inds;
   var cumplidos=medidos.filter(function(i){ return i.estado==='ok'; }).length;
 
   var h='';
@@ -779,13 +817,12 @@ function pintarIndicadores(){
 
   h+='<div class="kpis">';
   MIS_IND.inds.forEach(function(i){
-    var e=i.estado, cls=(e==='ok'||e==='bad')?e:'';
+    var cls=i.estado;
     h+='<div class="kpi '+cls+'">'
       +'<div class="k-n">'+esc(i.nombre)+'</div>'
       +'<div class="k-v">'+esc(i.resTxt)+'</div>'
       +(i.metaTxt?'<div class="k-m">Meta: '+esc(i.metaTxt)+'</div>':'')
-      +(cls?'<span class="pill '+cls+'">'+(cls==='ok'?'Cumple':'No cumple')+'</span>'
-           :'<span class="pill sin">Sin medición</span>')
+      +'<span class="pill '+cls+'">'+(cls==='ok'?'Cumple':'No cumple')+'</span>'
       +'</div>';
   });
   h+='</div>';

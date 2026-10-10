@@ -322,7 +322,13 @@ function ir(cual, btn){
    (cruzados por nombre).                                              */
 var cel = function(ws,r,c){
   var x=ws[XLSX.utils.encode_cell({r:r,c:c})];
-  return x ? (x.v!==undefined ? x.v : x.w) : null;
+  if(!x) return null;
+  /* Una celda con error —#N/D de un BUSCARV que no encontró el nombre,
+     #¡VALOR!, #¡REF!— no trae un dato. Hay que tratarla como vacía: el
+     lector de Excel entrega ahí un número interno que si no, se colaría
+     como si fuera el resultado del indicador. */
+  if(x.t==='e') return null;
+  return x.v!==undefined ? x.v : x.w;
 };
 
 /* ── Hoja de indicadores ──────────────────────────────────────────────

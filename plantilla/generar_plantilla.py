@@ -17,7 +17,7 @@ SALIDA = '/home/user/skill-inbound-dashboard/plantilla/Plantilla_Resultados.xlsx
 # La nómina se toma del portal para que no haya dos listas que mantener
 h = io.open(PORTAL, encoding='utf-8').read()
 AGENTES = re.findall(r"ced:'(\d+)',\s*nombre:'([^']+)',\s*canal:'(\w+)'", h)
-assert len(AGENTES) == 21, len(AGENTES)
+assert len(AGENTES) >= 21, len(AGENTES)
 
 # ── Paleta, en claro para que imprima bien ───────────────────────────────
 TINTA   = '1E1B4B'
@@ -248,11 +248,24 @@ chat = [a for a in AGENTES if a[2] == 'Chat']
 rrss = [a for a in AGENTES if a[2] == 'RRSS']
 hoja_indicadores('Indicadores_Chat', chat)
 hoja_indicadores('Indicadores_RRSS', rrss)
-print('Indicadores: %d chat, %d rrss' % (len(chat), len(rrss)))
+otros = [a for a in AGENTES if a[2] not in ('Chat', 'RRSS')]
+print('Indicadores: %d chat, %d rrss · %d de otro canal solo en las listas'
+      % (len(chat), len(rrss), len(otros)))
 
 # ═══════════════════════════════════════════════════════════════════════
 # 3. PENDIENTES POR TIPIFICAR
 # ═══════════════════════════════════════════════════════════════════════
+ws = wb.create_sheet('Listas')
+ws.cell(1, 1, 'Nombres de la nómina — no borrar esta hoja')
+ws.cell(1, 1).font = Font(bold=True, size=9, color='64748B')
+for i, (ced, nom, canal) in enumerate(AGENTES):
+    ws.cell(2 + i, 1, nom)
+    ws.cell(2 + i, 2, ced).number_format = '@'
+    ws.cell(2 + i, 3, canal)
+ws.column_dimensions['A'].width = 44
+RANGO_NOMBRES = 'Listas!$A$2:$A$%d' % (1 + len(AGENTES))
+ws.sheet_state = 'hidden'
+
 ws = wb.create_sheet('Pendientes_Tipificar')
 ws.sheet_view.showGridLines = False
 COLS_P = [('nombre_agente', 40), ('id_interaccion', 34), ('link_gestion', 46), ('cola', 14),
@@ -268,10 +281,8 @@ ws.row_dimensions[1].height = 28
 ws.freeze_panes = 'A2'
 ws.auto_filter.ref = 'A1:%s1' % get_column_letter(len(COLS_P))
 # Lista desplegable con los nombres, para que no haya dos formas de escribirlos
-nombres = ','.join(n for _, n, _ in AGENTES)
-if len(nombres) < 250:
-    dv = DataValidation(type='list', formula1='"%s"' % nombres, allow_blank=True)
-    ws.add_data_validation(dv); dv.add('A2:A2000')
+dv = DataValidation(type='list', formula1=RANGO_NOMBRES, allow_blank=True)
+ws.add_data_validation(dv); dv.add('A2:A2000')
 for r in range(2, 400):
     for c in range(1, len(COLS_P) + 1):
         cel = ws.cell(r, c); cel.border = BORDE
@@ -294,9 +305,8 @@ for i, nm in enumerate(cab, start=1):
 ws.row_dimensions[1].height = 38
 ws.freeze_panes = 'D2'
 ws.auto_filter.ref = 'A1:%s1' % get_column_letter(len(cab))
-if len(nombres) < 250:
-    dv2 = DataValidation(type='list', formula1='"%s"' % nombres, allow_blank=True)
-    ws.add_data_validation(dv2); dv2.add('A2:A2000')
+dv2 = DataValidation(type='list', formula1=RANGO_NOMBRES, allow_blank=True)
+ws.add_data_validation(dv2); dv2.add('A2:A2000')
 for r in range(2, 300):
     for c in range(1, len(cab) + 1):
         cel = ws.cell(r, c); cel.border = BORDE

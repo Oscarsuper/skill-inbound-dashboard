@@ -678,6 +678,11 @@ const AGENTES = [
   { ced:'1033800581', nombre:'BEJARANO MARTINEZ MARIA DE LOS ANGELES AURORA', canal:'RRSS' },
   { ced:'1143159843', nombre:'BOLAÑO BUELVAS EIMY DAYANA',          canal:'RRSS' },
   { ced:'3385691',    nombre:'FERRER PERDOMO JHON LEONARD',         canal:'RRSS' },
+
+  // ── INBOUND ──
+  // No es del equipo de chat ni de rrss, pero le llegan pendientes por
+  // tipificar. El nombre va igual que en la hoja de pendientes.
+  { ced:'1030597570', nombre:'COLORADO GAITAN JONATHAN ALEXANDER',  canal:'Inbound' },
 ];
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1311,7 +1316,43 @@ function leerHojaIndicadores(ws){
     });
     filas.push(reg);
   }
+
+  /* Un indicador en blanco para TODO el equipo no es que todos hayan
+     incumplido: es que todavía no se ha diligenciado este mes. Se saca
+     del conteo y no se pinta, y queda anotado para poder avisarlo. Si el
+     dato le falta solo a una persona, esa sí queda en rojo. */
+  var conDato={};
+  filas.forEach(function(f){
+    f.inds.forEach(function(i){ if(i.res!=null) conDato[i.nombre]=true; });
+  });
+  var sinMedir=[];
+  if(filas.length)
+    filas[0].inds.forEach(function(i){ if(!conDato[i.nombre]) sinMedir.push(i.nombre); });
+  filas.forEach(function(f){
+    f.sinMedir=sinMedir;
+    f.inds=f.inds.filter(function(i){ return conDato[i.nombre]; });
+  });
   return filas;
+}
+
+/* Lo que la plantilla declara pero nadie ha diligenciado, por hoja */
+function faltanPorDiligenciar(){
+  var out=[], visto={};
+  IND.forEach(function(f){
+    if(visto[f.hoja] || !(f.sinMedir||[]).length) return;
+    visto[f.hoja]=1;
+    out.push({ hoja:f.hoja.replace(/_/g,' '), inds:f.sinMedir });
+  });
+  return out;
+}
+/* Cuántos indicadores van diligenciados de los que declara la plantilla */
+function cuentaIndicadores(){
+  var med=0, dec=0, visto={};
+  IND.forEach(function(f){
+    if(visto[f.hoja]) return; visto[f.hoja]=1;
+    med+=f.inds.length; dec+=f.inds.length+(f.sinMedir||[]).length;
+  });
+  return { med:med, dec:dec };
 }
 
 /* Las celdas no siempre vienen como número: a veces quedan escritas como
@@ -2054,13 +2095,15 @@ function pintarMando(){
   var sinAud=r.filter(function(x){ return !x.aud; }).length;
   var bajo=medidos.filter(function(x){ return x.frac<0.8; }).length;
   var tono = frac>=0.9 ? 'ok' : (frac>=0.75 ? 'cyan' : 'bad');
+  var ci=cuentaIndicadores(), faltan=faltanPorDiligenciar();
 
   var h='<div class="mando">'
     +'<div class="medidor gl blur tilt rev">'
       +'<div class="lienzo"><canvas id="dial-mando"></canvas>'
         +'<div class="centro"><div class="cifra" id="cifra-mando">0<small>%</small></div>'
         +'<div class="rot">Indicadores en meta</div>'
-        +'<div class="det">'+medidos.length+' agentes medidos</div></div></div>'
+        +'<div class="det">'+medidos.length+' agentes · '+ci.med+' de '+ci.dec
+          +' indicadores</div></div></div>'
       +'<div class="refl"><canvas id="dial-mando-r"></canvas></div>'
     +'</div>'
     +'<div class="rejilla rev" style="grid-template-columns:repeat(2,1fr);align-content:stretch">'
@@ -2071,6 +2114,17 @@ function pintarMando(){
       +tarjeta('Sin lado a lado', sinAud, sinAud?'neutro':'ok',
                AUD.length+' acompañamientos cargados')
     +'</div></div>';
+
+  /* Lo que la plantilla declara pero todavía está en blanco. Mientras
+     siga así no cuenta, y vale la pena decirlo en vez de callarlo. */
+  if(faltan.length){
+    h+='<div class="nota rev"><b>Faltan indicadores por diligenciar.</b> '
+      +'Mientras una columna esté en blanco para todo el equipo no se cuenta '
+      +'ni aparece, así que el porcentaje de arriba es sobre lo que ya cargaste.<br>'
+      +faltan.map(function(x){
+          return '<b>'+esc(x.hoja)+':</b> '+x.inds.map(esc).join(' · '); }).join('<br>')
+      +'</div>';
+  }
 
   /* Dónde está fallando el equipo: un indicador por barra */
   var porInd={};
@@ -2382,9 +2436,10 @@ function pintarDetalle(){
   med.innerHTML='<div class="mando">'
     +'<div class="medidor gl blur tilt rev">'
       +'<div class="lienzo"><canvas id="dial-foco"></canvas>'
-        +'<div class="centro"><div class="cifra" id="cifra-foco">0<small>%</small></div>'
-        +'<div class="rot">Indicadores en meta</div>'
-        +'<div class="det">'+ok+' de '+tot+'</div></div></div>'
+        +'<div class="centro"><div class="cifra" id="cifra-foco">'
+          +(tot? '0<small>%</small>' : '—')+'</div>'
+        +'<div class="rot">'+(tot? 'Indicadores en meta' : 'Sin diligenciar')+'</div>'
+        +'<div class="det">'+(tot? ok+' de '+tot : 'aún no hay datos')+'</div></div></div>'
       +'<div class="refl"><canvas id="dial-foco-r"></canvas></div>'
     +'</div>'
     +'<div class="rejilla rev" style="grid-template-columns:repeat(2,1fr);align-content:stretch">'
@@ -2406,8 +2461,8 @@ function pintarDetalle(){
   if(cv){
     if(MED_FOCO) MED_FOCO.parar();
     MED_FOCO=new Medidor(cv, document.getElementById('dial-foco-r'));
-    MED_FOCO.set(frac, frac>=0.9?'ok':(frac>=0.75?'cyan':'bad'));
-    contar(document.getElementById('cifra-foco'), frac*100, 1);
+    MED_FOCO.set(tot? frac : 0, !tot? 'cyan' : (frac>=0.9?'ok':(frac>=0.75?'cyan':'bad')));
+    if(tot) contar(document.getElementById('cifra-foco'), frac*100, 1);
   }
 }
 
@@ -2420,7 +2475,22 @@ function pintarIndicadores(d){
       +'</div></div>';
     return;
   }
-  var h='<div class="rejilla rev">';
+  var falta=(d.ind.sinMedir||[]);
+  var h='';
+  if(!d.ind.inds.length){
+    c.innerHTML='<div class="panelo gl blur rev"><div class="vacio"><div class="ic">◌</div>'
+      +'<b>Todavía no has diligenciado ningún indicador de esta hoja.</b><br>'
+      +'En la plantilla están declarados '+falta.length+': '+falta.map(esc).join(' · ')
+      +'</div></div>';
+    revelar(c);
+    return;
+  }
+  if(falta.length){
+    h+='<div class="nota rev">Esta hoja declara '+(falta.length+d.ind.inds.length)
+      +' indicadores y '+falta.length+' están todavía en blanco para todo el equipo, '
+      +'así que no se cuentan: <b>'+falta.map(esc).join(' · ')+'</b></div>';
+  }
+  h+='<div class="rejilla rev">';
   d.ind.inds.forEach(function(i){
     /* La barrita compara el resultado con la meta, no con el 100% */
     var r=i.res, m=i.meta, prop=null;

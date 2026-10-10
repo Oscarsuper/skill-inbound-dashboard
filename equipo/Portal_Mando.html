@@ -1,0 +1,3063 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Centro de Mando — Chat y RRSS · Banco Agrario</title>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     Lector de Excel. Es lo único que viene de internet y solo lo necesita
+     la cuenta de supervisión para leer los archivos. El HTML que se
+     genera para los agentes trae los datos adentro y sale sin esta línea:
+     ese archivo funciona sin conexión.
+     ══════════════════════════════════════════════════════════════════════ -->
+<script id="lector-xlsx" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   SISTEMA VISUAL
+   Negro espacial, cian eléctrico, azul profundo y violeta. El fondo lo
+   pinta WebGL; todo lo de encima es cristal translúcido. Las tablas de
+   datos se dejan planas y de alto contraste: el efecto no debe estorbar
+   la lectura de un indicador.
+   ══════════════════════════════════════════════════════════════════════ */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  /* Profundidad */
+  --void:#03040C; --abyss:#070A18; --deep:#0C1232; --deep2:#131A45;
+  /* Luz */
+  --cyan:#22D3EE; --cyan-hi:#7DE9F8; --cyan-dim:#0E7490;
+  --violet:#8B5CF6; --violet-hi:#C4B5FD; --violet-dim:#4C1D95;
+  --mag:#C026D3;
+  /* Estados */
+  --ok:#34D399; --ok-dim:#065F46; --warn:#FBBF24; --bad:#FB7185; --bad-dim:#7F1D3A;
+  /* Tinta */
+  --ink:#EAF1FF; --ink-2:#A9B8DE; --ink-3:#6E7FAB; --ink-4:#44527A;
+  /* Cristal */
+  --gl:rgba(255,255,255,.045); --gl-2:rgba(255,255,255,.075);
+  --edge:rgba(150,190,255,.14); --edge-hi:rgba(160,200,255,.30);
+  --sh:0 28px 60px -32px rgba(0,0,0,.9);
+  --mono:'JetBrains Mono','Cascadia Mono',ui-monospace,'SF Mono',Consolas,monospace;
+  --sans:'Segoe UI Variable Display','Segoe UI',Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;
+}
+html,body{height:100%}
+body{
+  font-family:var(--sans); background:var(--void); color:var(--ink);
+  overflow-x:hidden; -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+button,input,select,textarea{font-family:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none}
+::selection{background:rgba(34,211,238,.28)}
+a{color:var(--cyan)}
+
+/* Barras de desplazamiento al tono del tablero */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:rgba(255,255,255,.03)}
+*::-webkit-scrollbar-thumb{background:rgba(124,160,230,.22);border-radius:6px;
+  border:2px solid transparent;background-clip:padding-box}
+*::-webkit-scrollbar-thumb:hover{background:rgba(124,160,230,.4);background-clip:padding-box}
+
+/* ── Capas del fondo ────────────────────────────────────────────────── */
+#cielo{position:fixed;inset:0;z-index:0;display:block;width:100%;height:100%}
+#velo-fondo{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(1200px 700px at 50% -10%,rgba(34,211,238,.10),transparent 60%),
+    radial-gradient(900px 600px at 85% 110%,rgba(139,92,246,.12),transparent 60%),
+    radial-gradient(100% 100% at 50% 50%,transparent 42%,rgba(3,4,12,.72) 100%)}
+/* Rejilla de horizonte: da suelo a la escena sin costar GPU */
+#rejilla{position:fixed;inset:auto 0 0 0;height:38vh;z-index:1;pointer-events:none;opacity:.5;
+  background-image:
+    linear-gradient(to right,rgba(93,160,255,.14) 1px,transparent 1px),
+    linear-gradient(to top,rgba(93,160,255,.14) 1px,transparent 1px);
+  background-size:7vmin 7vmin;
+  transform:perspective(60vmin) rotateX(72deg);transform-origin:bottom;
+  mask-image:linear-gradient(to top,rgba(0,0,0,.9),transparent 72%);
+  -webkit-mask-image:linear-gradient(to top,rgba(0,0,0,.9),transparent 72%)}
+#ruido{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.035;mix-blend-mode:overlay}
+
+/* Barrido de energía: cruza la pantalla en cada cambio de estado */
+#barrido{position:fixed;inset:0;z-index:95;pointer-events:none;opacity:0}
+#barrido.on{animation:barre .78s cubic-bezier(.22,.61,.36,1)}
+#barrido::before{content:'';position:absolute;top:0;bottom:0;width:38vw;
+  background:linear-gradient(100deg,transparent,rgba(34,211,238,.13) 42%,
+    rgba(196,181,253,.20) 52%,transparent);
+  filter:blur(6px);transform:skewX(-14deg)}
+@keyframes barre{
+  0%{opacity:0}
+  12%{opacity:1}
+  100%{opacity:0;transform:translateX(130vw)}
+}
+
+/* ── Cristal ────────────────────────────────────────────────────────── */
+.gl{position:relative;border-radius:18px;border:1px solid var(--edge);
+  background:linear-gradient(158deg,var(--gl-2),rgba(255,255,255,.012) 60%);
+  box-shadow:var(--sh), inset 0 1px 0 rgba(255,255,255,.07);
+  overflow:hidden}
+/* Reflejo que sigue al cursor */
+.gl::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  transition:opacity .35s;
+  background:radial-gradient(420px 300px at var(--mx,50%) var(--my,0%),
+    rgba(125,233,248,.14),transparent 62%)}
+.gl:hover::before{opacity:1}
+/* Filo superior iluminado */
+.gl::after{content:'';position:absolute;top:0;left:8%;right:8%;height:1px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(160,220,255,.55),transparent)}
+.gl.blur{backdrop-filter:blur(16px) saturate(135%);-webkit-backdrop-filter:blur(16px) saturate(135%)}
+/* Tarjetas con inclinación 3D real (la aplica el JS) */
+.tilt{transform-style:preserve-3d;will-change:transform;transition:box-shadow .3s}
+.tilt:hover{box-shadow:0 40px 80px -36px rgba(0,0,0,.95),
+  inset 0 1px 0 rgba(255,255,255,.12), 0 0 0 1px var(--edge-hi)}
+
+/* ── Tipografía de tablero ──────────────────────────────────────────── */
+.hud{font-size:9.5px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:var(--ink-3)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+h1{font-size:27px;font-weight:300;letter-spacing:-.02em;line-height:1.15}
+h1 b{font-weight:700;background:linear-gradient(94deg,var(--cyan-hi),var(--violet-hi));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+h2{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.sub{font-size:12.5px;color:var(--ink-3);margin-top:7px;line-height:1.55;max-width:760px}
+</style>
+<style>
+/* ══ ACCESO ════════════════════════════════════════════════════════════ */
+#acceso{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;
+  padding:24px;perspective:1400px}
+#acceso.fuera{animation:accesoSale .85s cubic-bezier(.65,0,.35,1) forwards;pointer-events:none}
+@keyframes accesoSale{
+  to{opacity:0;filter:blur(18px);transform:translateZ(260px) scale(1.07)}
+}
+.acc-box{width:min(430px,100%);padding:36px 34px 30px;border-radius:24px;
+  transform-style:preserve-3d;
+  animation:accesoEntra 1.15s cubic-bezier(.16,1,.3,1) both}
+@keyframes accesoEntra{
+  from{opacity:0;filter:blur(22px);transform:translateY(46px) translateZ(-200px) rotateX(9deg)}
+  to{opacity:1;filter:blur(0);transform:none}
+}
+.acc-mark{position:relative;width:76px;height:76px;margin:0 auto 20px}
+.acc-mark canvas{position:absolute;inset:0;width:100%;height:100%}
+.acc-box h2{text-align:center;font-size:19px;font-weight:300;letter-spacing:.01em}
+.acc-box h2 b{font-weight:700;background:linear-gradient(94deg,var(--cyan-hi),var(--violet-hi));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.acc-box .org{text-align:center;margin:7px 0 26px;font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--ink-4);font-weight:700}
+.campo{position:relative;margin-bottom:15px}
+.campo label{display:block;font-size:9.5px;font-weight:800;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-4);margin-bottom:7px;transition:color .25s}
+.campo input{width:100%;padding:13px 15px;border-radius:12px;font-size:14px;outline:none;
+  background:rgba(4,8,22,.62);border:1px solid var(--edge);color:var(--ink);
+  font-family:var(--mono);letter-spacing:.04em;transition:border-color .25s,box-shadow .25s}
+.campo input::placeholder{color:var(--ink-4);font-family:var(--sans);letter-spacing:0}
+.campo input:focus{border-color:rgba(34,211,238,.55);
+  box-shadow:0 0 0 4px rgba(34,211,238,.10),inset 0 0 22px rgba(34,211,238,.05)}
+.campo:focus-within label{color:var(--cyan)}
+/* Línea de energía que se enciende bajo el campo enfocado */
+.campo .linea{position:absolute;left:14px;right:14px;bottom:0;height:1px;overflow:hidden;opacity:0;
+  transition:opacity .3s}
+.campo:focus-within .linea{opacity:1}
+.campo .linea i{position:absolute;inset:0;background:linear-gradient(90deg,
+  transparent,var(--cyan),transparent);animation:corre 1.9s linear infinite}
+@keyframes corre{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+
+.btn-entrar{width:100%;margin-top:8px;padding:14px;border-radius:12px;font-size:13px;font-weight:800;
+  letter-spacing:.09em;text-transform:uppercase;color:#031018;position:relative;overflow:hidden;
+  background:linear-gradient(100deg,var(--cyan),#38BDF8 45%,var(--violet));
+  box-shadow:0 14px 34px -14px rgba(34,211,238,.6),inset 0 1px 0 rgba(255,255,255,.4);
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1),box-shadow .25s}
+.btn-entrar:hover{transform:translateY(-2px) scale(1.012);
+  box-shadow:0 20px 44px -14px rgba(34,211,238,.78),inset 0 1px 0 rgba(255,255,255,.5)}
+.btn-entrar:active{transform:translateY(0) scale(.985)}
+.btn-entrar::after{content:'';position:absolute;top:0;bottom:0;width:46%;left:-60%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);
+  transform:skewX(-18deg);transition:left .6s cubic-bezier(.22,.61,.36,1)}
+.btn-entrar:hover::after{left:120%}
+.acc-err{font-size:11.5px;color:var(--bad);background:rgba(251,113,133,.09);
+  border:1px solid rgba(251,113,133,.3);border-radius:10px;padding:10px 13px;margin-bottom:14px;
+  display:none;animation:tiembla .4s}
+@keyframes tiembla{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(3px)}
+  50%{transform:translateX(-3px)}}
+.acc-pie{margin-top:20px;padding-top:17px;border-top:1px solid rgba(150,190,255,.1);
+  font-size:11px;color:var(--ink-4);line-height:1.7;text-align:center}
+.acc-pie b{color:var(--ink-3)}
+
+/* ══ BARRA SUPERIOR ════════════════════════════════════════════════════ */
+#shell{display:none;position:relative;z-index:10}
+nav{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:11px 24px;border-bottom:1px solid var(--edge);
+  background:linear-gradient(180deg,rgba(7,10,24,.86),rgba(7,10,24,.62));
+  backdrop-filter:blur(20px) saturate(140%);-webkit-backdrop-filter:blur(20px) saturate(140%)}
+.marca{display:flex;align-items:center;gap:11px}
+.marca canvas{width:34px;height:34px}
+.marca .t{font-size:12.5px;font-weight:700;letter-spacing:.02em;line-height:1.25}
+.marca .t small{display:block;font-size:9px;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--ink-4);font-weight:700;margin-top:1px}
+.pestanas{display:flex;gap:2px;position:relative;flex-wrap:wrap}
+.pes{padding:9px 15px;border-radius:10px;font-size:12.5px;font-weight:600;color:var(--ink-3);
+  position:relative;transition:color .22s,background .22s;white-space:nowrap}
+.pes:hover{color:var(--ink);background:rgba(125,233,248,.07)}
+.pes.act{color:var(--ink)}
+.pes.act::after{content:'';position:absolute;left:14px;right:14px;bottom:2px;height:2px;
+  border-radius:2px;background:linear-gradient(90deg,var(--cyan),var(--violet));
+  box-shadow:0 0 12px rgba(34,211,238,.8)}
+.nav-der{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:10px;padding:6px 13px 6px 7px;border-radius:30px;
+  border:1px solid var(--edge);background:var(--gl)}
+.chip .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  font-size:11.5px;font-weight:800;color:#041018;
+  background:linear-gradient(135deg,var(--cyan),var(--violet));
+  box-shadow:0 0 16px rgba(34,211,238,.4)}
+.chip .q{font-size:11.5px;font-weight:700;line-height:1.3;max-width:230px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.chip .q small{display:block;font-size:9px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-4);font-weight:700}
+.bt{padding:8px 14px;border-radius:10px;font-size:11.5px;font-weight:700;border:1px solid var(--edge);
+  background:var(--gl);color:var(--ink-2);position:relative;overflow:hidden;white-space:nowrap;
+  transition:color .22s,border-color .22s,transform .16s,background .22s}
+.bt:hover{color:var(--ink);border-color:var(--edge-hi);background:var(--gl-2);transform:translateY(-1px)}
+.bt:active{transform:translateY(0)}
+.bt::after{content:'';position:absolute;top:0;bottom:0;width:40%;left:-55%;
+  background:linear-gradient(100deg,transparent,rgba(160,220,255,.3),transparent);
+  transform:skewX(-18deg);transition:left .55s cubic-bezier(.22,.61,.36,1)}
+.bt:hover::after{left:120%}
+.bt.cian{border-color:rgba(34,211,238,.4);color:var(--cyan-hi);
+  background:linear-gradient(180deg,rgba(34,211,238,.17),rgba(34,211,238,.05))}
+.bt.cian:hover{box-shadow:0 10px 26px -12px rgba(34,211,238,.7)}
+.bt.viol{border-color:rgba(139,92,246,.42);color:var(--violet-hi);
+  background:linear-gradient(180deg,rgba(139,92,246,.18),rgba(139,92,246,.05))}
+.bt:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* ══ LIENZO ════════════════════════════════════════════════════════════ */
+main{position:relative;z-index:10;padding:30px 24px 72px;max-width:1720px;margin:0 auto}
+.vista{display:none}
+.vista.act{display:block}
+.cab{margin-bottom:26px}
+.rev{will-change:opacity,transform}   /* marca lo que revela la animación de entrada */
+
+/* ══ TARJETAS DE INDICADOR ═════════════════════════════════════════════ */
+.rejilla{display:grid;gap:15px;grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+.tj{padding:17px 19px 19px;border-radius:16px;display:flex;flex-direction:column;justify-content:center}
+.tj .n{font-size:9.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-3);line-height:1.5;min-height:28px}
+.tj .v{font-family:var(--mono);font-size:31px;font-weight:600;margin-top:9px;letter-spacing:-.035em;
+  font-variant-numeric:tabular-nums;line-height:1}
+.tj .m{font-size:10.5px;color:var(--ink-4);margin-top:7px;font-weight:600}
+.tj .est{position:absolute;top:15px;right:15px;width:8px;height:8px;border-radius:50%}
+.tj .mini{margin-top:13px;height:4px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden}
+.tj .mini i{display:block;height:100%;border-radius:3px;transform-origin:left;transform:scaleX(0);
+  transition:transform 1.1s cubic-bezier(.16,1,.3,1)}
+.tj.ok{border-color:rgba(52,211,153,.28)}
+.tj.ok .v{color:#6EE7B7;text-shadow:0 0 26px rgba(52,211,153,.4)}
+.tj.ok .est{background:var(--ok);box-shadow:0 0 12px var(--ok)}
+.tj.ok .mini i{background:linear-gradient(90deg,var(--ok),#6EE7B7)}
+.tj.bad{border-color:rgba(251,113,133,.28)}
+.tj.bad .v{color:#FDA4AF;text-shadow:0 0 26px rgba(251,113,133,.35)}
+.tj.bad .est{background:var(--bad);box-shadow:0 0 12px var(--bad)}
+.tj.bad .mini i{background:linear-gradient(90deg,var(--bad),#FDA4AF)}
+.tj.neutro .v{color:var(--ink)}
+.tj.neutro .est{background:var(--ink-4)}
+.tj.neutro .mini i{background:linear-gradient(90deg,var(--cyan),var(--violet))}
+.ins{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  padding:3px 9px;border-radius:20px;margin-top:12px}
+.ins.ok{background:rgba(52,211,153,.14);color:#6EE7B7;border:1px solid rgba(52,211,153,.3)}
+.ins.bad{background:rgba(251,113,133,.13);color:#FDA4AF;border:1px solid rgba(251,113,133,.3)}
+
+/* ══ MEDIDOR PRINCIPAL ═════════════════════════════════════════════════ */
+.mando{display:grid;grid-template-columns:minmax(300px,360px) 1fr;gap:22px;align-items:stretch;
+  margin-bottom:22px}
+@media(max-width:900px){.mando{grid-template-columns:1fr}}
+.medidor{padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:20px;perspective:1000px}
+.medidor .lienzo{position:relative;width:min(272px,74vw);aspect-ratio:1;
+  transform:rotateX(13deg);transform-style:preserve-3d}
+.medidor canvas{position:absolute;inset:0;width:100%;height:100%}
+.medidor .centro{position:absolute;inset:26%;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;transform:translateZ(42px);pointer-events:none;text-align:center}
+.medidor .cifra{font-family:var(--mono);font-size:42px;font-weight:600;letter-spacing:-.05em;
+  line-height:1;font-variant-numeric:tabular-nums;
+  text-shadow:0 0 40px rgba(34,211,238,.55),0 0 90px rgba(139,92,246,.3)}
+.medidor .cifra small{font-size:17px;opacity:.5;margin-left:1px}
+.medidor .rot{font-size:8px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-3);margin-top:7px;line-height:1.4}
+.medidor .det{margin-top:5px;font-size:11px;color:var(--ink-2);font-weight:600}
+/* Reflejo bajo el dial */
+.medidor .refl{width:min(272px,74vw);height:46px;margin-top:-6px;opacity:.26;
+  transform:rotateX(13deg) scaleY(-1);transform-origin:top;
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.6),transparent 68%);
+  -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.6),transparent 68%);
+  filter:blur(1px);pointer-events:none}
+.medidor .refl canvas{position:static;width:100%;height:100%}
+
+/* ══ PANELES Y TABLAS ══════════════════════════════════════════════════ */
+.panelo{border-radius:18px;margin-bottom:20px}
+.ph{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;
+  border-bottom:1px solid var(--edge);
+  background:linear-gradient(100deg,rgba(34,211,238,.07),rgba(139,92,246,.07))}
+.ph .tt{font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}
+.ph .ss{font-size:11px;color:var(--ink-3);font-weight:600}
+.ph .der{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.pc{padding:0;overflow-x:auto}
+.pc.pad{padding:19px 20px}
+table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.dt th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);background:rgba(4,8,22,.5);
+  border-bottom:1px solid var(--edge);white-space:nowrap;position:sticky;top:0;z-index:2}
+table.dt td{padding:11px 14px;border-bottom:1px solid rgba(150,190,255,.07);vertical-align:middle}
+table.dt tbody tr{transition:background .18s}
+table.dt tbody tr:hover{background:rgba(125,233,248,.055)}
+table.dt tbody tr:last-child td{border-bottom:none}
+table.dt .nm{font-weight:600}
+table.dt .cen{text-align:center}
+table.dt .mn{font-family:var(--mono);font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.vacio{text-align:center;padding:52px 22px;color:var(--ink-3);font-size:13px;line-height:1.7}
+.vacio b{color:var(--ink);font-size:14px}
+.vacio .ic{font-size:40px;opacity:.45;margin-bottom:12px}
+
+/* Barra de proporción dentro de tabla */
+.prop{min-width:96px}
+.prop .p{height:6px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
+.prop .p i{display:block;height:100%;border-radius:4px;transform-origin:left}
+.prop .q{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:4px;font-weight:600}
+
+.etq{display:inline-block;padding:3px 10px;border-radius:20px;font-size:9.5px;font-weight:800;
+  letter-spacing:.08em;white-space:nowrap}
+.etq.ok{background:rgba(52,211,153,.14);color:#6EE7B7;border:1px solid rgba(52,211,153,.28)}
+.etq.bad{background:rgba(251,113,133,.13);color:#FDA4AF;border:1px solid rgba(251,113,133,.28)}
+.etq.wn{background:rgba(251,191,36,.13);color:#FCD34D;border:1px solid rgba(251,191,36,.28)}
+.etq.fr{background:rgba(125,233,248,.1);color:var(--cyan-hi);border:1px solid rgba(34,211,238,.26)}
+.etq.gr{background:rgba(255,255,255,.055);color:var(--ink-3);border:1px solid var(--edge)}
+.sk{display:inline-block;padding:3px 10px;border-radius:7px;font-size:9.5px;font-weight:800;
+  color:#02060F;white-space:nowrap}
+
+/* ══ FOCO EN UN AGENTE ═════════════════════════════════════════════════ */
+.foco{display:none;align-items:center;gap:13px;flex-wrap:wrap;padding:12px 18px;border-radius:14px;
+  margin-bottom:20px;border:1px solid var(--edge);
+  background:linear-gradient(100deg,rgba(34,211,238,.1),rgba(139,92,246,.08))}
+.foco .q{font-size:12.5px;color:var(--ink-2)}
+.foco .q b{color:var(--ink);font-weight:700}
+.foco select{padding:7px 11px;border-radius:9px;font-size:12px;font-weight:600;
+  background:rgba(4,8,22,.72);border:1px solid var(--edge);outline:none;max-width:280px}
+.foco select:focus{border-color:rgba(34,211,238,.5)}
+.foco .bt{margin-left:auto}
+
+/* Barra para ordenar la nómina */
+.eqbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.eqbar span{font-size:9.5px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--ink-3);margin-right:4px}
+.eqbar button{border:1px solid var(--edge);background:var(--gl);color:var(--ink-3);
+  border-radius:9px;padding:7px 14px;font-size:11.5px;font-weight:700;transition:all .2s}
+.eqbar button:hover{color:var(--ink);border-color:var(--edge-hi);background:var(--gl-2)}
+.eqbar button.act{color:#041018;border-color:transparent;
+  background:linear-gradient(100deg,var(--cyan),var(--violet));
+  box-shadow:0 10px 24px -14px rgba(34,211,238,.8)}
+
+/* Aclaración al pie de una vista */
+.nota{font-size:12px;color:var(--ink-2);line-height:1.75;padding:15px 19px;border-radius:14px;
+  border:1px solid var(--edge);border-left:3px solid var(--violet);background:var(--gl);
+  margin-bottom:20px}
+.nota b{color:var(--ink)}
+
+/* ══ SUB-PESTAÑAS ══════════════════════════════════════════════════════ */
+.sp{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:19px}
+.sp button{padding:8px 15px;border-radius:30px;font-size:11.5px;font-weight:700;color:var(--ink-3);
+  border:1px solid var(--edge);background:var(--gl);transition:all .2s}
+.sp button:hover{color:var(--ink);border-color:var(--edge-hi)}
+.sp button.act{color:#041018;border-color:transparent;
+  background:linear-gradient(100deg,var(--cyan),var(--violet));
+  box-shadow:0 10px 24px -12px rgba(34,211,238,.7)}
+.ssec{display:none}.ssec.act{display:block}
+
+/* ══ AUDITORÍAS ════════════════════════════════════════════════════════ */
+.aud{border-radius:16px;margin-bottom:15px}
+.aud-c{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:13px 18px;
+  border-bottom:1px solid var(--edge);background:rgba(4,8,22,.4)}
+.aud-c .f{font-size:12.5px;font-weight:700}
+.aud-c .n{margin-left:auto;font-size:10.5px;color:var(--ink-3);font-weight:600}
+.aud-b{padding:7px 18px 15px}
+.aud-i{display:grid;grid-template-columns:minmax(150px,230px) 1fr;gap:14px;padding:11px 0;
+  border-bottom:1px solid rgba(150,190,255,.07)}
+.aud-i:last-child{border-bottom:none}
+.aud-k{font-size:10px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);
+  line-height:1.6}
+.aud-o{font-size:12.5px;line-height:1.65;color:var(--ink)}
+.aud-o.sin{color:var(--ink-4);font-style:italic}
+@media(max-width:700px){.aud-i{grid-template-columns:1fr;gap:4px}}
+
+/* ══ TURNOS ════════════════════════════════════════════════════════════ */
+.dias{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:19px}
+.dia{padding:10px 16px;border-radius:13px;text-align:center;min-width:96px;
+  border:1px solid var(--edge);background:var(--gl);transition:all .2s}
+.dia:hover{border-color:var(--edge-hi);transform:translateY(-2px)}
+.dia.act{border-color:transparent;background:linear-gradient(140deg,var(--cyan),var(--violet));
+  box-shadow:0 14px 30px -14px rgba(34,211,238,.7)}
+.dia b{display:block;font-size:12.5px;font-weight:700;text-transform:capitalize}
+.dia span{display:block;font-size:10px;color:var(--ink-3);margin-top:2px}
+.dia i{display:block;font-family:var(--mono);font-size:10.5px;font-style:normal;font-weight:700;
+  color:var(--cyan-hi);margin-top:4px}
+.dia.act b,.dia.act span,.dia.act i{color:#041018}
+.filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+.filtros select,.filtros input{padding:9px 13px;border-radius:10px;font-size:12px;outline:none;
+  background:rgba(4,8,22,.65);border:1px solid var(--edge);color:var(--ink);transition:border-color .2s}
+.filtros input{min-width:215px}
+.filtros select:focus,.filtros input:focus{border-color:rgba(34,211,238,.5)}
+table.mapa{border-collapse:separate;border-spacing:2px;font-size:11px;width:100%;padding:6px;
+  table-layout:fixed}
+table.mapa th{padding:6px 3px;font-size:9px;font-weight:800;color:var(--ink-3);white-space:nowrap;
+  letter-spacing:.06em}
+table.mapa th.sk,table.mapa td.sk{position:sticky;left:0;text-align:left;padding:0 14px;
+  width:184px;white-space:nowrap;overflow:hidden;
+  background:#080B1C;box-shadow:1px 0 0 var(--edge)}
+table.mapa th.sk{z-index:4;padding-top:6px;padding-bottom:6px}
+table.mapa td.sk{z-index:3}
+table.mapa td{text-align:center;padding:0;height:33px;border-radius:5px;font-family:var(--mono);
+  font-weight:700;font-size:11px;font-variant-numeric:tabular-nums}
+table.mapa td.c{cursor:pointer;transition:transform .13s,box-shadow .13s}
+table.mapa td.c:hover{transform:scale(1.16);box-shadow:0 0 0 1px var(--cyan),0 0 18px rgba(34,211,238,.6);
+  position:relative;z-index:4}
+table.mapa tr.tot td{background:linear-gradient(180deg,rgba(34,211,238,.2),rgba(139,92,246,.2))!important;
+  color:var(--ink);height:31px}
+.leg{display:flex;align-items:center;gap:9px;padding:11px 20px;font-size:10.5px;color:var(--ink-3);
+  border-top:1px solid var(--edge);flex-wrap:wrap}
+.leg i{width:22px;height:12px;border-radius:3px;display:inline-block;font-style:normal}
+/* Jornada */
+.jor{position:relative;height:20px;border-radius:5px;min-width:330px;
+  background:rgba(255,255,255,.055);overflow:hidden}
+.jor .t{position:absolute;top:0;height:100%;border-radius:5px;
+  background:linear-gradient(100deg,rgba(34,211,238,.85),rgba(139,92,246,.85));
+  box-shadow:0 0 16px rgba(34,211,238,.45)}
+.jor .p{position:absolute;top:0;height:100%;background:repeating-linear-gradient(45deg,
+  rgba(251,191,36,.75),rgba(251,191,36,.75) 2px,rgba(7,10,24,.85) 2px,rgba(7,10,24,.85) 5px)}
+.jor .hr{position:absolute;top:0;width:1px;height:100%;background:rgba(160,200,255,.13)}
+.jor b{position:absolute;left:6px;line-height:20px;font-family:var(--mono);font-size:9px;
+  font-weight:700;color:#02060F}
+.esc{display:flex;font-size:8.5px;color:var(--ink-4);min-width:330px;margin-top:3px;
+  font-family:var(--mono)}
+.esc span{flex:1}
+
+/* ══ PANEL LATERAL ═════════════════════════════════════════════════════ */
+#velo{position:fixed;inset:0;z-index:110;background:rgba(3,4,12,.6);opacity:0;pointer-events:none;
+  transition:opacity .3s;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+#velo.on{opacity:1;pointer-events:auto}
+#lado{position:fixed;top:0;right:0;z-index:120;width:min(440px,94vw);height:100%;display:flex;
+  flex-direction:column;transform:translateX(103%);transition:transform .42s cubic-bezier(.16,1,.3,1);
+  border-left:1px solid var(--edge-hi);background:linear-gradient(170deg,#0A1024,#070A18);
+  box-shadow:-30px 0 70px -20px rgba(0,0,0,.9)}
+#lado.on{transform:none}
+.lc{padding:19px 22px;border-bottom:1px solid var(--edge);
+  background:linear-gradient(100deg,rgba(34,211,238,.1),rgba(139,92,246,.1))}
+.lc h3{font-size:16px;font-weight:600}
+.lc p{font-size:11.5px;color:var(--ink-3);margin-top:4px}
+.lc .x{float:right;font-size:22px;line-height:.8;color:var(--ink-3);transition:color .2s,transform .2s}
+.lc .x:hover{color:var(--ink);transform:rotate(90deg)}
+.lb{flex:1;overflow-y:auto;padding:16px 20px}
+.lag{padding:12px 14px;border-radius:12px;margin-bottom:9px;border:1px solid var(--edge);
+  background:var(--gl)}
+.lag b{display:block;font-size:12.5px;line-height:1.4}
+.lag .m{font-size:10.5px;color:var(--ink-3);margin-top:4px;line-height:1.6}
+.lag .m b{display:inline;font-family:var(--mono);color:var(--cyan-hi)}
+
+/* ══ AVISO FLOTANTE ════════════════════════════════════════════════════ */
+#aviso{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(16px);z-index:150;
+  padding:13px 22px;border-radius:13px;font-size:12.5px;font-weight:600;opacity:0;
+  pointer-events:none;transition:opacity .3s,transform .3s;max-width:92vw;text-align:center;
+  border:1px solid var(--edge-hi);background:rgba(10,16,36,.95);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:var(--sh)}
+#aviso.on{opacity:1;transform:translateX(-50%)}
+#aviso.mal{border-color:rgba(251,113,133,.5);color:#FDA4AF}
+#aviso.bien{border-color:rgba(52,211,153,.5);color:#6EE7B7}
+
+/* ══ CARGA ═════════════════════════════════════════════════════════════ */
+.suelta{padding:40px 26px;border-radius:20px;text-align:center;border:1px dashed var(--edge-hi);
+  background:var(--gl);transition:all .25s}
+.suelta.sobre{border-color:var(--cyan);background:rgba(34,211,238,.07);transform:scale(1.008)}
+.suelta .ic{font-size:44px;margin-bottom:14px;opacity:.6}
+.suelta h3{font-size:16px;font-weight:600;margin-bottom:8px}
+.suelta p{font-size:12.5px;color:var(--ink-3);line-height:1.7;max-width:540px;margin:0 auto 20px}
+.pasos{display:grid;gap:13px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  margin-top:22px;text-align:left}
+.paso{padding:16px 18px;border-radius:14px;border:1px solid var(--edge);background:var(--gl);
+  position:relative}
+.paso .k{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--cyan);
+  letter-spacing:.1em;margin-bottom:7px}
+.paso h4{font-size:12.5px;font-weight:700;margin-bottom:5px}
+.paso p{font-size:11.5px;color:var(--ink-3);line-height:1.65}
+.paso.listo{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06)}
+.paso.listo .k{color:var(--ok)}
+
+/* ══ RENDIMIENTO ═══════════════════════════════════════════════════════
+   Con el sistema en «sobrio» se apagan los efectos caros: el fondo deja
+   de pintarse por GPU y las tarjetas no se inclinan. */
+body.sobrio #cielo{display:none}
+body.sobrio #rejilla{opacity:.22}
+body.sobrio .gl.blur{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(10,16,36,.92)}
+body.sobrio #barrido{display:none}
+body.sobrio #ruido{display:none}
+body.sobrio nav{background:rgba(7,10,24,.97);backdrop-filter:none;-webkit-backdrop-filter:none}
+body.sobrio::before{content:'';position:fixed;inset:0;z-index:0;
+  background:radial-gradient(900px 600px at 20% 0%,#0E1538,#05070F 70%)}
+
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important}
+  .rev{opacity:1!important}
+}
+@media print{
+  #cielo,#rejilla,#velo-fondo,#ruido,nav,#lado,#velo,#barrido{display:none}
+  body{background:#fff;color:#111}
+  .vista{display:block!important}
+  .gl{border-color:#ccc;background:#fff;box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Capas del escenario: WebGL al fondo, luego los velos de luz -->
+<canvas id="cielo"></canvas>
+<div id="velo-fondo"></div>
+<div id="rejilla"></div>
+<canvas id="ruido"></canvas>
+<div id="barrido"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     Aquí el generador inserta los datos del periodo. Si la marca sigue
+     vacía, el archivo es el de supervisión y espera que se cargue el Excel.
+     ══════════════════════════════════════════════════════════════════════ -->
+<!--PAQUETE-->
+
+<!-- ══ ACCESO ══════════════════════════════════════════════════════════ -->
+<div id="acceso">
+  <div class="acc-box gl blur">
+    <div class="acc-mark"><canvas id="mk-acc" width="168" height="168"></canvas></div>
+    <h2>Centro de <b>Mando</b></h2>
+    <div class="org">Chat · RRSS · Banco Agrario</div>
+
+    <div class="acc-err" id="acc-err"></div>
+
+    <div class="campo">
+      <label for="u">Usuario</label>
+      <input id="u" type="text" placeholder="Número de cédula" spellcheck="false"
+             autocomplete="username" inputmode="text">
+      <div class="linea"><i></i></div>
+    </div>
+    <div class="campo">
+      <label for="p">Contraseña</label>
+      <input id="p" type="password" placeholder="••••••••••" autocomplete="current-password">
+      <div class="linea"><i></i></div>
+    </div>
+
+    <button class="btn-entrar" onclick="entrar()">Entrar</button>
+
+    <div class="acc-pie" id="acc-pie">
+      Tu <b>usuario</b> y tu <b>contraseña</b> son el mismo número de cédula,<br>sin puntos ni espacios.
+    </div>
+  </div>
+</div>
+
+<!-- ══ TABLERO ═════════════════════════════════════════════════════════ -->
+<div id="shell">
+  <nav>
+    <div class="marca">
+      <canvas id="mk-nav" width="76" height="76"></canvas>
+      <div class="t">Centro de Mando<small id="marca-sub">Chat y RRSS</small></div>
+    </div>
+
+    <div class="pestanas" id="pestanas"></div>
+
+    <div class="nav-der">
+      <button class="bt" id="bt-sobrio" onclick="alternarSobrio()"
+              title="Apaga los efectos si el equipo va lento">⚡ Efectos</button>
+      <button class="bt cian" id="bt-cargar" onclick="document.getElementById('fx').click()">
+        ⬆ Cargar Excel</button>
+      <input type="file" id="fx" accept=".xlsx,.xlsm,.xls,.ods" multiple style="display:none"
+             onchange="recibirArchivos(this.files)">
+      <button class="bt viol" id="bt-paquete" onclick="irA('paquete')">⬇ Generar portal</button>
+      <div class="chip"><div class="av" id="av"></div><div class="q" id="qn"></div></div>
+      <button class="bt" onclick="salir()" title="Cerrar sesión">⏻</button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- Mando: la foto del equipo -->
+    <div class="vista act" id="v-mando">
+      <div class="cab rev">
+        <h1>Estado del <b>equipo</b></h1>
+        <div class="sub" id="s-mando"></div>
+      </div>
+      <div id="c-mando"></div>
+    </div>
+
+    <!-- Equipo: la nómina con su cumplimiento -->
+    <div class="vista" id="v-equipo">
+      <div class="cab rev">
+        <h1>Mi <b>equipo</b></h1>
+        <div class="sub" id="s-equipo"></div>
+      </div>
+      <div id="c-equipo"></div>
+    </div>
+
+    <!-- Detalle: una sola persona, con sus tres frentes -->
+    <div class="vista" id="v-detalle">
+      <div class="cab rev">
+        <h1 id="t-detalle">Resultados</h1>
+        <div class="sub" id="s-detalle"></div>
+      </div>
+      <div class="foco rev" id="foco"></div>
+      <div id="c-medidor"></div>
+      <div class="sp rev" id="sp-detalle">
+        <button class="act" onclick="irSub('ind',this)">Indicadores</button>
+        <button onclick="irSub('pend',this)">Pendientes por tipificar</button>
+        <button onclick="irSub('aud',this)">Lado a lado</button>
+      </div>
+      <div class="ssec act" id="ss-ind"><div id="c-ind"></div></div>
+      <div class="ssec" id="ss-pend"><div id="c-pend"></div></div>
+      <div class="ssec" id="ss-aud"><div id="c-aud"></div></div>
+    </div>
+
+    <!-- Turnos -->
+    <div class="vista" id="v-turnos">
+      <div class="cab rev">
+        <h1 id="t-turnos">Malla de <b>turnos</b></h1>
+        <div class="sub" id="s-turnos"></div>
+      </div>
+      <div id="c-turnos"></div>
+    </div>
+
+    <!-- Portal para los agentes -->
+    <div class="vista" id="v-paquete">
+      <div class="cab rev">
+        <h1>Generar el <b>portal de los agentes</b></h1>
+        <div class="sub">Crea un HTML con los datos ya adentro. Ese archivo es el que
+          les repartes: ellos entran con su cédula y no necesitan Excel, ni internet,
+          ni esta pantalla de supervisión.</div>
+      </div>
+      <div id="c-paquete"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ══ PANEL LATERAL ═══════════════════════════════════════════════════ -->
+<div id="velo" onclick="cerrarLado()"></div>
+<aside id="lado">
+  <div class="lc">
+    <button class="x" onclick="cerrarLado()">×</button>
+    <h3 id="lado-t"></h3>
+    <p id="lado-s"></p>
+  </div>
+  <div class="lb" id="lado-b"></div>
+</aside>
+
+<div id="aviso"></div>
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   NÓMINA
+   El usuario y la contraseña de cada agente son su misma cédula. Para
+   agregar o quitar gente se edita solo esta lista; el nombre debe quedar
+   igual al del Excel, porque por ahí se cruzan los datos.
+   ══════════════════════════════════════════════════════════════════════ */
+const AGENTES = [
+  // ── CHAT ──
+  { ced:'1000049084', nombre:'OLAVE NIÑO LAURA VALENTINA',          canal:'Chat' },
+  { ced:'1006507935', nombre:'MONTALVO COLLAZOS KATERINE',          canal:'Chat' },
+  { ced:'1013681738', nombre:'NEIRA MANRIQUE SERGIO ANTONIO',       canal:'Chat' },
+  { ced:'1014241738', nombre:'GUTIERREZ ABELLA FRANCY LILIANA',     canal:'Chat' },
+  { ced:'1016712156', nombre:'MORENO ALEMAN YENNY ALEXANDRA',       canal:'Chat' },
+  { ced:'1020728543', nombre:'GOMEZ GONZALEZ MARIA FERNANDA',       canal:'Chat' },
+  { ced:'1028484955', nombre:'WALDORF CAMACHO ANGELA GABRIELA VON', canal:'Chat' },
+  { ced:'1043141989', nombre:'ARZUZA LLERENA KATHLEEN SMITH',       canal:'Chat' },
+  { ced:'1047448535', nombre:'LARA RAMIREZ LORAINE',                canal:'Chat' },
+  { ced:'1116498626', nombre:'GALVIS IBARRA LEIDY CAROLINA',        canal:'Chat' },
+  { ced:'1118809038', nombre:'DIAZ TAPIA MAYERLIS',                 canal:'Chat' },
+  { ced:'1143464574', nombre:'AMADOR GUTIERREZ JOSE DAVID',         canal:'Chat' },
+  { ced:'1152437383', nombre:'CABRERA MOCETON ERICK FELIPE',        canal:'Chat' },
+  { ced:'1193038890', nombre:'HERNANDEZ RODRIGUEZ LUIS EDUARDO',    canal:'Chat' },
+  { ced:'670302',     nombre:'PIÑANGO MORILLO DARWIN ALEXANDER',    canal:'Chat' },
+  { ced:'80085104',   nombre:'CORTES AMAYA JHON JAIRO',             canal:'Chat' },
+
+  // ── RRSS ──
+  { ced:'1001049308', nombre:'ALISON TATIANA RAMIREZ DUCUARA',      canal:'RRSS' },
+  { ced:'1013113316', nombre:'ESPINOSA MOJICA LAURA VALENTINA',     canal:'RRSS' },
+  { ced:'1033800581', nombre:'BEJARANO MARTINEZ MARIA DE LOS ANGELES AURORA', canal:'RRSS' },
+  { ced:'1143159843', nombre:'BOLAÑO BUELVAS EIMY DAYANA',          canal:'RRSS' },
+  { ced:'3385691',    nombre:'FERRER PERDOMO JHON LEONARD',         canal:'RRSS' },
+];
+
+/* ══════════════════════════════════════════════════════════════════════
+   CUENTA DE SUPERVISIÓN
+   La contraseña no está escrita en el archivo: solo queda su huella
+   SHA-256, de modo que abrir el HTML en un editor no la revela. Al
+   generar el portal de los agentes esa huella se borra, así la copia
+   que circula entre ellos no puede entrar a esta pantalla.
+   ══════════════════════════════════════════════════════════════════════ */
+const SUPERVISOR = {
+  usuario:'Oscar',
+  nombre :'Oscar',
+  cargo  :'Supervisión · Chat y RRSS',
+  enMalla:'NARIÑO BERNAL OSCAR DENIEL',
+  sal    :'BAC-portal-v1|',
+  hash   :'9a7adaf96218b69d59c4bd4268d7c647edc724f1849f71d22150df7dcc917450'
+};
+
+/* SHA-256 en JavaScript puro. No se usa crypto.subtle porque ese exige
+   página servida por HTTPS y aquí el archivo se abre con doble clic. */
+function sha256(msg){
+  function rotr(x,n){ return (x>>>n)|(x<<(32-n)); }
+  var K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+         0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+         0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+         0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+         0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+         0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+         0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+         0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  var H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  var by=[], i, c, c2, cp;
+  for(i=0;i<msg.length;i++){
+    c=msg.charCodeAt(i);
+    if(c<0x80) by.push(c);
+    else if(c<0x800) by.push(0xc0|(c>>6), 0x80|(c&63));
+    else if(c<0xd800||c>=0xe000) by.push(0xe0|(c>>12), 0x80|((c>>6)&63), 0x80|(c&63));
+    else { c2=msg.charCodeAt(++i); cp=0x10000+(((c&0x3ff)<<10)|(c2&0x3ff));
+           by.push(0xf0|(cp>>18), 0x80|((cp>>12)&63), 0x80|((cp>>6)&63), 0x80|(cp&63)); }
+  }
+  var bl=by.length*8;
+  by.push(0x80);
+  while(by.length%64!==56) by.push(0);
+  var hi=Math.floor(bl/4294967296), lo=bl>>>0;
+  by.push((hi>>>24)&255,(hi>>>16)&255,(hi>>>8)&255,hi&255,
+          (lo>>>24)&255,(lo>>>16)&255,(lo>>>8)&255,lo&255);
+  var w=new Array(64), b, t, s0, s1, a, bb, cc, d, e, f, g, h, S0, S1, ch, mj, t1, t2;
+  for(b=0;b<by.length;b+=64){
+    for(t=0;t<16;t++) w[t]=(by[b+t*4]<<24)|(by[b+t*4+1]<<16)|(by[b+t*4+2]<<8)|by[b+t*4+3];
+    for(t=16;t<64;t++){
+      s0=rotr(w[t-15],7)^rotr(w[t-15],18)^(w[t-15]>>>3);
+      s1=rotr(w[t-2],17)^rotr(w[t-2],19)^(w[t-2]>>>10);
+      w[t]=(w[t-16]+s0+w[t-7]+s1)|0;
+    }
+    a=H[0];bb=H[1];cc=H[2];d=H[3];e=H[4];f=H[5];g=H[6];h=H[7];
+    for(t=0;t<64;t++){
+      S1=rotr(e,6)^rotr(e,11)^rotr(e,25);
+      ch=(e&f)^(~e&g);
+      t1=(h+S1+ch+K[t]+w[t])|0;
+      S0=rotr(a,2)^rotr(a,13)^rotr(a,22);
+      mj=(a&bb)^(a&cc)^(bb&cc);
+      t2=(S0+mj)|0;
+      h=g;g=f;f=e;e=(d+t1)|0;d=cc;cc=bb;bb=a;a=(t1+t2)|0;
+    }
+    H[0]=(H[0]+a)|0;H[1]=(H[1]+bb)|0;H[2]=(H[2]+cc)|0;H[3]=(H[3]+d)|0;
+    H[4]=(H[4]+e)|0;H[5]=(H[5]+f)|0;H[6]=(H[6]+g)|0;H[7]=(H[7]+h)|0;
+  }
+  return H.map(function(x){ return ('00000000'+(x>>>0).toString(16)).slice(-8); }).join('');
+}
+
+/* ══ ESTADO ══════════════════════════════════════════════════════════ */
+var YO=null;              // quién inició sesión
+var MANDO=false;          // true si entró la cuenta de supervisión
+var FOCO=null;            // el agente que se está mirando
+var VISTA='mando', SUB='ind', VISTA_TUR='mapa';
+
+var IND=[], PEND=[], AUD=[];        // todo lo leído del Excel de resultados
+var MALLA=[];                       // filas de la malla de turnos
+var ARCH_RES='', ARCH_MAL='';       // nombres de los archivos cargados
+var PERIODO='';                     // lo que diga el paquete generado
+
+var SKILL={ 'INB':'Inbound','OUT':'Outbound','CHAT':'Chat','RRSS':'RRSS','EMAIL':'Email',
+  'PQR':'PQR','BACKOFFICE':'Backoffice','MONITOREO TRANSACCIONAL':'Monitoreo Transaccional' };
+var CSKILL={ 'INB':'#8B5CF6','OUT':'#22D3EE','CHAT':'#C4B5FD','RRSS':'#F472B6','EMAIL':'#FBBF24',
+  'PQR':'#34D399','BACKOFFICE':'#94A3B8','MONITOREO TRANSACCIONAL':'#60A5FA' };
+/* TUR es la única novedad que significa que el agente viene a trabajar */
+var NOVEDAD={ 'TUR':['En turno','ok'],'DES':['Descanso','gr'],'VAC':['Vacaciones','wn'],
+  'LMA':['Licencia','wn'],'ICCP':['Incapacidad','bad'],'SUS':['Suspensión','bad'] };
+var DIAS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre',
+  'octubre','noviembre','diciembre'];
+
+var esc=function(s){ return String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+/* Para comparar nombres sin que estorben tildes, dobles espacios o mayúsculas */
+var norm=function(s){ return String(s||'').trim().toUpperCase()
+  .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' '); };
+var ced=function(s){ return String(s==null?'':s).replace(/[^0-9]/g,''); };
+var hhmm=function(m){ m=((m%1440)+1440)%1440;
+  return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); };
+var iniciales=function(n){ var p=String(n||'').trim().split(/\s+/);
+  return (((p[0]||'')[0]||'')+((p[1]||'')[0]||'')).toUpperCase(); };
+
+function aviso(msg, malo){
+  var n=document.getElementById('aviso');
+  n.textContent=msg;
+  n.className='on '+(malo?'mal':'bien');
+  clearTimeout(n._t);
+  n._t=setTimeout(function(){ n.className=''; }, 4200);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   MOTOR VISUAL
+   El fondo lo pinta un solo rectángulo con un shader: nebulosa, tres
+   capas de estrellas con paralaje y ondas de energía. Se dibuja a menor
+   resolución que la pantalla y se estira, que es lo que permite que un
+   equipo de oficina lo mueva sin sudar. Si no hay WebGL, un lienzo 2D
+   hace la misma escena con partículas.
+   ══════════════════════════════════════════════════════════════════════ */
+var QUIETO = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+var SOBRIO = false;
+try{ SOBRIO = localStorage.getItem('mando-sobrio')==='1'; }catch(e){}
+
+var VIS = (function(){
+  var cv, gl, prog, buf, loc={}, raf=0, t0=0;
+  var mx=0, my=0, tmx=0, tmy=0;      // cursor con inercia
+  var amp=0;                          // energía de la última transición
+  var modo='';                        // 'gl' | '2d' | 'off'
+  var p2=null;                         // partículas del respaldo 2D
+
+  var VERT = `attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}`;
+
+  var FRAG = `
+precision highp float;
+uniform vec2  u_res;
+uniform float u_t;
+uniform vec2  u_m;
+uniform float u_amp;
+
+float h21(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123); }
+float vn(vec2 p){
+  vec2 i=floor(p), f=fract(p);
+  f=f*f*(3.0-2.0*f);
+  return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),
+             mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x), f.y);
+}
+float fbm(vec2 p){
+  float v=0.0, a=0.5;
+  for(int i=0;i<4;i++){ v+=a*vn(p); p*=2.03; a*=0.5; }
+  return v;
+}
+/* Una capa de estrellas: rejilla con una estrella en algunas celdas */
+float capa(vec2 uv, float den, float tam, float vel, float t){
+  vec2 g=uv*den, id=floor(g), f=fract(g)-0.5;
+  float r=h21(id);
+  if(r<0.62) return 0.0;
+  vec2 off=(vec2(h21(id+1.37), h21(id+7.91))-0.5)*0.72;
+  float d=length(f-off);
+  float br=smoothstep(tam,0.0,d);
+  br*=0.35+0.65*fract(r*17.3);
+  br*=0.55+0.45*sin(t*vel+r*62.83);
+  return br;
+}
+void main(){
+  vec2 uv=(gl_FragCoord.xy-0.5*u_res)/u_res.y;
+  vec2 par=u_m*0.055;
+
+  /* Nebulosa: dos campos de ruido que se arrastran a distinta velocidad */
+  vec2 np=uv*1.15+vec2(u_t*0.0115,u_t*0.0062)+par*0.45;
+  float n1=fbm(np*1.7);
+  float n2=fbm(np*3.2+n1*1.25+4.0);
+
+  vec3 col=vec3(0.011,0.015,0.042);
+  col+=vec3(0.045,0.125,0.40)*pow(n1,2.1)*0.95;        // azul profundo
+  col+=vec3(0.27,0.085,0.55)*pow(n2,2.7)*0.80;         // violeta
+  col+=vec3(0.0,0.42,0.56)*pow(max(0.0,n1-n2),3.0)*0.85; // filamentos cian
+
+  /* Ondas de energía: salen del centro bajo en cada cambio de estado */
+  vec2 fo=uv-vec2(0.0,-0.10)-par;
+  float r=length(fo);
+  float w=sin(r*9.0-u_t*1.05)*0.5+0.5;
+  col+=vec3(0.05,0.30,0.44)*w*exp(-r*2.6)*(0.05+0.95*u_amp)*0.65;
+
+  /* Estrellas: tres profundidades con paralaje distinto */
+  col+=vec3(0.78,0.90,1.0)*capa(uv+par*0.22,  9.0,0.056,2.1,u_t)*0.95;
+  col+=vec3(0.66,0.82,1.0)*capa(uv+par*0.55, 18.0,0.046,3.0,u_t+11.0)*0.62;
+  col+=vec3(0.56,0.76,1.0)*capa(uv+par*0.98, 34.0,0.040,4.2,u_t+23.0)*0.40;
+
+  /* Viñeta y grano fino para que no se vean escalones en el degradado */
+  col*=clamp(1.0-0.52*length(uv*vec2(0.82,1.0)),0.0,1.0);
+  col+=(h21(gl_FragCoord.xy+fract(u_t))-0.5)/255.0;
+  gl_FragColor=vec4(col,1.0);
+}`;
+
+  function compilar(src, tipo){
+    var s=gl.createShader(tipo);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+      console.warn('shader:', gl.getShaderInfoLog(s)); return null;
+    }
+    return s;
+  }
+
+  function iniciarGL(){
+    var o={ alpha:false, antialias:false, depth:false, stencil:false,
+            powerPreference:'low-power', preserveDrawingBuffer:false };
+    gl = cv.getContext('webgl', o) || cv.getContext('experimental-webgl', o);
+    if(!gl) return false;
+    var vs=compilar(VERT, gl.VERTEX_SHADER), fs=compilar(FRAG, gl.FRAGMENT_SHADER);
+    if(!vs||!fs) return false;
+    prog=gl.createProgram();
+    gl.attachShader(prog,vs); gl.attachShader(prog,fs); gl.linkProgram(prog);
+    if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){
+      console.warn('programa:', gl.getProgramInfoLog(prog)); return false;
+    }
+    gl.useProgram(prog);
+    buf=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+    var a=gl.getAttribLocation(prog,'a');
+    gl.enableVertexAttribArray(a);
+    gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+    ['u_res','u_t','u_m','u_amp'].forEach(function(k){ loc[k]=gl.getUniformLocation(prog,k); });
+    cv.addEventListener('webglcontextlost', function(ev){ ev.preventDefault(); detener(); modo='off'; });
+    return true;
+  }
+
+  /* Resolución interna: siempre por debajo de la pantalla. La nebulosa es
+     suave, así que estirarla no se nota, y así rinde en cualquier equipo. */
+  function medir(){
+    var w=innerWidth, h=innerHeight;
+    var e=Math.min(0.72, 1200/Math.max(w,1));
+    var W=Math.max(360, Math.round(w*e)), H=Math.max(260, Math.round(h*e));
+    if(cv.width!==W||cv.height!==H){ cv.width=W; cv.height=H; }
+    if(gl) gl.viewport(0,0,W,H);
+  }
+
+  function cuadroGL(ts){
+    if(!t0) t0=ts;
+    var t=(ts-t0)/1000;
+    mx+=(tmx-mx)*0.055; my+=(tmy-my)*0.055;      // inercia del paralaje
+    amp*=0.955;
+    gl.uniform2f(loc.u_res, cv.width, cv.height);
+    gl.uniform1f(loc.u_t, t);
+    gl.uniform2f(loc.u_m, mx, my);
+    gl.uniform1f(loc.u_amp, amp);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    raf=requestAnimationFrame(cuadroGL);
+  }
+
+  /* ── Respaldo sin WebGL: estrellas y nebulosa con lienzo 2D ───────── */
+  function iniciar2D(){
+    var ctx=cv.getContext('2d');
+    if(!ctx) return false;
+    p2=[];
+    var n=Math.min(190, Math.round(innerWidth*innerHeight/11000));
+    for(var i=0;i<n;i++) p2.push({ x:Math.random(), y:Math.random(),
+      z:0.25+Math.random()*0.75, r:Math.random()*1.5+0.35, f:Math.random()*6.28 });
+    (function cuadro(ts){
+      if(!t0) t0=ts;
+      var t=(ts-t0)/1000, W=cv.width, H=cv.height;
+      mx+=(tmx-mx)*0.055; my+=(tmy-my)*0.055; amp*=0.955;
+      var g=ctx.createRadialGradient(W*0.5,H*0.1,0,W*0.5,H*0.1,Math.max(W,H));
+      g.addColorStop(0,'#101A46'); g.addColorStop(0.45,'#080C22'); g.addColorStop(1,'#03040C');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      var g2=ctx.createRadialGradient(W*0.85,H*0.9,0,W*0.85,H*0.9,W*0.7);
+      g2.addColorStop(0,'rgba(109,60,214,.30)'); g2.addColorStop(1,'transparent');
+      ctx.fillStyle=g2; ctx.fillRect(0,0,W,H);
+      p2.forEach(function(p){
+        var x=(p.x*W + mx*34*p.z + t*5*p.z) % W; if(x<0) x+=W;
+        var y=(p.y*H + my*34*p.z) % H; if(y<0) y+=H;
+        ctx.globalAlpha=(0.25+0.6*p.z)*(0.6+0.4*Math.sin(t*2+p.f));
+        ctx.fillStyle='#CFE4FF';
+        ctx.beginPath(); ctx.arc(x,y,p.r*p.z+0.2,0,6.2832); ctx.fill();
+      });
+      ctx.globalAlpha=1;
+      raf=requestAnimationFrame(cuadro);
+    })(performance.now());
+    return true;
+  }
+
+  function detener(){ if(raf) cancelAnimationFrame(raf); raf=0; }
+
+  function arrancar(){
+    detener();
+    if(SOBRIO || QUIETO){ modo='off'; return; }
+    medir();
+    if(modo===''){ modo = iniciarGL() ? 'gl' : (iniciar2D() ? '2d' : 'off'); if(modo==='2d') return; }
+    if(modo==='gl'){ t0=0; raf=requestAnimationFrame(cuadroGL); }
+    else if(modo==='2d' && !raf){ iniciar2D(); }
+  }
+
+  return {
+    init:function(){
+      cv=document.getElementById('cielo');
+      if(!cv) return;
+      arrancar();
+      var rt;
+      addEventListener('resize', function(){ clearTimeout(rt); rt=setTimeout(function(){
+        medir(); if(modo==='2d'){ detener(); iniciar2D(); } }, 180); });
+      addEventListener('pointermove', function(e){
+        tmx=(e.clientX/innerWidth-0.5)*2; tmy=(0.5-e.clientY/innerHeight)*2;
+      }, {passive:true});
+      /* Con la pestaña oculta no se gasta ni un cuadro */
+      document.addEventListener('visibilitychange', function(){
+        if(document.hidden) detener(); else arrancar();
+      });
+    },
+    pulso:function(){ amp=1; },
+    refrescar:arrancar,
+    detener:detener,
+    modo:function(){ return modo; }
+  };
+})();
+
+/* ══ Grano de película ═══════════════════════════════════════════════ */
+function pintarRuido(){
+  var cv=document.getElementById('ruido');
+  if(!cv || SOBRIO) return;
+  var W=cv.width=Math.min(innerWidth,1400), H=cv.height=Math.min(innerHeight,900);
+  var ctx=cv.getContext('2d'); if(!ctx) return;
+  var t=document.createElement('canvas'); t.width=t.height=96;
+  var tc=t.getContext('2d'), d=tc.createImageData(96,96);
+  for(var i=0;i<d.data.length;i+=4){
+    var v=200+Math.random()*55;
+    d.data[i]=d.data[i+1]=d.data[i+2]=v; d.data[i+3]=255;
+  }
+  tc.putImageData(d,0,0);
+  ctx.fillStyle=ctx.createPattern(t,'repeat');
+  ctx.fillRect(0,0,W,H);
+}
+
+/* ══ Marca: anillo hexagonal con satélites, dibujada por código ══════ */
+function marca(id, escala){
+  var cv=document.getElementById(id); if(!cv) return;
+  var ctx=cv.getContext('2d'); if(!ctx) return;
+  var S=cv.width, c=S/2, R=S*0.33, gira=0, vivo=!(SOBRIO||QUIETO);
+  function cuadro(){
+    ctx.clearRect(0,0,S,S);
+    /* Resplandor */
+    var g=ctx.createRadialGradient(c,c,0,c,c,S*0.5);
+    g.addColorStop(0,'rgba(34,211,238,.28)'); g.addColorStop(1,'transparent');
+    ctx.fillStyle=g; ctx.fillRect(0,0,S,S);
+    /* Hexágono exterior */
+    ctx.save(); ctx.translate(c,c); ctx.rotate(gira);
+    ctx.strokeStyle='rgba(125,233,248,.85)'; ctx.lineWidth=S*0.022;
+    ctx.shadowColor='rgba(34,211,238,.9)'; ctx.shadowBlur=S*0.09;
+    ctx.beginPath();
+    for(var i=0;i<6;i++){ var a=i/6*6.2832; ctx[i?'lineTo':'moveTo'](Math.cos(a)*R,Math.sin(a)*R); }
+    ctx.closePath(); ctx.stroke();
+    /* Hexágono interior en contragiro */
+    ctx.rotate(-gira*2.6);
+    ctx.strokeStyle='rgba(196,181,253,.75)'; ctx.lineWidth=S*0.015;
+    ctx.shadowColor='rgba(139,92,246,.9)';
+    ctx.beginPath();
+    for(var j=0;j<6;j++){ var b=j/6*6.2832+0.52;
+      ctx[j?'lineTo':'moveTo'](Math.cos(b)*R*0.56,Math.sin(b)*R*0.56); }
+    ctx.closePath(); ctx.stroke();
+    /* Núcleo */
+    ctx.rotate(gira*3.6);
+    ctx.fillStyle='rgba(236,247,255,.95)'; ctx.shadowBlur=S*0.14;
+    ctx.shadowColor='rgba(125,233,248,1)';
+    ctx.beginPath(); ctx.arc(0,0,S*0.055,0,6.2832); ctx.fill();
+    ctx.restore();
+    /* Satélites en órbita elíptica: dan la sensación de volumen */
+    for(var k=0;k<3;k++){
+      var a2=gira*1.7+k*2.0944;
+      var x=c+Math.cos(a2)*R*1.24, y=c+Math.sin(a2)*R*0.44;
+      var cerca=(Math.sin(a2)+1)/2;
+      ctx.globalAlpha=0.35+0.65*cerca;
+      ctx.fillStyle=k%2?'#C4B5FD':'#7DE9F8';
+      ctx.shadowColor=ctx.fillStyle; ctx.shadowBlur=S*0.10;
+      ctx.beginPath(); ctx.arc(x,y,S*(0.016+0.014*cerca),0,6.2832); ctx.fill();
+    }
+    ctx.globalAlpha=1; ctx.shadowBlur=0;
+    if(vivo){ gira+=0.0045; requestAnimationFrame(cuadro); }
+  }
+  cuadro();
+}
+
+/* ══ Cristal reactivo: reflejo que sigue al cursor e inclinación 3D ══ */
+var TILT=[];
+function activarCristal(raiz){
+  (raiz||document).querySelectorAll('.gl').forEach(function(el){
+    if(el._cristal) return; el._cristal=true;
+    el.addEventListener('pointermove', function(e){
+      var r=el.getBoundingClientRect();
+      el.style.setProperty('--mx', ((e.clientX-r.left)/r.width*100).toFixed(1)+'%');
+      el.style.setProperty('--my', ((e.clientY-r.top)/r.height*100).toFixed(1)+'%');
+      if(el.classList.contains('tilt') && !SOBRIO && !QUIETO){
+        el._tx=((e.clientX-r.left)/r.width-0.5)*2;
+        el._ty=((e.clientY-r.top)/r.height-0.5)*2;
+        if(TILT.indexOf(el)<0) TILT.push(el);
+      }
+    }, {passive:true});
+    el.addEventListener('pointerleave', function(){ el._tx=0; el._ty=0; });
+  });
+}
+/* Un solo bucle para todas las tarjetas: la inclinación llega con inercia */
+(function bucleTilt(){
+  for(var i=TILT.length-1;i>=0;i--){
+    var el=TILT[i];
+    el._cx=(el._cx||0)+(((el._tx||0)-(el._cx||0))*0.11);
+    el._cy=(el._cy||0)+(((el._ty||0)-(el._cy||0))*0.11);
+    var q=Math.abs(el._cx)+Math.abs(el._cy);
+    if(q<0.0022 && !el._tx && !el._ty){ el.style.transform=''; TILT.splice(i,1); continue; }
+    el.style.transform='perspective(1000px) rotateY('+(el._cx*5.2).toFixed(2)
+      +'deg) rotateX('+(-el._cy*5.2).toFixed(2)+'deg) translateZ(9px)';
+  }
+  requestAnimationFrame(bucleTilt);
+})();
+
+/* ══ Revelado cinematográfico: capas de profundidad y desenfoque ═════ */
+function revelar(raiz, demora){
+  var els=[].slice.call((raiz||document).querySelectorAll('.rev, .reva'));
+  if(!els.length) return;
+  if(SOBRIO || QUIETO || !els[0].animate){
+    els.forEach(function(e){ e.style.opacity=1; e.style.filter=''; e.style.transform=''; });
+    return;
+  }
+  els.forEach(function(el,i){
+    el.style.opacity='';
+    el.animate([
+      { opacity:0, transform:'translateY(26px) translateZ(-90px)', filter:'blur(12px)' },
+      { opacity:1, transform:'none', filter:'blur(0px)' }
+    ], { duration:760, delay:(demora||0)+i*58, easing:'cubic-bezier(.16,1,.3,1)', fill:'both' });
+  });
+}
+
+/* ══ Barrido luminoso en cada cambio de estado ═══════════════════════ */
+function pulso(){
+  VIS.pulso();
+  if(SOBRIO||QUIETO) return;
+  var b=document.getElementById('barrido');
+  b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
+}
+
+function alternarSobrio(){
+  SOBRIO=!SOBRIO;
+  document.body.classList.toggle('sobrio', SOBRIO);
+  try{ localStorage.setItem('mando-sobrio', SOBRIO?'1':'0'); }catch(e){}
+  document.getElementById('bt-sobrio').textContent = SOBRIO ? '⚡ Efectos: off' : '⚡ Efectos';
+  if(SOBRIO){ VIS.detener(); } else { VIS.refrescar(); pintarRuido(); }
+  aviso(SOBRIO ? 'Efectos apagados: el tablero va al mínimo de consumo'
+               : 'Efectos encendidos');
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   MEDIDOR PRINCIPAL
+   Dial holográfico: anillo de marcas en giro, arco de avance con
+   resplandor, satélites en órbita elíptica y reflejo bajo el cristal.
+   ══════════════════════════════════════════════════════════════════════ */
+function Medidor(cv, refl){
+  this.cv=cv; this.ctx=cv.getContext('2d');
+  this.refl=refl; this.rctx=refl?refl.getContext('2d'):null;
+  this.v=0; this.meta=0; this.gira=0; this.raf=0; this.tono='cyan';
+  var d=Math.min(window.devicePixelRatio||1, 2);
+  this.S=Math.round(300*d); cv.width=cv.height=this.S;
+  if(refl){ refl.width=this.S; refl.height=Math.round(this.S*0.19); }
+}
+Medidor.prototype.set=function(frac, tono){
+  this.meta=Math.max(0,Math.min(1,frac||0));
+  this.tono=tono||'cyan';
+  if(SOBRIO||QUIETO){ this.v=this.meta; this.dibujar(); return; }
+  this.v=0; this.correr();
+};
+Medidor.prototype.correr=function(){
+  var yo=this;
+  if(yo.raf) cancelAnimationFrame(yo.raf);
+  (function paso(){
+    yo.v += (yo.meta-yo.v)*0.062;
+    yo.gira += 0.0038;
+    yo.dibujar();
+    var quieto = Math.abs(yo.meta-yo.v)<0.0012;
+    if(quieto && (SOBRIO||QUIETO)){ yo.raf=0; return; }
+    yo.raf=requestAnimationFrame(paso);
+  })();
+};
+Medidor.prototype.parar=function(){ if(this.raf) cancelAnimationFrame(this.raf); this.raf=0; };
+Medidor.prototype.dibujar=function(){
+  var ctx=this.ctx, S=this.S, c=S/2, R=S*0.375, g=this.gira, v=this.v;
+  var A=this.tono==='ok' ? ['#34D399','#A7F3D0'] :
+        this.tono==='bad'? ['#FB7185','#FECDD3'] : ['#22D3EE','#C4B5FD'];
+  ctx.clearRect(0,0,S,S);
+
+  /* Resplandor de fondo */
+  var bg=ctx.createRadialGradient(c,c,0,c,c,S*0.5);
+  bg.addColorStop(0,'rgba(34,211,238,.13)');
+  bg.addColorStop(0.55,'rgba(139,92,246,.07)');
+  bg.addColorStop(1,'transparent');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,S,S);
+
+  /* Anillo de marcas en giro lento */
+  ctx.save(); ctx.translate(c,c); ctx.rotate(g*0.6);
+  for(var i=0;i<96;i++){
+    var a=i/96*6.2832, largo=(i%8===0)? S*0.045 : S*0.022;
+    ctx.globalAlpha=(i%8===0)? 0.5 : 0.2;
+    ctx.strokeStyle='#8FB4FF'; ctx.lineWidth=S*0.0045;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*(R*1.19), Math.sin(a)*(R*1.19));
+    ctx.lineTo(Math.cos(a)*(R*1.19+largo), Math.sin(a)*(R*1.19+largo));
+    ctx.stroke();
+  }
+  ctx.restore(); ctx.globalAlpha=1;
+
+  /* Pista */
+  ctx.beginPath(); ctx.arc(c,c,R,0,6.2832);
+  ctx.strokeStyle='rgba(255,255,255,.07)'; ctx.lineWidth=S*0.052; ctx.stroke();
+
+  /* Arco de avance, dos pasadas: una con resplandor y otra nítida */
+  var ini=-Math.PI/2, fin=ini+6.2832*v;
+  var grad;
+  try{
+    grad=ctx.createConicGradient ? ctx.createConicGradient(ini,c,c) : null;
+    if(grad){ grad.addColorStop(0,A[0]); grad.addColorStop(0.55,A[1]); grad.addColorStop(1,A[0]); }
+  }catch(e){ grad=null; }
+  if(!grad){ grad=ctx.createLinearGradient(0,0,S,S); grad.addColorStop(0,A[0]); grad.addColorStop(1,A[1]); }
+  if(v>0.001){
+    ctx.save();
+    ctx.strokeStyle=grad; ctx.lineCap='round';
+    ctx.shadowColor=A[0]; ctx.shadowBlur=S*0.085;
+    ctx.lineWidth=S*0.052;
+    ctx.beginPath(); ctx.arc(c,c,R,ini,fin); ctx.stroke();
+    ctx.shadowBlur=0; ctx.globalAlpha=0.95;
+    ctx.beginPath(); ctx.arc(c,c,R,ini,fin); ctx.stroke();
+    ctx.restore();
+    /* Cabeza del arco */
+    var hx=c+Math.cos(fin)*R, hy=c+Math.sin(fin)*R;
+    ctx.save(); ctx.shadowColor=A[1]; ctx.shadowBlur=S*0.12;
+    ctx.fillStyle='#F2FBFF';
+    ctx.beginPath(); ctx.arc(hx,hy,S*0.019,0,6.2832); ctx.fill();
+    ctx.restore();
+  }
+
+  /* Anillo interior punteado en contragiro */
+  ctx.save(); ctx.translate(c,c); ctx.rotate(-g*1.5);
+  ctx.setLineDash([S*0.012,S*0.028]);
+  ctx.strokeStyle='rgba(196,181,253,.34)'; ctx.lineWidth=S*0.006;
+  ctx.beginPath(); ctx.arc(0,0,R*0.77,0,6.2832); ctx.stroke();
+  ctx.setLineDash([]); ctx.restore();
+
+  /* Satélites en órbita elíptica: la elipse es lo que lee como 3D */
+  for(var k=0;k<3;k++){
+    var a3=g*2.1+k*2.0944;
+    var x=c+Math.cos(a3)*R*1.33, y=c+Math.sin(a3)*R*0.40;
+    var cerca=(Math.sin(a3)+1)/2;
+    ctx.globalAlpha=0.3+0.7*cerca;
+    ctx.fillStyle=k%2?A[1]:A[0];
+    ctx.shadowColor=ctx.fillStyle; ctx.shadowBlur=S*0.07;
+    ctx.beginPath(); ctx.arc(x,y,S*(0.009+0.011*cerca),0,6.2832); ctx.fill();
+  }
+  ctx.globalAlpha=1; ctx.shadowBlur=0;
+
+  /* Reflejo: el borde inferior del dial, que el CSS voltea y difumina */
+  if(this.rctx){
+    var rh=this.refl.height;
+    this.rctx.clearRect(0,0,S,rh);
+    this.rctx.drawImage(this.cv, 0, S-rh, S, rh, 0, 0, S, rh);
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+   LECTURA DEL EXCEL DE RESULTADOS
+   Esta parte viene del portal anterior sin cambios de fondo: ya estaba
+   probada contra los archivos reales del mes.
+   ══════════════════════════════════════════════════════════════════════ */
+var cel = function(ws,r,c){
+  var x=ws[XLSX.utils.encode_cell({r:r,c:c})];
+  return x ? (x.v!==undefined ? x.v : x.w) : null;
+};
+
+/* ── Hoja de indicadores ──────────────────────────────────────────────
+   Fila 1: el nombre de la categoría, combinado sobre 3 columnas.
+   Fila 2: cedula | nombre_completo | RESULTADO | META | CUMPLIMIENTO | …
+   El CUMPLIMIENTO es el puntaje ganado: trae el peso si cumplió, o 0.  */
+function leerHojaIndicadores(ws){
+  if(!ws || !ws['!ref']) return null;
+  var rg=XLSX.utils.decode_range(ws['!ref']);
+
+  /* Fila 1: al estar combinada, el nombre se arrastra a la derecha */
+  var cat=[], actual='';
+  for(var c=0;c<=rg.e.c;c++){
+    var v=cel(ws,0,c);
+    if(v!=null && String(v).trim()) actual=String(v).trim();
+    cat[c]=actual;
+  }
+  /* Fila 2: subtítulos */
+  var sub=[], colCed=-1, colNom=-1;
+  for(var c2=0;c2<=rg.e.c;c2++){
+    var s=String(cel(ws,1,c2)||'').trim();
+    sub[c2]=s;
+    if(/^c[eé]dula$/i.test(s))          colCed=c2;
+    else if(/nombre_completo|nombre/i.test(s) && colNom===-1) colNom=c2;
+  }
+  if(colCed===-1) return null;
+
+  /* Se agrupan las columnas por categoría */
+  var bloques=[];
+  for(var c3=0;c3<=rg.e.c;c3++){
+    if(c3===colCed||c3===colNom) continue;
+    if(!cat[c3] || /^agentes?$/i.test(cat[c3])) continue;
+    var b=bloques.filter(function(x){ return x.cat===cat[c3]; })[0];
+    if(!b){ b={cat:cat[c3], cols:[]}; bloques.push(b); }
+    b.cols.push({c:c3, sub:sub[c3]});
+  }
+
+  var filas=[];
+  for(var r=2;r<=rg.e.r;r++){
+    var cd=ced(cel(ws,r,colCed));
+    if(!cd) continue;
+    var reg={ ced:cd, nombre:String(cel(ws,r,colNom)||'').trim(), inds:[], extras:[] };
+    bloques.forEach(function(b){
+      var col=function(re){ return b.cols.filter(function(x){ return re.test(x.sub); })[0]; };
+      var cR=col(/^resultado$/i), cM=col(/^meta$/i), cC=col(/^cumplimiento$/i);
+      if(cR){
+        var res=cel(ws,r,cR.c), meta=cM?cel(ws,r,cM.c):null, pts=cC?cel(ws,r,cC.c):null;
+        var nRes=aNumero(res), nMeta=aNumero(meta), nPts=aNumero(pts);
+        reg.inds.push({ nombre:b.cat,
+          res:nRes, resTxt: fmt(nRes==null?res:nRes, b.cat),
+          meta:nMeta, metaTxt: nMeta==null?'':fmt(nMeta, b.cat),
+          pts:nPts, estado: veredicto(b.cat, nRes, nMeta, nPts) });
+      } else {
+        /* Bloques sin RESULTADO/META, como PRODUCTIVIDAD: se listan tal cual */
+        b.cols.forEach(function(x){
+          var v=cel(ws,r,x.c);
+          if(v==null||v==='') return;
+          var n=aNumero(v);
+          reg.extras.push({ grupo:b.cat, nombre:x.sub, texto:fmt(n==null?v:n, x.sub) });
+        });
+      }
+    });
+    filas.push(reg);
+  }
+  return filas;
+}
+
+/* Las celdas no siempre vienen como número: a veces quedan escritas como
+   texto —«98,0 %», «0,05», «13:23»— y así no se pueden comparar con la meta.
+   Aquí se convierten a número; el porcentaje queda en fracción, igual que
+   cuando Excel lo guarda como número. */
+function aNumero(v){
+  if(typeof v==='number') return v;
+  if(v==null) return null;
+  var t=String(v).replace(/\u00a0/g,' ').trim();
+  if(!t) return null;
+  if(/^\d{1,3}:\d{2}(:\d{2})?$/.test(t)){            // mm:ss o hh:mm:ss
+    var p=t.split(':').map(Number);
+    return p.length===2 ? p[0]*60+p[1] : p[0]*3600+p[1]*60+p[2];
+  }
+  var pct=/%/.test(t);
+  t=t.replace(/%/g,'').replace(/\s+/g,'');
+  /* Punto y coma pueden ser decimal o miles según quién escriba. El que
+     aparezca de último manda: en «1.234,5» decide la coma, en «1,234.5»
+     el punto. Con uno solo, ese es el decimal. */
+  var pp=t.lastIndexOf('.'), pc=t.lastIndexOf(',');
+  if(pp>=0 && pc>=0){
+    if(pc>pp) t=t.replace(/\./g,'').replace(',', '.');
+    else      t=t.replace(/,/g,'');
+  } else if(pc>=0) t=t.replace(',', '.');
+  if(!/^-?\d*\.?\d+$/.test(t)) return null;
+  var n=parseFloat(t);
+  if(isNaN(n)) return null;
+  return pct ? n/100 : n;
+}
+
+/* Si el resultado quedó en escala 0-100 y la meta en 0-1 —o al revés—, la
+   comparación daría cualquier cosa. Se llevan las dos a la misma escala. */
+function mismaEscala(res, meta){
+  if(res==null || meta==null) return [res, meta];
+  if(meta>0 && meta<=1 && res>1)  return [res/100, meta];
+  if(res>0 && res<=1 && meta>1 && meta<=100) return [res, meta/100];
+  return [res, meta];
+}
+
+/* En estos indicadores un número menor es mejor: no se cumple superando la
+   meta sino quedando por debajo. */
+var MENOR_ES_MEJOR = /tmo|tmr|aht|tiempo|ausent|abandon|desconex|error|mal\s*radicad|mora|espera/i;
+
+/* Cumple o no cumple sale de comparar el resultado con la meta, no de la
+   columna CUMPLIMIENTO: esa es un puntaje que el supervisor calcula aparte y,
+   si queda en cero, un 98% de adherencia aparecía en rojo.
+   El único caso que sí necesita esa columna es cuando resultado y meta son
+   cero: ahí no se distingue «cumplió con meta cero» de «no hay medición». */
+function veredicto(nombre, res, meta, pts){
+  /* Solo dos estados: cumple o no cumple. Una celda vacía no puede dar por
+     cumplido nada, así que cuenta como no cumple y se nota a simple vista. */
+  if(res==null || meta==null) return 'bad';
+  var e=mismaEscala(res, meta), r=e[0], m=e[1];
+  return (MENOR_ES_MEJOR.test(nombre) ? r<=m : r>=m) ? 'ok' : 'bad';
+}
+
+/* Porcentajes entre 0 y 1; TMO y TMR en segundos */
+function fmt(v, nombre){
+  if(v==null||v==='') return '—';
+  if(typeof v!=='number') return String(v);
+  var n=String(nombre||'');
+  if(/tmo|tmr|aht/i.test(n)){
+    var t=Math.round(v), m=Math.floor(t/60), s=t%60;
+    return m+':'+(s<10?'0':'')+s;
+  }
+  if(/dias|d[ií]as|promedio_diario|contestados|mensual/i.test(n) && v>1)
+    return Math.round(v).toLocaleString('es-CO');
+  if(v>=0 && v<=1) return (v*100).toFixed(1).replace('.',',')+'%';
+  return Number.isInteger(v) ? v.toLocaleString('es-CO') : v.toFixed(1).replace('.',',');
+}
+
+/* ── Hoja de pendientes ─────────────────────────────────────────────── */
+function leerHojaPendientes(ws){
+  if(!ws || !ws['!ref']) return [];
+  var rg=XLSX.utils.decode_range(ws['!ref']);
+  var hdr=-1, col={};
+  for(var r=0;r<=Math.min(8,rg.e.r);r++){
+    var e={};
+    for(var c=0;c<=rg.e.c;c++){
+      var v=cel(ws,r,c); if(v==null) continue;
+      var t=String(v).trim().toLowerCase(); if(!t) continue;
+      if(e.agente===undefined && /nombre_agente|user_name|nombre|agente|asesor/.test(t)) e.agente=c;
+      else if(e.id===undefined   && (/^id[_\s]/.test(t)||/genesys|interacc/.test(t)))     e.id=c;
+      else if(e.link===undefined && /link|url|gesti/.test(t))                             e.link=c;
+      else if(e.cola===undefined && /^cola$/.test(t))                                     e.cola=c;
+      else if(e.macro===undefined && /macroproceso/.test(t))                              e.macro=c;
+      else if(e.proc===undefined  && /^proceso$/.test(t))                                 e.proc=c;
+      else if(e.s1===undefined    && /subproceso[_\s]*(uno|1)/.test(t))                   e.s1=c;
+      else if(e.s2===undefined    && /subproceso[_\s]*(dos|2)/.test(t))                   e.s2=c;
+      else if(e.obs===undefined   && /observaci/.test(t))                                 e.obs=c;
+    }
+    if(e.agente!==undefined && (e.id!==undefined||e.link!==undefined)){ hdr=r; col=e; break; }
+  }
+  if(hdr===-1) return [];
+  var txt=function(r,c){ return c===undefined ? '' : String(cel(ws,r,c)||'').trim(); };
+  var out=[];
+  for(var r2=hdr+1;r2<=rg.e.r;r2++){
+    var nom=txt(r2,col.agente); if(!nom) continue;
+    out.push({ agente:nom, idLlamada:txt(r2,col.id), link:txt(r2,col.link), cola:txt(r2,col.cola),
+      macroproceso:txt(r2,col.macro), proceso:txt(r2,col.proc),
+      subproceso1:txt(r2,col.s1), subproceso2:txt(r2,col.s2), observaciones:txt(r2,col.obs) });
+  }
+  return out;
+}
+
+/* ── Hoja de auditorías «lado a lado» ────────────────────────────────
+   Primera columna: el nombre del agente. Una columna de fecha. Todas las
+   demás son criterios, y el supervisor escribe una observación en cada
+   una. No hay nota: lo que califica es lo que quede escrito. Si mañana
+   se agregan criterios nuevos, aparecen solos.                        */
+function leerHojaAuditorias(ws){
+  if(!ws || !ws['!ref']) return [];
+  var rg=XLSX.utils.decode_range(ws['!ref']);
+
+  var hdr=-1, colNom=-1, colFecha=-1, colId=-1, crit=[];
+  for(var r=0; r<=Math.min(8,rg.e.r); r++){
+    var nom=-1, fec=-1, id=-1, cs=[];
+    for(var c=0; c<=rg.e.c; c++){
+      var v=cel(ws,r,c); if(v==null) continue;
+      var t=String(v).trim(); if(!t) continue;
+      var tl=t.toLowerCase();
+      if(nom===-1 && /nombre|agente|asesor/.test(tl)){ nom=c; continue; }
+      if(fec===-1 && /fecha/.test(tl)){ fec=c; continue; }
+      if(id===-1  && (/^id\b/.test(tl) || /interacc|llamada|gesti/.test(tl))){ id=c; continue; }
+      if(nom!==-1) cs.push({c:c, nm:t});
+    }
+    if(nom!==-1 && cs.length){ hdr=r; colNom=nom; colFecha=fec; colId=id; crit=cs; break; }
+  }
+  if(hdr===-1) return [];
+
+  var out=[];
+  for(var r2=hdr+1; r2<=rg.e.r; r2++){
+    var nombre=String(cel(ws,r2,colNom)||'').trim();
+    if(!nombre) continue;
+    var obs=[];
+    crit.forEach(function(k){
+      var v=cel(ws,r2,k.c);
+      var txt=(v==null?'':String(v)).trim();
+      obs.push({ criterio:k.nm, texto:txt });
+    });
+    /* Una fila sin una sola observación es un agente aún sin auditar */
+    if(!obs.some(function(x){ return x.texto; })) continue;
+    var idTxt = colId===-1 ? '' : String(cel(ws,r2,colId)||'').trim();
+    out.push({ agente:nombre, fecha:fechaTexto(colFecha===-1?null:cel(ws,r2,colFecha)),
+               orden:fechaOrden(colFecha===-1?null:cel(ws,r2,colFecha)),
+               idInter:idTxt, link:colId===-1?'':enlaceDeCelda(ws,r2,colId), obs:obs });
+  }
+  return out;
+}
+
+/* El link puede venir de tres formas: como hipervínculo sobre la celda,
+   como texto pegado, o dentro de una fórmula HIPERVINCULO/HYPERLINK.   */
+function enlaceDeCelda(ws,r,c){
+  var ref=XLSX.utils.encode_cell({r:r,c:c});
+  var x=ws[ref];
+  if(!x) return '';
+  if(x.l && x.l.Target) return String(x.l.Target).trim();
+  if(x.f){
+    var m=String(x.f).match(/(?:HYPERLINK|HIPERVINCULO)\s*\(\s*"([^"]+)"/i);
+    if(m) return m[1].trim();
+  }
+  var v=String(x.v==null?'':x.v).trim();
+  return /^https?:\/\//i.test(v) ? v : '';
+}
+
+/* Cuando el ID viene pegado como la URL entera, mostrarla completa llena la
+   cabecera de ruido. Se busca el identificador de la interacción dentro. */
+function idBonito(txt){
+  var t=String(txt||'').trim();
+  if(!t) return '';
+  if(!/^https?:\/\//i.test(t)) return t;
+  var guid=t.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if(guid) return guid[0];
+  var partes=t.split(/[\/#?]+/).filter(function(x){ return x && !/^https?:$/i.test(x); });
+  return partes.length ? partes[partes.length-1] : '';
+}
+
+/* Se abre en una pestaña nueva del mismo Chrome, sin tocar el portal. */
+function abrirGestion(url){
+  if(!/^https?:\/\//i.test(url||'')){ aviso('Ese registro no trae link', true); return; }
+  window.open(url,'_blank','noopener,noreferrer');
+}
+
+/* El destino de la interacción va después del # y lo resuelve la propia
+   aplicación del CRM, no el servidor. Si el agente aún no ha iniciado
+   sesión, el CRM lo lleva a autenticarse y al volver lo deja en su bandeja,
+   perdiendo el destino. Copiar el enlace y pegarlo en la pestaña donde ya
+   tiene sesión abierta sí llega a la interacción. */
+function copiarEnlace(url, btn){
+  if(!/^https?:\/\//i.test(url||'')){ aviso('Ese registro no trae link', true); return; }
+  var listo=function(){
+    var antes=btn.textContent;
+    btn.textContent='✔ Copiado';
+    setTimeout(function(){ btn.textContent=antes; }, 2000);
+    aviso('Enlace copiado — pégalo en la pestaña donde ya tienes el CRM abierto');
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(listo, function(){ copiarAntiguo(url, listo); });
+  } else { copiarAntiguo(url, listo); }
+}
+function copiarAntiguo(url, listo){
+  var t=document.createElement('textarea');
+  t.value=url; t.setAttribute('readonly','');
+  t.style.cssText='position:fixed;top:-1000px;opacity:0';
+  document.body.appendChild(t); t.select();
+  try{ document.execCommand('copy'); listo(); }
+  catch(e){ aviso('No se pudo copiar. El enlace está en el título del botón.', true); }
+  t.remove();
+}
+
+/* Excel entrega la fecha como número de serie o como texto */
+function fechaSerie(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number'){
+    /* El serial de Excel cuenta días desde 1900 y se arma en UTC. Si se
+       leyera con la hora local, en Colombia caería un día antes, así que
+       se reconstruye con las partes en UTC. */
+    var u=new Date(Math.round((v-25569)*86400000));
+    if(isNaN(u.getTime())) return null;
+    return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(),
+                    u.getUTCHours(), u.getUTCMinutes());
+  }
+  if(v instanceof Date) return v;
+  var s=String(v).trim();
+  var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){
+    var a=m[3].length===2?('20'+m[3]):m[3];
+    return new Date(+a, +m[2]-1, +m[1]);
+  }
+  var d2=new Date(s);
+  return isNaN(d2.getTime())?null:d2;
+}
+function fechaTexto(v){
+  var d=fechaSerie(v);
+  if(!d) return String(v==null?'':v).trim();
+  return d.toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'});
+}
+function fechaOrden(v){
+  var d=fechaSerie(v);
+  return d ? d.getTime() : 0;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   LECTURA DE LA MALLA DE TURNOS
+   El archivo de la malla es una sola hoja plana: una fila por agente y
+   por día, con el turno y cada pausa en su par de columnas.
+   ══════════════════════════════════════════════════════════════════════ */
+var NOMBRE_PAUSA={ 'des_1':'Descanso 1','des_2':'Descanso 2','des_3':'Descanso 3',
+  'lunch':'Almuerzo','training_1':'Capacitación 1','training_2':'Capacitación 2',
+  'lac':'Lactancia','break_1':'Descanso 1','break_2':'Descanso 2' };
+
+/* La hora puede venir como texto «15:00:00», como fracción del día o como
+   fecha completa. Todo se lleva a minutos desde medianoche. */
+function minutos(v){
+  if(v==null||v==='') return 0;
+  if(typeof v==='number'){
+    var fr=v-Math.floor(v);
+    return Math.round(fr*1440)%1440;
+  }
+  if(v instanceof Date) return v.getHours()*60+v.getMinutes();
+  var m=String(v).trim().match(/^(\d{1,2}):(\d{2})/);
+  return m ? ((+m[1])%24)*60+(+m[2]) : 0;
+}
+function fechaISO(v){
+  var d=fechaSerie(v);
+  if(!d) return '';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+    +'-'+String(d.getDate()).padStart(2,'0');
+}
+/* ¿Este libro es la malla y no el de resultados? */
+function esMalla(wb){
+  return wb.SheetNames.some(function(h){
+    var ws=wb.Sheets[h];
+    if(!ws||!ws['!ref']) return false;
+    var rg=XLSX.utils.decode_range(ws['!ref']);
+    var nov=false, tur=false;
+    for(var r=0;r<=Math.min(8,rg.e.r);r++){
+      for(var c=0;c<=Math.min(60,rg.e.c);c++){
+        var t=String(cel(ws,r,c)||'').trim().toLowerCase();
+        if(/^novedad$/.test(t)) nov=true;
+        if(/^turno[_\s]*ini/.test(t)) tur=true;
+      }
+      if(nov&&tur) return true;
+    }
+    return false;
+  });
+}
+
+function leerMalla(wb){
+  var filas=[];
+  wb.SheetNames.forEach(function(hoja){
+    var ws=wb.Sheets[hoja];
+    if(!ws||!ws['!ref']) return;
+    var rg=XLSX.utils.decode_range(ws['!ref']);
+
+    var hdr=-1, col=null;
+    for(var r=0;r<=Math.min(8,rg.e.r);r++){
+      var e={ps:[]};
+      for(var c=0;c<=rg.e.c;c++){
+        var t=String(cel(ws,r,c)||'').trim().toLowerCase().replace(/\s+/g,'_');
+        if(!t) continue;
+        if(e.f===undefined   && /^fecha/.test(t))                     e.f=c;
+        else if(e.doc===undefined && /^(documento|c[eé]dula|cedula)/.test(t)) e.doc=c;
+        else if(e.nom===undefined && /nombre/.test(t))                e.nom=c;
+        else if(e.sup===undefined && /supervisor/.test(t))            e.sup=c;
+        else if(e.sk===undefined  && /^(servicio|skill|cola)/.test(t)) e.sk=c;
+        else if(e.nov===undefined && /^novedad/.test(t))              e.nov=c;
+        else if(e.hrs===undefined && /horas/.test(t))                 e.hrs=c;
+        else if(e.ini===undefined && /^turno_?ini/.test(t))           e.ini=c;
+        else if(e.fin===undefined && /^turno_?fin/.test(t))           e.fin=c;
+        else {
+          var m=t.match(/^(des_?\d|lunch|training_?\d|lac|break_?\d)_?(ini|fin)$/);
+          if(m) e.ps.push({ c:c, k:m[1].replace(/_?(\d)$/,'_$1'), cual:m[2] });
+        }
+      }
+      if(e.f!==undefined && e.nom!==undefined && e.ini!==undefined){ hdr=r; col=e; break; }
+    }
+    if(hdr===-1) return;
+
+    /* Las pausas quedan emparejadas por su nombre: Des_1_Ini con Des_1_Fin */
+    var pares={};
+    col.ps.forEach(function(x){
+      pares[x.k]=pares[x.k]||{};
+      pares[x.k][x.cual]=x.c;
+    });
+
+    var tx=function(r,c){ return c===undefined ? '' : String(cel(ws,r,c)||'').trim(); };
+    for(var r2=hdr+1;r2<=rg.e.r;r2++){
+      var f=fechaISO(cel(ws,r2,col.f));
+      var nom=tx(r2,col.nom).replace(/\s+/g,' ');
+      if(!f || !nom) continue;
+      var ps=[];
+      Object.keys(pares).forEach(function(k){
+        var pi=pares[k].ini, pf=pares[k].fin;
+        if(pi===undefined||pf===undefined) return;
+        var a=minutos(cel(ws,r2,pi)), b=minutos(cel(ws,r2,pf));
+        if(b>a) ps.push([a,b,NOMBRE_PAUSA[k]||k]);
+      });
+      ps.sort(function(x,y){ return x[0]-y[0]; });
+      filas.push({
+        f:f, doc:ced(cel(ws,r2,col.doc)), nom:nom,
+        sup:tx(r2,col.sup), sk:tx(r2,col.sk).toUpperCase(),
+        nov:tx(r2,col.nov).toUpperCase() || 'TUR',
+        hrs:aNumero(cel(ws,r2,col.hrs))||0,
+        ini:minutos(cel(ws,r2,col.ini)), fin:minutos(cel(ws,r2,col.fin)),
+        ps:ps
+      });
+    }
+  });
+  return filas;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   COBERTURA
+   Un turno de 22:00 a 05:00 ocupa dos días: las horas antes de medianoche
+   cuentan en su fecha y las de madrugada en la del día siguiente. Por eso
+   la cobertura de un día se arma mirando también la víspera.
+   ══════════════════════════════════════════════════════════════════════ */
+function fechasMalla(){
+  return [...new Set(MALLA.map(function(f){ return f.f; }))].sort();
+}
+function fechaLarga(f){
+  var d=new Date(f+'T00:00:00');
+  return DIAS[d.getDay()]+' '+d.getDate()+' de '+MESES[d.getMonth()];
+}
+function filtrosTur(){
+  var g=function(id){ var e=document.getElementById(id); return e?e.value:''; };
+  return { sk:g('f-sk'), sup:g('f-sup'), q:norm(g('f-q').trim()) };
+}
+function pasaTur(f, ft){
+  if(ft.sk && f.sk!==ft.sk) return false;
+  if(ft.sup && f.sup!==ft.sup) return false;
+  if(ft.q && norm(f.nom).indexOf(ft.q)===-1 && String(f.doc).indexOf(ft.q)===-1) return false;
+  return true;
+}
+function turnosQueTocan(fecha, ft){
+  var ayer=new Date(new Date(fecha+'T00:00:00').getTime()-86400000).toISOString().slice(0,10);
+  var out=[];
+  MALLA.forEach(function(f){
+    if(f.nov!=='TUR' || f.fin===f.ini) return;
+    if(!pasaTur(f, ft)) return;
+    var cruza = f.fin <= f.ini;
+    if(f.f===fecha)              out.push({f:f, ini:f.ini, fin:cruza? f.fin+1440 : f.fin});
+    else if(f.f===ayer && cruza) out.push({f:f, ini:f.ini-1440, fin:f.fin});
+  });
+  return out;
+}
+/* ¿Está disponible en ese tramo? Descontando pausas se le quitan los
+   descansos, el almuerzo y la capacitación. */
+function dentro(t, a, b, modo){
+  if(!(Math.max(t.ini,a) < Math.min(t.fin,b))) return false;
+  if(modo!=='conectado') return true;
+  var libre=Math.min(t.fin,b)-Math.max(t.ini,a);
+  (t.f.ps||[]).forEach(function(p){
+    var pi=p[0], pf=p[1];
+    if(t.ini<0){ pi-=1440; pf-=1440; }     // la cola de madrugada corre un día
+    libre-=Math.max(0, Math.min(pf,b)-Math.max(pi,a));
+  });
+  return libre>0;
+}
+function cobertura(fecha, ft, modo){
+  var ts=turnosQueTocan(fecha, ft);
+  var skills=[...new Set(ts.map(function(t){ return t.f.sk; }))]
+    .sort(function(a,b){ return (SKILL[a]||a).localeCompare(SKILL[b]||b); });
+  var grid={}, total=[];
+  skills.forEach(function(s){ grid[s]=[]; });
+  for(var h=0;h<24;h++){
+    var a=h*60, b=a+60, tot=0;
+    skills.forEach(function(s){
+      var n=ts.filter(function(t){ return t.f.sk===s && dentro(t,a,b,modo); }).length;
+      grid[s].push(n); tot+=n;
+    });
+    total.push(tot);
+  }
+  return { skills:skills, grid:grid, total:total };
+}
+function agentesEn(fecha, sk, h, ft, modo){
+  var a=h*60, b=a+60;
+  return turnosQueTocan(fecha, ft)
+    .filter(function(t){ return (!sk||t.f.sk===sk) && dentro(t,a,b,modo); })
+    .map(function(t){ return t.f; })
+    .sort(function(x,y){ return x.nom.localeCompare(y.nom); });
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SESIÓN
+   Dos puertas en el mismo archivo: la cuenta de supervisión entra con
+   nombre y contraseña; cada agente, con su cédula en los dos campos.
+   ══════════════════════════════════════════════════════════════════════ */
+function entrar(){
+  var uR=document.getElementById('u').value.trim();
+  var pR=document.getElementById('p').value;
+  var err=document.getElementById('acc-err');
+  var fallo=function(t){
+    err.textContent=t; err.style.display='block';
+    err.style.animation='none'; void err.offsetWidth; err.style.animation='';
+  };
+  if(!uR||!pR) return fallo('Escribe tu usuario y tu contraseña.');
+
+  /* Supervisión */
+  if(uR.toLowerCase()===SUPERVISOR.usuario.toLowerCase()){
+    if(SUPERVISOR.hash.length!==64)
+      return fallo('Esta copia es la de los agentes: la supervisión está desactivada.');
+    if(sha256(SUPERVISOR.sal+pR)!==SUPERVISOR.hash)
+      return fallo('Contraseña incorrecta.');
+    return abrirSesion({ nombre:SUPERVISOR.nombre, cargo:SUPERVISOR.cargo, ced:'' }, true);
+  }
+
+  /* Agentes: usuario y contraseña son la misma cédula */
+  var u=ced(uR), p=ced(pR);
+  var yo=AGENTES.filter(function(a){ return ced(a.ced)===u; })[0];
+  if(!u || !yo || u!==p)
+    return fallo('Cédula incorrecta. Recuerda: el usuario y la contraseña son tu misma cédula.');
+  abrirSesion(yo, false);
+}
+
+function abrirSesion(quien, mando){
+  YO=quien; MANDO=mando;
+  FOCO = mando ? null : quien;
+  document.getElementById('acc-err').style.display='none';
+  document.getElementById('p').value='';
+
+  var acc=document.getElementById('acceso');
+  acc.classList.add('fuera');
+  setTimeout(function(){ acc.style.display='none'; }, 860);
+
+  var sh=document.getElementById('shell');
+  sh.style.display='block';
+  document.getElementById('av').textContent=iniciales(quien.nombre) || 'O';
+  document.getElementById('qn').innerHTML=esc(quien.nombre)
+    +'<small>'+esc(mando ? SUPERVISOR.cargo : (quien.canal+' · C.C. '+quien.ced))+'</small>';
+  document.getElementById('marca-sub').textContent = mando ? 'Supervisión · Chat y RRSS'
+                                                           : (quien.canal||'Chat y RRSS');
+  /* Los botones de carga y de generación son solo de la supervisión */
+  ['bt-cargar','bt-paquete'].forEach(function(id){
+    document.getElementById(id).style.display = mando ? '' : 'none';
+  });
+  document.getElementById('bt-sobrio').textContent = SOBRIO ? '⚡ Efectos: off' : '⚡ Efectos';
+
+  pintarPestanas();
+  marca('mk-nav');
+  irA(mando?'mando':'detalle', null, true);
+  pulso();
+}
+
+function salir(){
+  YO=null; MANDO=false; FOCO=null;
+  if(!PAQUETE){ IND=[]; PEND=[]; AUD=[]; MALLA=[]; ARCH_RES=''; ARCH_MAL=''; }
+  if(MED_MANDO) MED_MANDO.parar();
+  if(MED_FOCO)  MED_FOCO.parar();
+  MED_MANDO=MED_FOCO=null;
+  document.getElementById('shell').style.display='none';
+  var acc=document.getElementById('acceso');
+  acc.classList.remove('fuera'); acc.style.display='flex';
+  document.getElementById('u').value=''; document.getElementById('p').value='';
+  cerrarLado();
+}
+
+/* ══ NAVEGACIÓN ══════════════════════════════════════════════════════ */
+function pintarPestanas(){
+  var lista = MANDO
+    ? [['mando','Mando'],['equipo','Mi equipo'],['detalle','Agente'],
+       ['turnos','Turnos'],['paquete','Portal de agentes']]
+    : [['detalle','Mis resultados']];
+  if(!MANDO && misTurnos().length) lista.push(['turnos','Mi semana']);
+  document.getElementById('pestanas').innerHTML = lista.map(function(x,i){
+    return '<button class="pes'+(i===0?' act':'')+'" data-v="'+x[0]+'" '
+      +'onclick="irA(\''+x[0]+'\',this)">'+esc(x[1])+'</button>';
+  }).join('');
+}
+
+function irA(v, btn, callado){
+  VISTA=v;
+  document.querySelectorAll('.vista').forEach(function(s){ s.classList.remove('act'); });
+  var sec=document.getElementById('v-'+v);
+  if(!sec) return;
+  sec.classList.add('act');
+  document.querySelectorAll('.pes').forEach(function(t){
+    t.classList.toggle('act', t.getAttribute('data-v')===v);
+  });
+  pintarVista(v);
+  if(!callado) pulso();
+  revelar(sec, 40);
+  if(!callado) window.scrollTo({top:0, behavior:QUIETO?'auto':'smooth'});
+}
+
+function irSub(s, btn){
+  SUB=s;
+  document.querySelectorAll('#v-detalle .ssec').forEach(function(x){ x.classList.remove('act'); });
+  document.getElementById('ss-'+s).classList.add('act');
+  document.querySelectorAll('#sp-detalle button').forEach(function(b){ b.classList.remove('act'); });
+  if(btn) btn.classList.add('act');
+  pulso();
+  revelar(document.getElementById('ss-'+s), 20);
+}
+
+/* ══ A QUIÉN SE ESTÁ MIRANDO ═════════════════════════════════════════ */
+function enfocar(cedula){
+  var c=ced(cedula);
+  var ag=AGENTES.filter(function(a){ return ced(a.ced)===c; })[0];
+  if(!ag) return;
+  FOCO=ag;
+  pintarVista('detalle');
+}
+function verAgente(cedula){
+  enfocar(cedula);
+  irA('detalle');
+}
+
+/* Los datos de una persona, cruzados como corresponde: los indicadores y
+   la malla por cédula; los pendientes y los lado a lado por nombre, que
+   es lo único que traen esas hojas. */
+function datosDe(ag){
+  if(!ag) return { ind:null, pend:[], aud:[], malla:[] };
+  var n=norm(ag.nombre), c=ced(ag.ced||'');
+  return {
+    ind: (c? IND.filter(function(f){ return f.ced===c; })[0] : null)
+         || IND.filter(function(f){ return norm(f.nombre)===n; })[0] || null,
+    pend: PEND.filter(function(p){ return norm(p.agente)===n; }),
+    aud : AUD.filter(function(a){ return norm(a.agente)===n; })
+             .sort(function(x,y){ return y.orden-x.orden; }),
+    malla: c ? MALLA.filter(function(m){ return m.doc===c; })
+                    .sort(function(x,y){ return x.f<y.f?-1:1; }) : []
+  };
+}
+function misTurnos(){ return YO && !MANDO ? datosDe(YO).malla : []; }
+
+/* ══ RECEPCIÓN DE ARCHIVOS ═══════════════════════════════════════════ */
+function recibirArchivos(files){
+  if(!files || !files.length) return;
+  if(typeof XLSX==='undefined'){
+    aviso('No se cargó el lector de Excel. Revisa la conexión y vuelve a abrir el archivo.', true);
+    return;
+  }
+  var lista=[].slice.call(files), leidos=[];
+  (function siguiente(){
+    if(!lista.length){
+      var f=document.getElementById('fx'); if(f) f.value='';
+      pintarVista(VISTA); pintarPestanas();
+      document.querySelectorAll('.pes').forEach(function(t){
+        t.classList.toggle('act', t.getAttribute('data-v')===VISTA); });
+      if(leidos.length) aviso('✔ '+leidos.join(' · '));
+      pulso();
+      return;
+    }
+    var file=lista.shift();
+    var fr=new FileReader();
+    fr.onload=function(ev){
+      try{
+        var wb=XLSX.read(ev.target.result, {type:'array'});
+        if(esMalla(wb)){
+          MALLA=leerMalla(wb); ARCH_MAL=file.name;
+          leidos.push('Malla: '+MALLA.length+' registros');
+        } else {
+          var r=leerResultados(wb);
+          if(!r.ind.length && !r.pend.length && !r.aud.length){
+            aviso('De «'+file.name+'» no se pudo sacar nada. ¿Es el archivo del mes?', true);
+          } else {
+            IND=r.ind; PEND=r.pend; AUD=r.aud; ARCH_RES=file.name;
+            leidos.push('Resultados: '+r.ind.length+' agentes, '+r.pend.length
+              +' pendientes, '+r.aud.length+' lado a lado');
+          }
+        }
+      }catch(err){
+        aviso('No se pudo leer «'+file.name+'»: '+err.message, true);
+      }
+      siguiente();
+    };
+    fr.onerror=function(){ aviso('No se pudo abrir «'+file.name+'»', true); siguiente(); };
+    fr.readAsArrayBuffer(file);
+  })();
+}
+
+/* Del libro de resultados se guarda todo, no solo lo de una persona: es
+   la cuenta de supervisión la que lo abre. */
+function leerResultados(wb){
+  var ind=[], pend=[], aud=[];
+  wb.SheetNames.forEach(function(hoja){
+    if(/indicadores/i.test(hoja)){
+      if(!/(chat|rrss|redes)/i.test(hoja)) return;     // por ahora solo estos dos canales
+      var filas=leerHojaIndicadores(wb.Sheets[hoja]);
+      if(filas) filas.forEach(function(f){ f.hoja=hoja; ind.push(f); });
+      return;
+    }
+    if(/pendiente|tipific/i.test(hoja)){
+      pend=pend.concat(leerHojaPendientes(wb.Sheets[hoja])); return;
+    }
+    if(/lado\s*a\s*lado|auditor|acompa/i.test(hoja))
+      aud=aud.concat(leerHojaAuditorias(wb.Sheets[hoja]));
+  });
+  return { ind:ind, pend:pend, aud:aud };
+}
+
+/* Arrastrar y soltar sobre la zona de carga */
+function activarSoltar(el){
+  if(!el || el._soltar) return; el._soltar=true;
+  ['dragenter','dragover'].forEach(function(ev){
+    el.addEventListener(ev, function(e){ e.preventDefault(); el.classList.add('sobre'); });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    el.addEventListener(ev, function(e){ e.preventDefault(); el.classList.remove('sobre'); });
+  });
+  el.addEventListener('drop', function(e){
+    if(e.dataTransfer && e.dataTransfer.files) recibirArchivos(e.dataTransfer.files);
+  });
+}
+
+/* ══ PANEL LATERAL ═══════════════════════════════════════════════════ */
+function abrirLado(tit, sub, html){
+  document.getElementById('lado-t').textContent=tit;
+  document.getElementById('lado-s').textContent=sub;
+  document.getElementById('lado-b').innerHTML=html;
+  document.getElementById('lado').classList.add('on');
+  document.getElementById('velo').classList.add('on');
+}
+function cerrarLado(){
+  document.getElementById('lado').classList.remove('on');
+  document.getElementById('velo').classList.remove('on');
+}
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape') cerrarLado();
+  if(e.key==='Enter' && document.getElementById('acceso').style.display!=='none'
+     && !document.getElementById('acceso').classList.contains('fuera')) entrar();
+});
+
+/* ══════════════════════════════════════════════════════════════════════
+   VISTAS
+   ══════════════════════════════════════════════════════════════════════ */
+var MED_MANDO=null, MED_FOCO=null;
+var ORDEN='peor';                  // cómo se ordena la nómina
+var MODO_COB='turno';              // 'turno' o 'conectado'
+var DIA_TUR='';
+
+function pintarVista(v){
+  if(v==='mando')        pintarMando();
+  else if(v==='equipo')  pintarEquipo();
+  else if(v==='detalle') pintarDetalle();
+  else if(v==='turnos')  pintarTurnos();
+  else if(v==='paquete') pintarPaquete();
+  activarCristal();
+}
+function hayDatos(){ return !!(IND.length || PEND.length || AUD.length); }
+function pct(x){ return (x*100).toFixed(1).replace('.',',')+'%'; }
+
+/* Resumen de cada persona de la nómina */
+function resumen(){
+  return AGENTES.map(function(a){
+    var d=datosDe(a);
+    var tot=d.ind? d.ind.inds.length : 0;
+    var ok =d.ind? d.ind.inds.filter(function(i){ return i.estado==='ok'; }).length : 0;
+    return { ag:a, ind:d.ind, tot:tot, ok:ok, frac: tot? ok/tot : null,
+             pend:d.pend.length, aud:d.aud.length };
+  });
+}
+
+/* ══ Zona de carga ═══════════════════════════════════════════════════ */
+function zonaCarga(){
+  var r=!!IND.length||!!PEND.length||!!AUD.length, m=!!MALLA.length;
+  return '<div class="suelta gl blur" id="suelta">'
+    +'<div class="ic">◈</div>'
+    +'<h3>Carga los archivos del periodo</h3>'
+    +'<p>Arrastra aquí los Excel, o usa <b>Cargar Excel</b> arriba. Puedes soltar los dos '
+    +'a la vez: el tablero reconoce solo cuál es el de resultados y cuál la malla de turnos.</p>'
+    +'<button class="bt cian" onclick="document.getElementById(\'fx\').click()">'
+    +'⬆ Escoger archivos</button>'
+    +'<div class="pasos">'
+    +'<div class="paso'+(r?' listo':'')+'"><div class="k">'+(r?'✔ LISTO':'01')+'</div>'
+      +'<h4>Excel de resultados</h4><p>'+(r
+        ? esc(ARCH_RES)+'<br>'+IND.length+' agentes · '+PEND.length+' pendientes · '
+          +AUD.length+' lado a lado'
+        : 'El del mes, con las hojas de indicadores, los pendientes por tipificar y los '
+          +'acompañamientos lado a lado.')+'</p></div>'
+    +'<div class="paso'+(m?' listo':'')+'"><div class="k">'+(m?'✔ LISTO':'02')+'</div>'
+      +'<h4>Malla de turnos</h4><p>'+(m
+        ? esc(ARCH_MAL)+'<br>'+MALLA.length+' registros · '+fechasMalla().length+' días'
+        : 'La malla de la semana. Es opcional: sirve para la cobertura hora a hora y para '
+          +'que cada agente vea su propia jornada.')+'</p></div>'
+    +'<div class="paso"><div class="k">03</div><h4>Generar el portal</h4>'
+      +'<p>Cuando los datos estén listos, en <b>Portal de agentes</b> descargas el HTML '
+      +'que les repartes.</p></div>'
+    +'</div></div>';
+}
+
+/* ══ MANDO: la foto del equipo ═══════════════════════════════════════ */
+function pintarMando(){
+  var c=document.getElementById('c-mando');
+  document.getElementById('s-mando').textContent = hayDatos()
+    ? 'Archivo: '+ARCH_RES+(MALLA.length? ' · Malla: '+ARCH_MAL : '')
+    : 'Carga el Excel del mes para ver cómo va el equipo.';
+  if(!hayDatos()){ c.innerHTML=zonaCarga(); activarSoltar(document.getElementById('suelta')); return; }
+
+  var r=resumen();
+  var medidos=r.filter(function(x){ return x.tot; });
+  var frac = medidos.length
+    ? medidos.reduce(function(a,x){ return a+x.frac; },0)/medidos.length : 0;
+  var pendTot=r.reduce(function(a,x){ return a+x.pend; },0);
+  var conPend=r.filter(function(x){ return x.pend>0; }).length;
+  var sinAud=r.filter(function(x){ return !x.aud; }).length;
+  var bajo=medidos.filter(function(x){ return x.frac<0.8; }).length;
+  var tono = frac>=0.9 ? 'ok' : (frac>=0.75 ? 'cyan' : 'bad');
+
+  var h='<div class="mando">'
+    +'<div class="medidor gl blur tilt rev">'
+      +'<div class="lienzo"><canvas id="dial-mando"></canvas>'
+        +'<div class="centro"><div class="cifra" id="cifra-mando">0<small>%</small></div>'
+        +'<div class="rot">Indicadores en meta</div>'
+        +'<div class="det">'+medidos.length+' agentes medidos</div></div></div>'
+      +'<div class="refl"><canvas id="dial-mando-r"></canvas></div>'
+    +'</div>'
+    +'<div class="rejilla rev" style="grid-template-columns:repeat(2,1fr);align-content:stretch">'
+      +tarjeta('Agentes en nómina', AGENTES.length, 'neutro', medidos.length+' con medición')
+      +tarjeta('Pendientes por tipificar', pendTot, pendTot?'bad':'ok',
+               conPend+' agentes con cola')
+      +tarjeta('Bajo el 80%', bajo, bajo?'bad':'ok', 'de sus indicadores en meta')
+      +tarjeta('Sin lado a lado', sinAud, sinAud?'neutro':'ok',
+               AUD.length+' acompañamientos cargados')
+    +'</div></div>';
+
+  /* Dónde está fallando el equipo: un indicador por barra */
+  var porInd={};
+  r.forEach(function(x){
+    if(!x.ind) return;
+    x.ind.inds.forEach(function(i){
+      var k=porInd[i.nombre]=porInd[i.nombre]||{ok:0,n:0};
+      k.n++; if(i.estado==='ok') k.ok++;
+    });
+  });
+  var barras=Object.keys(porInd).map(function(k){
+    return { et:k, v:porInd[k].ok/porInd[k].n, nota:porInd[k].ok+' de '+porInd[k].n };
+  }).sort(function(a,b){ return a.v-b.v; });
+
+  if(barras.length){
+    h+='<div class="panelo gl blur rev"><div class="ph">'
+      +'<span class="tt">Dónde está fallando el equipo</span>'
+      +'<span class="ss">Agentes en meta por indicador · de peor a mejor</span></div>'
+      +'<div class="pc pad">'+svgBarras(barras)+'</div></div>';
+  }
+
+  /* Cumplimiento agente por agente, en trazo continuo */
+  var curva=medidos.slice().sort(function(a,b){ return a.frac-b.frac; });
+  if(curva.length>2){
+    h+='<div class="panelo gl blur rev"><div class="ph">'
+      +'<span class="tt">Cumplimiento por agente</span>'
+      +'<span class="ss">Ordenados de menor a mayor · toca un punto para abrir su detalle</span></div>'
+      +'<div class="pc pad">'+svgCurva(curva)+'</div></div>';
+  }
+
+  /* Los que necesitan atención primero */
+  var urgentes=r.filter(function(x){ return x.pend>0 || (x.frac!=null&&x.frac<0.8); })
+    .sort(function(a,b){ return (b.pend-a.pend) || ((a.frac==null?9:a.frac)-(b.frac==null?9:b.frac)); })
+    .slice(0,8);
+  if(urgentes.length){
+    h+='<div class="panelo gl blur rev"><div class="ph">'
+      +'<span class="tt">Atender primero</span>'
+      +'<span class="ss">Por cola de tipificación y por indicadores fuera de meta</span></div>'
+      +'<div class="pc"><table class="dt"><thead><tr>'
+      +'<th>Agente</th><th>Canal</th><th class="cen">Pendientes</th>'
+      +'<th>Indicadores en meta</th><th class="cen">Lado a lado</th><th></th>'
+      +'</tr></thead><tbody>';
+    urgentes.forEach(function(x){ h+=filaAgente(x); });
+    h+='</tbody></table></div></div>';
+  }
+
+  c.innerHTML=h;
+  activarCristal(c);
+  animarTrazos(c);
+  revelar(c);
+  var cv=document.getElementById('dial-mando');
+  if(cv){
+    MED_MANDO=new Medidor(cv, document.getElementById('dial-mando-r'));
+    MED_MANDO.set(frac, tono);
+    contar(document.getElementById('cifra-mando'), frac*100, 1);
+  }
+}
+
+function tarjeta(nom, val, cls, nota){
+  return '<div class="tj gl tilt '+cls+'"><div class="est"></div>'
+    +'<div class="n">'+esc(nom)+'</div>'
+    +'<div class="v">'+esc(String(val))+'</div>'
+    +(nota? '<div class="m">'+esc(nota)+'</div>' : '')+'</div>';
+}
+
+function filaAgente(x){
+  var f=x.frac;
+  return '<tr><td class="nm">'+esc(x.ag.nombre)+'</td>'
+    +'<td><span class="etq fr">'+esc(x.ag.canal)+'</span></td>'
+    +'<td class="cen">'+(x.pend
+        ? '<span class="etq bad">'+x.pend+'</span>'
+        : '<span class="etq ok">0</span>')+'</td>'
+    +'<td>'+(f==null
+        ? '<span class="etq gr">Sin medición</span>'
+        : '<div class="prop"><div class="p"><i style="width:'+(f*100).toFixed(1)+'%;background:'
+          +(f>=0.9?'linear-gradient(90deg,#34D399,#A7F3D0)'
+             :f>=0.75?'linear-gradient(90deg,#22D3EE,#C4B5FD)'
+                     :'linear-gradient(90deg,#FB7185,#FECDD3)')+'"></i></div>'
+          +'<div class="q">'+x.ok+' de '+x.tot+' · '+pct(f)+'</div></div>')+'</td>'
+    +'<td class="cen">'+(x.aud? '<span class="etq ok">'+x.aud+'</span>'
+                              : '<span class="etq gr">—</span>')+'</td>'
+    +'<td><button class="bt cian" onclick="verAgente(\''+esc(x.ag.ced)+'\')">Ver →</button></td>'
+    +'</tr>';
+}
+
+/* Cuenta ascendente de la cifra del dial */
+function contar(el, hasta, dec){
+  if(!el) return;
+  var fin=hasta||0;
+  if(SOBRIO||QUIETO){
+    el.innerHTML=fin.toFixed(dec||0).replace('.',',')+'<small>%</small>'; return;
+  }
+  var t0=0, dur=1250;
+  (function paso(ts){
+    if(!t0) t0=ts;
+    var k=Math.min(1,(ts-t0)/dur);
+    var e=1-Math.pow(1-k,3);
+    el.innerHTML=(fin*e).toFixed(dec||0).replace('.',',')+'<small>%</small>';
+    if(k<1) requestAnimationFrame(paso);
+  })(performance.now());
+}
+
+/* ══ Gráficas ════════════════════════════════════════════════════════ */
+function defsSVG(){
+  return '<defs>'
+    +'<linearGradient id="gcv" x1="0" y1="0" x2="1" y2="0">'
+      +'<stop offset="0" stop-color="#22D3EE"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient>'
+    +'<linearGradient id="gar" x1="0" y1="0" x2="0" y2="1">'
+      +'<stop offset="0" stop-color="#22D3EE" stop-opacity=".40"/>'
+      +'<stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/></linearGradient>'
+    +'<filter id="luz" x="-50%" y="-50%" width="200%" height="200%">'
+      +'<feGaussianBlur stdDeviation="4.5" result="b"/>'
+      +'<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
+    +'</defs>';
+}
+
+/* Barras horizontales que crecen de izquierda a derecha */
+function svgBarras(datos){
+  var alto=datos.length*34+14, anchoEt=250, W=1000;
+  var h='<svg viewBox="0 0 '+W+' '+alto+'" style="width:100%;height:'+alto
+    +'px;display:block;overflow:visible">'+defsSVG();
+  datos.forEach(function(d,i){
+    var y=i*34+6, largo=(W-anchoEt-120)*Math.max(0.004,d.v);
+    var col = d.v>=0.9 ? '#34D399' : (d.v>=0.75 ? 'url(#gcv)' : '#FB7185');
+    h+='<text x="0" y="'+(y+15)+'" fill="#A9B8DE" font-size="12" font-weight="600">'
+        +esc(d.et.length>36? d.et.slice(0,35)+'…' : d.et)+'</text>'
+      +'<rect x="'+anchoEt+'" y="'+(y+4)+'" width="'+(W-anchoEt-120)+'" height="15" rx="7"'
+        +' fill="rgba(255,255,255,.055)"/>'
+      +'<rect class="crece" x="'+anchoEt+'" y="'+(y+4)+'" width="'+largo.toFixed(1)+'" height="15"'
+        +' rx="7" fill="'+col+'" filter="url(#luz)"'
+        +' style="transform-box:fill-box;transform-origin:left center"/>'
+      +'<text x="'+(W-110)+'" y="'+(y+15)+'" fill="#EAF1FF" font-size="12" font-weight="700"'
+        +' font-family="ui-monospace,monospace">'+pct(d.v)+'</text>'
+      +'<text x="'+(W-40)+'" y="'+(y+15)+'" fill="#6E7FAB" font-size="10.5">'+esc(d.nota)+'</text>';
+  });
+  return h+'</svg>';
+}
+
+/* Curva de cumplimiento con área y trazo progresivo */
+function svgCurva(datos){
+  var W=1000, H=230, mx=46, my=26;
+  var n=datos.length;
+  var px=function(i){ return mx+(W-mx*2)*(n<2?0.5:i/(n-1)); };
+  var py=function(v){ return H-my-(H-my*2)*v; };
+  var pts=datos.map(function(d,i){ return [px(i), py(d.frac)]; });
+  /* Trazo suave: un control a media distancia entre puntos */
+  var d1='M'+pts[0][0].toFixed(1)+','+pts[0][1].toFixed(1);
+  for(var i=1;i<pts.length;i++){
+    var a=pts[i-1], b=pts[i], mxp=(a[0]+b[0])/2;
+    d1+=' C'+mxp.toFixed(1)+','+a[1].toFixed(1)+' '+mxp.toFixed(1)+','+b[1].toFixed(1)
+       +' '+b[0].toFixed(1)+','+b[1].toFixed(1);
+  }
+  var area=d1+' L'+pts[pts.length-1][0].toFixed(1)+','+(H-my)+' L'+pts[0][0].toFixed(1)
+    +','+(H-my)+' Z';
+  var h='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:'+H
+    +'px;display:block;overflow:visible">'+defsSVG();
+  [0,0.5,0.8,1].forEach(function(v){
+    h+='<line x1="'+mx+'" y1="'+py(v)+'" x2="'+(W-mx)+'" y2="'+py(v)
+      +'" stroke="rgba(150,190,255,.12)" stroke-dasharray="3 5"/>'
+      +'<text x="6" y="'+(py(v)+4)+'" fill="#44527A" font-size="10" '
+      +'font-family="ui-monospace,monospace">'+Math.round(v*100)+'%</text>';
+  });
+  h+='<path d="'+area+'" fill="url(#gar)" opacity=".85"/>'
+    +'<path class="traza" d="'+d1+'" fill="none" stroke="url(#gcv)" stroke-width="2.6"'
+    +' stroke-linecap="round" filter="url(#luz)"/>';
+  datos.forEach(function(d,i){
+    h+='<circle cx="'+px(i).toFixed(1)+'" cy="'+py(d.frac).toFixed(1)+'" r="4.5"'
+      +' fill="#061024" stroke="'+(d.frac>=0.9?'#34D399':d.frac>=0.75?'#22D3EE':'#FB7185')
+      +'" stroke-width="2" style="cursor:pointer"'
+      +' onclick="verAgente(\''+esc(d.ag.ced)+'\')">'
+      +'<title>'+esc(d.ag.nombre)+' — '+pct(d.frac)+' ('+d.ok+' de '+d.tot+')</title></circle>';
+  });
+  return h+'</svg>';
+}
+
+function animarTrazos(raiz){
+  var R=raiz||document;
+  R.querySelectorAll('path.traza').forEach(function(p){
+    var L;
+    try{ L=p.getTotalLength(); }catch(e){ return; }
+    p.style.strokeDasharray=L;
+    if(SOBRIO||QUIETO||!p.animate){ p.style.strokeDashoffset=0; return; }
+    p.animate([{strokeDashoffset:L},{strokeDashoffset:0}],
+      {duration:1600, easing:'cubic-bezier(.16,1,.3,1)', fill:'both'});
+  });
+  R.querySelectorAll('rect.crece').forEach(function(r,i){
+    if(SOBRIO||QUIETO||!r.animate) return;
+    r.animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],
+      {duration:900, delay:i*48, easing:'cubic-bezier(.16,1,.3,1)', fill:'both'});
+  });
+  R.querySelectorAll('.tj .mini i').forEach(function(el,i){
+    setTimeout(function(){ el.style.transform='scaleX('+(el.dataset.v||0)+')'; }, 80+i*45);
+  });
+}
+
+/* ══ EQUIPO ══════════════════════════════════════════════════════════ */
+function ordenar(o){ ORDEN=o; pintarEquipo(); pulso(); }
+
+function pintarEquipo(){
+  var c=document.getElementById('c-equipo');
+  document.getElementById('s-equipo').textContent = hayDatos()
+    ? AGENTES.length+' agentes · toca «Ver» para abrir el detalle de cualquiera'
+    : 'Carga el Excel del mes para ver la nómina con sus resultados.';
+  if(!hayDatos()){ c.innerHTML=zonaCarga(); activarSoltar(document.getElementById('suelta')); return; }
+
+  var r=resumen();
+  var f={ peor:function(a,b){ return (a.frac==null?9:a.frac)-(b.frac==null?9:b.frac); },
+          cola:function(a,b){ return b.pend-a.pend; },
+          nombre:function(a,b){ return a.ag.nombre.localeCompare(b.ag.nombre); },
+          canal:function(a,b){ return a.ag.canal.localeCompare(b.ag.canal)
+                                   || a.ag.nombre.localeCompare(b.ag.nombre); } };
+  r.sort(f[ORDEN]||f.peor);
+
+  var h='<div class="rev" style="margin-bottom:16px"><div class="eqbar">'
+    +'<span>Ordenar por</span>'
+    +[['peor','Cumplimiento'],['cola','Pendientes'],['nombre','Nombre'],['canal','Canal']]
+      .map(function(x){ return '<button class="'+(ORDEN===x[0]?'act':'')
+        +'" onclick="ordenar(\''+x[0]+'\')">'+x[1]+'</button>'; }).join('')
+    +'</div></div>'
+    +'<div class="panelo gl blur rev"><div class="ph">'
+    +'<span class="tt">Nómina</span><span class="ss">Chat y RRSS</span>'
+    +'<span class="der"><button class="bt" onclick="window.print()">⎙ Imprimir</button></span>'
+    +'</div><div class="pc"><table class="dt"><thead><tr>'
+    +'<th>Agente</th><th>Canal</th><th class="cen">Pendientes</th>'
+    +'<th>Indicadores en meta</th><th class="cen">Lado a lado</th><th></th>'
+    +'</tr></thead><tbody>';
+  r.forEach(function(x){ h+=filaAgente(x); });
+  h+='</tbody></table></div></div>';
+
+  /* Nombres que aparecen en el Excel pero no están en la lista del portal */
+  var conocidos=AGENTES.map(function(a){ return norm(a.nombre); });
+  var otros=[...new Set(PEND.map(function(p){ return p.agente; })
+    .concat(AUD.map(function(a){ return a.agente; }))
+    .concat(IND.map(function(i){ return i.nombre; })))]
+    .filter(function(nm){ return nm && conocidos.indexOf(norm(nm))===-1; });
+  if(otros.length){
+    h+='<div class="nota rev"><b>'+otros.length+' nombre(s) del archivo no están en la '
+      +'lista del portal</b> y por eso no salen arriba: '
+      +otros.slice(0,12).map(esc).join(' · ')
+      +(otros.length>12? ' y '+(otros.length-12)+' más.' : '.')
+      +' Si alguno es de tu equipo, hay que agregarlo a la nómina del archivo.</div>';
+  }
+  c.innerHTML=h;
+  activarCristal(c);
+  revelar(c);
+}
+
+/* ══ DETALLE DE UNA PERSONA ══════════════════════════════════════════ */
+function pintarDetalle(){
+  var foco=document.getElementById('foco');
+  var tit=document.getElementById('t-detalle');
+  var sub=document.getElementById('s-detalle');
+
+  if(MANDO){
+    foco.style.display='flex';
+    foco.innerHTML = (FOCO
+        ? '<span class="q">Estás viendo a <b>'+esc(FOCO.nombre)+'</b></span>'
+        : '<span class="q">Escoge a quién quieres revisar</span>')
+      +'<select onchange="enfocar(this.value)">'
+      +'<option value="">— escoger agente —</option>'
+      +AGENTES.map(function(a){
+          return '<option value="'+esc(a.ced)+'"'+(FOCO&&FOCO.ced===a.ced?' selected':'')+'>'
+            +esc(a.nombre)+' · '+esc(a.canal)+'</option>'; }).join('')
+      +'</select>'
+      +'<button class="bt" onclick="irA(\'equipo\')">← Volver al equipo</button>';
+  } else {
+    foco.style.display='none';
+  }
+
+  var med=document.getElementById('c-medidor');
+  var quien = MANDO ? FOCO : YO;
+  tit.innerHTML = MANDO
+    ? (quien? esc(quien.nombre) : 'Detalle por <b>agente</b>')
+    : 'Mis <b>resultados</b>';
+
+  if(!hayDatos()){
+    sub.textContent = MANDO ? 'Carga el Excel del mes para empezar.'
+                            : 'Tu supervisor aún no ha cargado los resultados en este archivo.';
+    med.innerHTML='';
+    ['ind','pend','aud'].forEach(function(k){
+      document.getElementById('c-'+k).innerHTML = MANDO
+        ? zonaCarga()
+        : '<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
+          +'<b>Todavía no hay datos en este archivo.</b><br>'
+          +'Pídele a tu supervisor el portal del periodo.</div></div>';
+    });
+    if(MANDO) activarSoltar(document.getElementById('suelta'));
+    return;
+  }
+  if(MANDO && !quien){
+    sub.textContent='Escoge un agente en el selector de arriba, o entra desde «Mi equipo».';
+    med.innerHTML='';
+    ['ind','pend','aud'].forEach(function(k){
+      document.getElementById('c-'+k).innerHTML='<div class="panelo gl blur"><div class="vacio">'
+        +'<div class="ic">◈</div><b>Ningún agente seleccionado.</b><br>'
+        +'Escoge a alguien arriba para ver sus indicadores, su cola de tipificación '
+        +'y sus acompañamientos.</div></div>';
+    });
+    return;
+  }
+
+  var d=datosDe(quien);
+  var tot=d.ind? d.ind.inds.length:0;
+  var ok =d.ind? d.ind.inds.filter(function(i){ return i.estado==='ok'; }).length:0;
+  var frac=tot? ok/tot : 0;
+  sub.textContent = (d.ind? 'Resultados de '+d.ind.hoja.replace(/_/g,' ') : 'Sin indicadores en el archivo')
+    + (PERIODO? ' · '+PERIODO : '') + ' · C.C. '+quien.ced;
+
+  med.innerHTML='<div class="mando">'
+    +'<div class="medidor gl blur tilt rev">'
+      +'<div class="lienzo"><canvas id="dial-foco"></canvas>'
+        +'<div class="centro"><div class="cifra" id="cifra-foco">0<small>%</small></div>'
+        +'<div class="rot">Indicadores en meta</div>'
+        +'<div class="det">'+ok+' de '+tot+'</div></div></div>'
+      +'<div class="refl"><canvas id="dial-foco-r"></canvas></div>'
+    +'</div>'
+    +'<div class="rejilla rev" style="grid-template-columns:repeat(2,1fr);align-content:stretch">'
+      +tarjeta('En meta', ok, ok?'ok':'neutro', 'de '+tot+' indicadores')
+      +tarjeta('Fuera de meta', tot-ok, (tot-ok)?'bad':'ok', 'por mejorar')
+      +tarjeta('Pendientes por tipificar', d.pend.length, d.pend.length?'bad':'ok',
+               d.pend.length?'interacciones en cola':'al día')
+      +tarjeta('Lado a lado', d.aud.length, 'neutro',
+               d.aud.length?'acompañamientos':'sin acompañamientos')
+    +'</div></div>';
+
+  pintarIndicadores(d);
+  pintarPendientes(d, quien);
+  pintarAuditorias(d);
+
+  activarCristal(med);
+  animarTrazos(document.getElementById('v-detalle'));
+  var cv=document.getElementById('dial-foco');
+  if(cv){
+    if(MED_FOCO) MED_FOCO.parar();
+    MED_FOCO=new Medidor(cv, document.getElementById('dial-foco-r'));
+    MED_FOCO.set(frac, frac>=0.9?'ok':(frac>=0.75?'cyan':'bad'));
+    contar(document.getElementById('cifra-foco'), frac*100, 1);
+  }
+}
+
+function pintarIndicadores(d){
+  var c=document.getElementById('c-ind');
+  if(!d.ind){
+    c.innerHTML='<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
+      +'<b>No encontramos sus indicadores en este archivo.</b><br>'
+      +'Revisa que el Excel sea el del mes correcto y que traiga la hoja del canal.'
+      +'</div></div>';
+    return;
+  }
+  var h='<div class="rejilla rev">';
+  d.ind.inds.forEach(function(i){
+    /* La barrita compara el resultado con la meta, no con el 100% */
+    var r=i.res, m=i.meta, prop=null;
+    if(r!=null && m!=null && m!==0){
+      prop = MENOR_ES_MEJOR.test(i.nombre) ? Math.min(1, m/Math.max(r,0.0001))
+                                           : Math.min(1, r/m);
+    }
+    h+='<div class="tj gl tilt '+i.estado+'"><div class="est"></div>'
+      +'<div class="n">'+esc(i.nombre)+'</div>'
+      +'<div class="v">'+esc(i.resTxt)+'</div>'
+      +(i.metaTxt? '<div class="m">Meta: '+esc(i.metaTxt)+'</div>' : '')
+      +(prop!=null? '<div class="mini"><i data-v="'+prop.toFixed(3)+'"></i></div>' : '')
+      +'<span class="ins '+i.estado+'">'+(i.estado==='ok'?'Cumple':'No cumple')+'</span>'
+      +'</div>';
+  });
+  h+='</div>';
+
+  /* Bloques sin meta, como PRODUCTIVIDAD */
+  if(d.ind.extras.length){
+    var g=[];
+    d.ind.extras.forEach(function(x){
+      var y=g.filter(function(z){ return z.nm===x.grupo; })[0];
+      if(!y){ y={nm:x.grupo, items:[]}; g.push(y); }
+      y.items.push(x);
+    });
+    g.forEach(function(y){
+      h+='<div class="panelo gl blur rev" style="margin-top:18px"><div class="ph">'
+        +'<span class="tt">'+esc(y.nm)+'</span></div><div class="pc">'
+        +'<table class="dt"><thead><tr>'
+        +y.items.map(function(x){ return '<th>'+esc(x.nombre)+'</th>'; }).join('')
+        +'</tr></thead><tbody><tr>'
+        +y.items.map(function(x){ return '<td class="mn" style="color:var(--ink);font-size:13px;'
+          +'font-weight:700">'+esc(x.texto)+'</td>'; }).join('')
+        +'</tr></tbody></table></div></div>';
+    });
+  }
+  c.innerHTML=h;
+  activarCristal(c);
+  revelar(c);
+}
+
+function pintarPendientes(d, quien){
+  var c=document.getElementById('c-pend');
+  if(!d.pend.length){
+    c.innerHTML='<div class="panelo gl blur rev"><div class="vacio"><div class="ic">✔</div>'
+      +'<b>'+(MANDO? 'Sin cola de tipificación.' : '¡Vas al día!')+'</b><br>'
+      +'No hay interacciones pendientes por tipificar.</div></div>';
+    return;
+  }
+  var opc=[{k:'cola',nm:'Cola'},{k:'macroproceso',nm:'Macroproceso'},{k:'proceso',nm:'Proceso'},
+           {k:'subproceso1',nm:'Subproceso 1'},{k:'subproceso2',nm:'Subproceso 2'},
+           {k:'observaciones',nm:'Observaciones'}]
+    .filter(function(x){ return d.pend.some(function(r){ return String(r[x.k]||'').trim(); }); });
+  var verId=d.pend.some(function(r){ return String(r.idLlamada||'').trim(); });
+
+  var h='<div class="panelo gl blur rev"><div class="ph">'
+    +'<span class="tt">Pendientes por tipificar</span>'
+    +'<span class="ss">'+d.pend.length+' interacción(es)'
+      +(MANDO? ' de '+esc(quien.nombre) : '')+'</span></div>'
+    +'<div class="pc"><table class="dt"><thead><tr><th class="cen">#</th>'
+    +(verId? '<th>ID interacción</th>':'')
+    +opc.map(function(x){ return '<th>'+x.nm+'</th>'; }).join('')
+    +'<th class="cen">Gestión</th></tr></thead><tbody>';
+  d.pend.forEach(function(r,i){
+    var link=/^https?:\/\//i.test(r.link||'')? r.link : '';
+    h+='<tr><td class="cen mn">'+(i+1)+'</td>'
+      +(verId? '<td class="mn">'+esc(idBonito(r.idLlamada)||r.idLlamada)+'</td>':'')
+      +opc.map(function(x){ return '<td>'+(esc(r[x.k])||'—')+'</td>'; }).join('')
+      +'<td class="cen">'+(link
+        ? '<button class="bt cian" onclick="abrirGestion(this.dataset.u)" '
+          +'data-u="'+esc(link)+'">Ver →</button>'
+        : '—')+'</td></tr>';
+  });
+  c.innerHTML=h+'</tbody></table></div></div>';
+  activarCristal(c);
+  revelar(c);
+}
+
+function pintarAuditorias(d){
+  var c=document.getElementById('c-aud');
+  if(!d.aud.length){
+    c.innerHTML='<div class="panelo gl blur rev"><div class="vacio"><div class="ic">◌</div>'
+      +'<b>'+(MANDO? 'Sin acompañamientos registrados.' : 'Todavía no tienes auditorías.')+'</b><br>'
+      +(MANDO? 'Cuando registres el lado a lado en el Excel, aparecerá aquí.'
+             : 'Cuando tu supervisor haga el acompañamiento, las observaciones aparecen aquí.')
+      +'</div></div>';
+    return;
+  }
+  var h='<div class="rev" style="margin-bottom:14px"><span class="etq fr">'+d.aud.length
+    +(d.aud.length===1? ' acompañamiento':' acompañamientos')+'</span></div>';
+  d.aud.forEach(function(a){
+    var con=a.obs.filter(function(o){ return o.texto; }).length;
+    h+='<div class="aud gl blur rev"><div class="aud-c">'
+      +'<span class="f">◆ '+(a.fecha? esc(a.fecha) : 'Sin fecha registrada')+'</span>'
+      +(idBonito(a.idInter)? '<span class="etq gr" title="'+esc(a.idInter)+'">'
+          +esc(idBonito(a.idInter))+'</span>' : '')
+      +(a.link? '<button class="bt cian" onclick="abrirGestion(this.dataset.u)" '
+          +'data-u="'+esc(a.link)+'">Ver interacción →</button>'
+        +'<button class="bt" title="'+esc(a.link)+'" '
+          +'onclick="copiarEnlace(this.dataset.u,this)" data-u="'+esc(a.link)
+          +'">⧉ Copiar enlace</button>' : '')
+      +'<span class="n">'+con+' de '+a.obs.length+' criterios con observación</span>'
+      +'</div><div class="aud-b">';
+    a.obs.forEach(function(o){
+      h+='<div class="aud-i"><div class="aud-k">'+esc(o.criterio)+'</div>'
+        +'<div class="aud-o'+(o.texto?'':' sin')+'">'
+        +(o.texto? esc(o.texto) : 'Sin observación en este acompañamiento')+'</div></div>';
+    });
+    h+='</div></div>';
+  });
+  c.innerHTML=h;
+  activarCristal(c);
+  revelar(c);
+}
+
+/* ══ TURNOS ══════════════════════════════════════════════════════════ */
+var TUR_FIRMA='';
+function tono(n, max){
+  if(!n) return 'background:rgba(255,255,255,.045);color:#32405F';
+  var p=max? n/max : 0;
+  var hue=190+p*74, l=24+p*30;        // de cian a violeta, más luz cuanta más gente
+  return 'background:hsl('+hue.toFixed(0)+','+(68+p*22).toFixed(0)+'%,'+l.toFixed(0)+'%);'
+    +'color:'+(p>0.42? '#F0FAFF':'#C3D8FF')
+    +(p>0.55? ';box-shadow:0 0 15px hsla('+hue.toFixed(0)+',90%,'+l.toFixed(0)+'%,.6)':'');
+}
+function setModoCob(m){ MODO_COB=m; pintarTurVista(); pulso(); }
+function verDia(f){ DIA_TUR=f; pintarDias(); pintarTurVista(); }
+function irTur(v, btn){
+  VISTA_TUR=v;
+  document.querySelectorAll('#sp-tur button').forEach(function(b){ b.classList.remove('act'); });
+  if(btn) btn.classList.add('act');
+  document.getElementById('dias').style.display = (v==='semana')? 'none':'flex';
+  pintarTurVista(); pulso();
+}
+function soloMiEquipo(){
+  var s=document.getElementById('f-sup');
+  if(!s) return;
+  s.value = s.value===SUPERVISOR.enMalla ? '' : SUPERVISOR.enMalla;
+  pintarTurVista();
+}
+
+function pintarTurnos(){
+  var c=document.getElementById('c-turnos');
+  var t=document.getElementById('t-turnos'), s=document.getElementById('s-turnos');
+
+  /* Vista del agente: solo su propia semana */
+  if(!MANDO){
+    t.innerHTML='Mi <b>semana</b>';
+    var mios=misTurnos();
+    s.textContent = mios.length
+      ? 'Tu jornada día por día, con tus descansos marcados.'
+      : 'Tu supervisor no incluyó la malla en este archivo.';
+    c.innerHTML = mios.length? semanaDe(mios)
+      : '<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
+        +'<b>No hay malla en este archivo.</b></div></div>';
+    activarCristal(c);
+    return;
+  }
+
+  t.innerHTML='Malla de <b>turnos</b>';
+  if(!MALLA.length){
+    s.textContent='Carga la malla de la semana para ver la cobertura hora a hora.';
+    c.innerHTML=zonaCarga();
+    activarSoltar(document.getElementById('suelta'));
+    TUR_FIRMA='';
+    return;
+  }
+
+  var fs=fechasMalla();
+  s.textContent = MALLA.length+' registros · '
+    +[...new Set(MALLA.map(function(x){ return x.doc; }))].length+' agentes · '
+    +fechaLarga(fs[0])+' al '+fechaLarga(fs[fs.length-1]);
+
+  var firma=MALLA.length+'|'+ARCH_MAL+'|'+fs.join(',');
+  if(firma!==TUR_FIRMA){
+    TUR_FIRMA=firma;
+    if(fs.indexOf(DIA_TUR)<0) DIA_TUR=fs[0];
+    var sks=[...new Set(MALLA.map(function(x){ return x.sk; }))].filter(Boolean).sort();
+    var sups=[...new Set(MALLA.map(function(x){ return x.sup; }))].filter(Boolean).sort();
+    c.innerHTML='<div class="filtros rev">'
+      +'<select id="f-sk" onchange="pintarTurVista()"><option value="">Todos los skills</option>'
+        +sks.map(function(x){ return '<option value="'+esc(x)+'">'+esc(SKILL[x]||x)+'</option>'; }).join('')
+      +'</select>'
+      +'<select id="f-sup" onchange="pintarTurVista()">'
+        +'<option value="">Todos los supervisores</option>'
+        +sups.map(function(x){ return '<option value="'+esc(x)+'">'+esc(x)+'</option>'; }).join('')
+      +'</select>'
+      +'<input type="text" id="f-q" placeholder="Buscar agente o cédula…" '
+        +'oninput="pintarTurVista()">'
+      +(sups.indexOf(SUPERVISOR.enMalla)>=0
+        ? '<button class="bt viol" onclick="soloMiEquipo()">◉ Solo mi equipo</button>' : '')
+      +'</div>'
+      +'<div class="dias" id="dias"></div>'
+      +'<div class="sp rev" id="sp-tur">'
+        +'<button class="'+(VISTA_TUR==='mapa'?'act':'')+'" onclick="irTur(\'mapa\',this)">'
+          +'Cobertura hora a hora</button>'
+        +'<button class="'+(VISTA_TUR==='lista'?'act':'')+'" onclick="irTur(\'lista\',this)">'
+          +'Agentes del día</button>'
+        +'<button class="'+(VISTA_TUR==='semana'?'act':'')+'" onclick="irTur(\'semana\',this)">'
+          +'Resumen de la semana</button>'
+      +'</div><div id="tur-vista"></div>';
+  }
+  pintarDias();
+  document.getElementById('dias').style.display = (VISTA_TUR==='semana')? 'none':'flex';
+  pintarTurVista();
+  activarCristal(c);
+}
+
+function pintarDias(){
+  var el=document.getElementById('dias');
+  if(!el) return;
+  el.innerHTML=fechasMalla().map(function(f){
+    var n=MALLA.filter(function(x){ return x.f===f && x.nov==='TUR'; }).length;
+    var d=new Date(f+'T00:00:00');
+    return '<button class="dia'+(f===DIA_TUR?' act':'')+'" onclick="verDia(\''+f+'\')">'
+      +'<b>'+DIAS[d.getDay()]+'</b><span>'+d.getDate()+' '+MESES[d.getMonth()].slice(0,3)+'</span>'
+      +'<i>'+n+'</i></button>';
+  }).join('');
+}
+
+function pintarTurVista(){
+  var c=document.getElementById('tur-vista');
+  if(!c) return;
+  if(VISTA_TUR==='mapa')       c.innerHTML=vistaMapa();
+  else if(VISTA_TUR==='lista') c.innerHTML=vistaLista();
+  else                         c.innerHTML=vistaSemana();
+  activarCristal(c);
+  revelar(c);
+}
+
+function vistaMapa(){
+  var ft=filtrosTur(), cob=cobertura(DIA_TUR, ft, MODO_COB);
+  if(!cob.skills.length)
+    return '<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
+      +'<b>Ningún agente en turno con estos filtros.</b></div></div>';
+
+  var max=Math.max.apply(null, cob.skills.map(function(s){
+    return Math.max.apply(null, cob.grid[s]); }));
+  var pico=Math.max.apply(null, cob.total), hp=cob.total.indexOf(pico);
+  var dia=MALLA.filter(function(f){ return f.f===DIA_TUR && pasaTur(f,ft); });
+  var enTurno=dia.filter(function(f){ return f.nov==='TUR'; }).length;
+  var horas=dia.filter(function(f){ return f.nov==='TUR'; })
+    .reduce(function(a,f){ return a+(+f.hrs||0); },0);
+  var no={};
+  dia.forEach(function(f){ if(f.nov!=='TUR') no[f.nov]=(no[f.nov]||0)+1; });
+
+  var h='<div class="rejilla rev" style="margin-bottom:18px">'
+    +tarjeta('Agentes en turno', enTurno, 'ok', fechaLarga(DIA_TUR))
+    +tarjeta('Horas programadas', horas.toFixed(1).replace('.',','), 'neutro', 'suma de la malla')
+    +tarjeta('Pico de cobertura', pico, 'neutro', 'a las '+String(hp).padStart(2,'0')+':00')
+    +tarjeta('Skills activos', cob.skills.length, 'neutro', 'con gente en malla');
+  Object.keys(no).sort().forEach(function(k){
+    var nv=NOVEDAD[k]||[k,'gr'];
+    h+=tarjeta(nv[0], no[k], nv[1]==='gr'?'neutro':(nv[1]==='ok'?'ok':'bad'), 'no vienen');
+  });
+  h+='</div>';
+
+  h+='<div class="panelo gl blur rev"><div class="ph">'
+    +'<span class="tt">Cobertura hora a hora</span>'
+    +'<span class="ss">'+fechaLarga(DIA_TUR)+'</span><span class="der">'
+    +'<button class="bt'+(MODO_COB==='turno'?' cian':'')+'" onclick="setModoCob(\'turno\')">'
+      +'En turno</button>'
+    +'<button class="bt'+(MODO_COB==='conectado'?' cian':'')+'" '
+      +'onclick="setModoCob(\'conectado\')">Descontando pausas</button>'
+    +'</span></div><div class="pc"><table class="mapa"><thead><tr><th class="sk">Skill</th>';
+  for(var i=0;i<24;i++) h+='<th>'+String(i).padStart(2,'0')+'</th>';
+  h+='</tr></thead><tbody>';
+  cob.skills.forEach(function(s){
+    h+='<tr><td class="sk"><span class="sk" style="background:'+(CSKILL[s]||'#8B5CF6')+'">'
+      +esc(SKILL[s]||s)+'</span></td>';
+    for(var j=0;j<24;j++){
+      var n=cob.grid[s][j];
+      h+='<td class="c" style="'+tono(n,max)+'" onclick="verFranja(\''+esc(s)+'\','+j+')" '
+        +'title="'+esc(SKILL[s]||s)+' · '+String(j).padStart(2,'0')+':00 · '+n+' agente(s)">'
+        +(n||'')+'</td>';
+    }
+    h+='</tr>';
+  });
+  h+='<tr class="tot"><td class="sk" style="font-weight:800;letter-spacing:.1em;'
+    +'font-size:10px">TOTAL</td>';
+  for(var k2=0;k2<24;k2++)
+    h+='<td class="c" onclick="verFranja(\'\','+k2+')">'+(cob.total[k2]||'')+'</td>';
+  h+='</tr></tbody></table></div>'
+    +'<div class="leg"><b style="color:var(--ink-2)">Toca una casilla para ver quiénes son.</b>'
+    +'<i style="'+tono(1,max)+'"></i> pocos <i style="'+tono(max,max)+'"></i> muchos'
+    +(MODO_COB==='conectado'
+      ? '<span style="color:var(--warn)">Se descuentan descansos, almuerzo y capacitación.</span>'
+      : '<span>Cuenta a todos los que están en malla, estén o no en pausa.</span>')
+    +'</div></div>';
+  return h;
+}
+
+function verFranja(sk, h){
+  var ags=agentesEn(DIA_TUR, sk, h, filtrosTur(), MODO_COB);
+  abrirLado((sk? (SKILL[sk]||sk) : 'Todos los skills')+' · '+String(h).padStart(2,'0')+':00',
+    fechaLarga(DIA_TUR)+' · '+ags.length+' agente(s)'
+      +(MODO_COB==='conectado'? ' disponibles' : ' en turno'),
+    ags.length? ags.map(tarjetaLado).join('')
+      : '<div class="vacio">Nadie en esta franja.</div>');
+}
+function tarjetaLado(f){
+  return '<div class="lag"><b>'+esc(f.nom)+'</b>'
+    +'<div class="m"><span class="sk" style="background:'+(CSKILL[f.sk]||'#8B5CF6')+'">'
+      +esc(SKILL[f.sk]||f.sk)+'</span> &nbsp;<b>'+hhmm(f.ini)+' – '+hhmm(f.fin)+'</b> · '
+      +f.hrs+' h</div>'
+    +'<div class="m">C.C. '+esc(f.doc)+'</div>'
+    +'<div class="m">Supervisor: '+esc(f.sup)+'</div>'
+    +((f.ps||[]).length? '<div class="m">Pausas: '+f.ps.map(function(p){
+        return esc(p[2])+' '+hhmm(p[0])+'-'+hhmm(p[1]); }).join(' · ')+'</div>' : '')
+    +'</div>';
+}
+
+/* Barra de 24 horas: el turno sólido y las pausas rayadas encima */
+function jornada(f){
+  var ini=f.ini, fin=f.fin<=f.ini? f.fin+1440 : f.fin;
+  var p=function(m){ return (m/1440*100); };
+  var h='<div class="jor">';
+  for(var k=3;k<24;k+=3) h+='<div class="hr" style="left:'+p(k*60)+'%"></div>';
+  h+='<div class="t" style="left:'+p(ini)+'%;width:'+p(fin-ini)+'%"></div>';
+  (f.ps||[]).forEach(function(x){
+    h+='<div class="p" style="left:'+p(x[0])+'%;width:'+p(x[1]-x[0])+'%" title="'
+      +esc(x[2])+' '+hhmm(x[0])+'-'+hhmm(x[1])+'"></div>';
+  });
+  return h+'</div>'
+    +'<div class="esc"><span>00</span><span>06</span><span>12</span><span>18</span>'
+    +'<span style="flex:0">24</span></div>';
+}
+
+function vistaLista(){
+  var ft=filtrosTur();
+  var fs=MALLA.filter(function(f){ return f.f===DIA_TUR && pasaTur(f,ft); })
+    .sort(function(a,b){
+      if((a.nov==='TUR')!==(b.nov==='TUR')) return a.nov==='TUR'?-1:1;
+      if(a.nov==='TUR' && a.ini!==b.ini) return a.ini-b.ini;
+      return a.nom.localeCompare(b.nom); });
+  if(!fs.length)
+    return '<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
+      +'<b>Sin agentes con estos filtros.</b></div></div>';
+  var vienen=fs.filter(function(f){ return f.nov==='TUR'; }).length;
+  var h='<div class="panelo gl blur rev"><div class="ph">'
+    +'<span class="tt">Agentes del día</span><span class="ss">'+fechaLarga(DIA_TUR)+' · '
+    +vienen+' en turno de '+fs.length+' en la malla</span></div>'
+    +'<div class="pc"><table class="dt"><thead><tr>'
+    +'<th>Agente</th><th>Cédula</th><th>Skill</th><th>Supervisor</th><th>Estado</th>'
+    +'<th>Horario</th><th style="min-width:340px">Jornada</th></tr></thead><tbody>';
+  fs.forEach(function(f){
+    var nv=NOVEDAD[f.nov]||[f.nov,'gr'];
+    h+='<tr><td class="nm">'+esc(f.nom)+'</td>'
+      +'<td class="mn">'+esc(f.doc)+'</td>'
+      +'<td><span class="sk" style="background:'+(CSKILL[f.sk]||'#8B5CF6')+'">'
+        +esc(SKILL[f.sk]||f.sk)+'</span></td>'
+      +'<td style="font-size:11px;color:var(--ink-3)">'+esc(f.sup)+'</td>'
+      +'<td><span class="etq '+nv[1]+'">'+nv[0]+'</span></td>'
+      +'<td class="mn" style="color:var(--ink);white-space:nowrap">'
+        +(f.nov==='TUR'? hhmm(f.ini)+' – '+hhmm(f.fin)
+          +'<div style="color:var(--ink-3);font-size:10px">'+f.hrs+' h</div>' : '—')+'</td>'
+      +'<td>'+(f.nov==='TUR'? jornada(f) : '')+'</td></tr>';
+  });
+  return h+'</tbody></table></div></div>';
+}
+
+function vistaSemana(){
+  var ft=filtrosTur(), fs=fechasMalla();
+  var sks=[...new Set(MALLA.filter(function(f){ return f.nov==='TUR' && pasaTur(f,ft); })
+    .map(function(f){ return f.sk; }))].sort(function(a,b){
+      return (SKILL[a]||a).localeCompare(SKILL[b]||b); });
+  if(!sks.length)
+    return '<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
+      +'<b>Sin agentes con estos filtros.</b></div></div>';
+  var max=0, cel={};
+  sks.forEach(function(s){
+    cel[s]=fs.map(function(f){
+      var n=MALLA.filter(function(x){ return x.f===f && x.sk===s && x.nov==='TUR'
+        && pasaTur(x,ft); }).length;
+      if(n>max) max=n; return n; });
+  });
+  var h='<div class="panelo gl blur rev"><div class="ph">'
+    +'<span class="tt">Agentes en turno por día</span>'
+    +'<span class="ss">'+fechaLarga(fs[0])+' al '+fechaLarga(fs[fs.length-1])+'</span></div>'
+    +'<div class="pc"><table class="mapa"><thead><tr><th class="sk">Skill</th>';
+  fs.forEach(function(f){
+    var d=new Date(f+'T00:00:00');
+    h+='<th style="min-width:84px">'+DIAS[d.getDay()].slice(0,3)+' '+d.getDate()+'</th>';
+  });
+  h+='<th style="min-width:70px">Total</th></tr></thead><tbody>';
+  sks.forEach(function(s){
+    h+='<tr><td class="sk"><span class="sk" style="background:'+(CSKILL[s]||'#8B5CF6')+'">'
+      +esc(SKILL[s]||s)+'</span></td>';
+    cel[s].forEach(function(n,i){
+      h+='<td class="c" style="'+tono(n,max)+'" onclick="verDiaSkill(\''+fs[i]+'\',\''
+        +esc(s)+'\')">'+(n||'')+'</td>';
+    });
+    h+='<td class="mn" style="color:var(--cyan-hi);font-weight:800;'
+      +'background:rgba(34,211,238,.07)">'
+      +cel[s].reduce(function(a,b){ return a+b; },0)+'</td></tr>';
+  });
+  h+='<tr class="tot"><td class="sk" style="font-weight:800;font-size:10px;'
+    +'letter-spacing:.1em">TOTAL</td>';
+  var gran=0;
+  fs.forEach(function(f,i){
+    var t=sks.reduce(function(a,s){ return a+cel[s][i]; },0); gran+=t;
+    h+='<td>'+t+'</td>';
+  });
+  return h+'<td>'+gran+'</td></tr></tbody></table></div>'
+    +'<div class="leg">Cada casilla cuenta agentes con novedad <b style="color:var(--ink-2)">'
+    +'TUR</b>. Toca una para ver el detalle de ese día.</div></div>';
+}
+function verDiaSkill(f, sk){
+  DIA_TUR=f; pintarDias();
+  var ags=MALLA.filter(function(x){ return x.f===f && x.sk===sk && x.nov==='TUR'
+      && pasaTur(x,filtrosTur()); })
+    .sort(function(a,b){ return a.ini-b.ini; });
+  abrirLado(SKILL[sk]||sk, fechaLarga(f)+' · '+ags.length+' en turno',
+    ags.length? ags.map(tarjetaLado).join('') : '<div class="vacio">Nadie ese día.</div>');
+}
+
+/* La semana de una sola persona: lo que ve el agente */
+function semanaDe(filas){
+  var h='<div class="rejilla rev" style="grid-template-columns:repeat(auto-fit,minmax(330px,1fr))">';
+  filas.forEach(function(f){
+    var nv=NOVEDAD[f.nov]||[f.nov,'gr'];
+    var d=new Date(f.f+'T00:00:00');
+    h+='<div class="panelo gl blur tilt" style="margin:0"><div class="ph">'
+      +'<span class="tt" style="text-transform:capitalize">'+DIAS[d.getDay()]+' '+d.getDate()
+      +'</span><span class="ss">'+MESES[d.getMonth()]+'</span>'
+      +'<span class="der"><span class="etq '+nv[1]+'">'+nv[0]+'</span></span></div>'
+      +'<div class="pc pad">';
+    if(f.nov==='TUR'){
+      h+='<div class="num" style="font-size:22px;font-weight:600;margin-bottom:4px">'
+        +hhmm(f.ini)+' – '+hhmm(f.fin)+'</div>'
+        +'<div style="font-size:11.5px;color:var(--ink-3);margin-bottom:13px">'
+        +f.hrs+' horas · <span class="sk" style="background:'+(CSKILL[f.sk]||'#8B5CF6')+'">'
+        +esc(SKILL[f.sk]||f.sk)+'</span></div>'
+        +jornada(f)
+        +((f.ps||[]).length
+          ? '<div style="margin-top:12px;font-size:11.5px;color:var(--ink-2);line-height:1.8">'
+            +f.ps.map(function(p){ return '<b style="color:var(--warn)">'+esc(p[2])+'</b> '
+              +hhmm(p[0])+' a '+hhmm(p[1]); }).join('<br>')+'</div>'
+          : '');
+    } else {
+      h+='<div style="font-size:13px;color:var(--ink-3);padding:8px 0">No vienes este día.</div>';
+    }
+    h+='</div></div>';
+  });
+  return h+'</div>';
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PORTAL DE LOS AGENTES
+   El botón de descargar reescribe este mismo archivo con los datos del
+   periodo adentro y sin la huella de la contraseña de supervisión. Lo que
+   sale es un HTML independiente: el agente lo abre con doble clic, entra
+   con su cédula y ve lo suyo. No necesita Excel ni conexión.
+   ══════════════════════════════════════════════════════════════════════ */
+function pintarPaquete(){
+  var c=document.getElementById('c-paquete');
+  if(!hayDatos()){
+    c.innerHTML=zonaCarga();
+    activarSoltar(document.getElementById('suelta'));
+    return;
+  }
+  var cons=AGENTES.map(function(a){ return norm(a.nombre); });
+  var mios=function(arr, campo){
+    return arr.filter(function(x){ return cons.indexOf(norm(x[campo]))>=0; }).length;
+  };
+  var docs=AGENTES.map(function(a){ return ced(a.ced); });
+  var mallaMia=MALLA.filter(function(m){ return docs.indexOf(m.doc)>=0; });
+
+  c.innerHTML='<div class="mando rev" style="grid-template-columns:1fr">'
+    +'<div class="rejilla">'
+      +tarjeta('Agentes', AGENTES.length, 'neutro', 'entran con su cédula')
+      +tarjeta('Indicadores', mios(IND,'nombre'), 'neutro', 'agentes con medición')
+      +tarjeta('Pendientes', mios(PEND,'agente'), 'neutro', 'interacciones por tipificar')
+      +tarjeta('Lado a lado', mios(AUD,'agente'), 'neutro', 'acompañamientos')
+      +tarjeta('Malla', mallaMia.length, 'neutro', mallaMia.length? 'registros de tu equipo':'sin cargar')
+    +'</div></div>'
+
+    +'<div class="panelo gl blur rev"><div class="ph">'
+      +'<span class="tt">Antes de generar</span></div><div class="pc pad">'
+      +'<div class="campo" style="max-width:420px">'
+        +'<label for="periodo">Nombre del periodo — lo verán los agentes</label>'
+        +'<input id="periodo" type="text" value="'+esc(PERIODO||periodoSugerido())+'" '
+        +'placeholder="Octubre 2026">'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:11px;margin-top:6px">'
+      +opcion('inc-malla', 'Incluir la malla de turnos',
+         mallaMia.length? 'Cada agente verá solo su propia jornada de la semana ('
+           +mallaMia.length+' registros de los tuyos; los de los demás supervisores no se '
+           +'incluyen).' : 'No hay malla cargada.', !!mallaMia.length, !mallaMia.length)
+      +opcion('inc-aud', 'Incluir los lado a lado',
+         'Las observaciones de cada acompañamiento, tal como las escribiste.', true, false)
+      +opcion('inc-pend', 'Incluir los pendientes por tipificar',
+         'La cola de cada agente, con el enlace a la interacción.', true, false)
+      +'</div>'
+      +'<button class="bt viol" style="margin-top:22px;padding:13px 24px;font-size:13px" '
+        +'onclick="generarPortal()">⬇ Generar y descargar el portal</button>'
+    +'</div></div>'
+
+    +'<div class="nota rev"><b>Cómo funciona.</b> El archivo que se descarga es una copia de '
+    +'este tablero con los datos del periodo escritos adentro. La cuenta de supervisión queda '
+    +'desactivada en esa copia y el botón de cargar Excel desaparece: un agente solo puede '
+    +'entrar con su cédula y ver lo suyo. Tampoco pide internet, así que les sirve igual en '
+    +'cualquier equipo.<br><br>'
+    +'<b>Lo que sí conviene saber.</b> Como todo va en un solo archivo sin servidor, los datos '
+    +'del equipo viajan dentro del HTML. La pantalla solo le muestra a cada agente lo suyo, '
+    +'pero alguien que sepa abrir las herramientas del navegador podría leer los datos de sus '
+    +'compañeros. Para notas y pendientes del día a día no es grave; si algún dato fuera '
+    +'reservado, mejor no lo incluyas.</div>';
+  activarCristal(c);
+  revelar(c);
+}
+function opcion(id, tit, txt, marcado, bloqueado){
+  return '<label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;'
+    +'padding:13px 15px;border:1px solid var(--edge);border-radius:12px;background:var(--gl)'
+    +(bloqueado?';opacity:.5':'')+'">'
+    +'<input type="checkbox" id="'+id+'"'+(marcado?' checked':'')+(bloqueado?' disabled':'')
+    +' style="width:17px;height:17px;margin-top:1px;accent-color:#22D3EE;flex:0 0 auto">'
+    +'<span><b style="font-size:12.5px;display:block;margin-bottom:3px">'+esc(tit)+'</b>'
+    +'<span style="font-size:11.5px;color:var(--ink-3);line-height:1.6">'+esc(txt)+'</span></span>'
+    +'</label>';
+}
+function periodoSugerido(){
+  var m=String(ARCH_RES||'').match(/(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/i);
+  var d=new Date();
+  return (m? m[1].charAt(0).toUpperCase()+m[1].slice(1).toLowerCase() : MESES[d.getMonth()]
+    .replace(/^./,function(x){ return x.toUpperCase(); }))+' '+d.getFullYear();
+}
+
+function generarPortal(){
+  if(!FUENTE || FUENTE.indexOf('<!--PAQUETE-->')<0){
+    aviso('No se pudo leer la plantilla del archivo. Vuelve a abrir el HTML y reintenta.', true);
+    return;
+  }
+  var marca=document.getElementById('inc-malla');
+  var conMalla=marca && marca.checked;
+  var conAud=document.getElementById('inc-aud').checked;
+  var conPend=document.getElementById('inc-pend').checked;
+  PERIODO=(document.getElementById('periodo').value||'').trim() || periodoSugerido();
+
+  /* Solo se empaqueta la gente de la nómina: lo de otros equipos se queda afuera */
+  var cons=AGENTES.map(function(a){ return norm(a.nombre); });
+  var docs=AGENTES.map(function(a){ return ced(a.ced); });
+  var mio=function(nm){ return cons.indexOf(norm(nm))>=0; };
+
+  var datos={
+    v:1,
+    periodo:PERIODO,
+    generado:new Date().toISOString().slice(0,10),
+    archivo:ARCH_RES,
+    archivoMalla:conMalla? ARCH_MAL : '',
+    ind : IND.filter(function(x){ return docs.indexOf(x.ced)>=0 || mio(x.nombre); }),
+    pend: conPend? PEND.filter(function(x){ return mio(x.agente); }) : [],
+    aud : conAud ? AUD.filter(function(x){ return mio(x.agente); })  : [],
+    malla: conMalla? MALLA.filter(function(m){ return docs.indexOf(m.doc)>=0; }) : []
+  };
+
+  var json;
+  try{ json=JSON.stringify(datos); }
+  catch(e){ aviso('No se pudieron empaquetar los datos: '+e.message, true); return; }
+  /* Que ningún texto del Excel pueda cerrar la etiqueta antes de tiempo */
+  json=json.replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/\u2028|\u2029/g,'');
+
+  var cierre='<'+'/script>';
+  var salida=FUENTE.replace('<!--PAQUETE-->',
+    '<script id="paquete" type="application/json">'+json+cierre);
+
+  /* La huella de la contraseña se borra: en la copia de los agentes no hay
+     forma de entrar a la supervisión. */
+  var antes=salida;
+  salida=salida.replace(/hash(\s*):'[0-9a-f]{64}'/, "hash$1:'-'");
+  if(salida===antes){
+    aviso('Ojo: no se pudo desactivar la cuenta de supervisión en la copia. No la reparta.', true);
+    return;
+  }
+  /* Y sin el lector de Excel, que ya no hace falta: el archivo abre sin internet */
+  salida=salida.replace(/<script id="lector-xlsx"[\s\S]*?<\/script>/,
+    '<!-- Este portal trae los datos adentro: no necesita internet -->');
+  salida=salida.replace(/<title>[\s\S]*?<\/title>/,
+    '<title>'+esc('Mis resultados — '+PERIODO+' · Banco Agrario')+'</title>');
+
+  var nombre='Portal_Agentes_'+PERIODO.replace(/[^0-9A-Za-zÁÉÍÓÚáéíóúÑñ]+/g,'_')+'.html';
+  try{
+    var blob=new Blob([salida], {type:'text/html;charset=utf-8'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url; a.download=nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 6000);
+    pulso();
+    aviso('✔ '+nombre+' · '+Math.round(salida.length/1024)+' KB — ese es el archivo que reparte');
+  }catch(e){
+    aviso('No se pudo descargar: '+e.message, true);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ARRANQUE
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Copia fiel del archivo tal como se abrió, tomada antes de que el
+   tablero escriba nada en la página. De aquí sale el portal de los
+   agentes, sin tener que volver a leer el disco: así funciona incluso
+   abriendo el HTML con doble clic. */
+var FUENTE='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+
+/* ¿Esta copia ya trae los datos del periodo? */
+var PAQUETE=(function(){
+  var el=document.getElementById('paquete');
+  if(!el) return null;
+  try{
+    var p=JSON.parse(el.textContent);
+    return (p && typeof p==='object') ? p : null;
+  }catch(e){ console.warn('paquete ilegible', e); return null; }
+})();
+
+if(PAQUETE){
+  IND  = PAQUETE.ind   || [];
+  PEND = PAQUETE.pend  || [];
+  AUD  = PAQUETE.aud   || [];
+  MALLA= PAQUETE.malla || [];
+  PERIODO  = PAQUETE.periodo || '';
+  ARCH_RES = PAQUETE.archivo || '';
+  ARCH_MAL = PAQUETE.archivoMalla || '';
+  var pie=document.getElementById('acc-pie');
+  if(pie) pie.innerHTML='<b style="color:var(--cyan-hi)">Resultados de '+esc(PERIODO)+'</b><br>'
+    +'Tu <b>usuario</b> y tu <b>contraseña</b> son el mismo número de cédula, sin puntos '
+    +'ni espacios.';
+}
+
+if(SOBRIO) document.body.classList.add('sobrio');
+VIS.init();
+pintarRuido();
+marca('mk-acc');
+activarCristal();
+addEventListener('resize', function(){ clearTimeout(window._rt);
+  window._rt=setTimeout(pintarRuido, 260); });
+setTimeout(function(){ var u=document.getElementById('u'); if(u) u.focus(); }, 950);
+</script>
+</body>
+</html>

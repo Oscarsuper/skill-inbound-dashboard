@@ -1941,7 +1941,7 @@ function leerResultados(wb){
     if(/pendiente|tipific/i.test(hoja)){
       pend=pend.concat(leerHojaPendientes(wb.Sheets[hoja])); return;
     }
-    if(/lado\s*a\s*lado|auditor|acompa/i.test(hoja))
+    if(/lado[\s_-]*a[\s_-]*lado|auditor|acompa/i.test(hoja))
       aud=aud.concat(leerHojaAuditorias(wb.Sheets[hoja]));
   });
   return { ind:ind, pend:pend, aud:aud };

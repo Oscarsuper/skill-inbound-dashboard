@@ -34,15 +34,15 @@ fino    = Side(style='thin', color='D7D0F5')
 BORDE   = Border(left=fino, right=fino, top=fino, bottom=fino)
 
 # ── Indicadores por defecto ──────────────────────────────────────────────
-# tipo: 'pct' se escribe en porcentaje · 'tiempo' se escribe mm:ss
+# tipo: 'pct' se escribe en porcentaje · 'seg' se escribe en segundos
 # dir : 'mayor' cumple por encima de la meta · 'menor' por debajo
 INDICADORES = [
     ('ADHERENCIA',     'pct',    0.95,  'mayor'),
     ('CALIDAD',        'pct',    0.90,  'mayor'),
     ('ENCUESTAS',      'pct',    0.80,  'mayor'),
     ('TIPIFICACION',   'pct',    0.98,  'mayor'),
-    ('TMO',            'tiempo', '3:00','menor'),
-    ('TMR',            'tiempo', '0:30','menor'),
+    ('TMO',            'seg',    700,   'menor'),
+    ('TMR',            'seg',    30,    'menor'),
     ('AUSENTISMO',     'pct',    0.03,  'menor'),
 ]
 PRODUCTIVIDAD = ['contestados', 'promedio_diario']
@@ -115,8 +115,9 @@ linea('El portal decide si alguien cumple comparando el RESULTADO con la META. P
 
 linea('CÓMO SE ESCRIBE CADA DATO', 'h2')
 linea('· Porcentajes: escribe 95% o 0,95. La celda ya viene con formato de porcentaje.\n'
-      '· Tiempos (TMO, TMR): escribe minutos y segundos, como 3:05. Esas celdas vienen en formato '
-      'de texto a propósito, para que Excel no te las convierta en hora del día.\n'
+      '· Tiempos (TMO, TMR): escribe SEGUNDOS enteros, como 700. No escribas 11:40. El portal '
+      'los muestra convertidos a minutos y segundos, pero la comparación con la meta tiene que '
+      'ser entre números.\n'
       '· Cantidades: números enteros, sin puntos de miles.\n'
       '· Si un agente no tiene medición en un indicador, deja la celda vacía. El portal lo marca '
       'como no cumple y se nota a simple vista.\n'
@@ -222,12 +223,10 @@ def hoja_indicadores(nombre, gente):
                 cc.value = ('=IF({r}="","",IF({r}{op}{m},"CUMPLE","NO CUMPLE"))'
                             .format(r=res, m=met, op='>=' if direc == 'mayor' else '<='))
             else:
-                # texto a propósito: si fuera formato de hora, Excel lo
-                # convertiría en hora del día y el portal leería 0:00
-                cr.number_format = cm.number_format = '@'
+                # segundos enteros: así la comparación es numérica de verdad
+                cr.number_format = cm.number_format = '0'
                 cm.value = meta
-                cc.value = ('=IF({r}="","",IF(IFERROR(TIMEVALUE({r}),99)'
-                            '<=IFERROR(TIMEVALUE({m}),0),"CUMPLE","NO CUMPLE"))'
+                cc.value = ('=IF({r}="","",IF({r}<={m},"CUMPLE","NO CUMPLE"))'
                             .format(r=res, m=met))
             cm.font = Font(size=9.5, color='64748B')
             cc.fill = CALC

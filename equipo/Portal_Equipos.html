@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resultados del equipo — Banco Agrario</title>
+
+<!-- Lector de Excel. Es lo único que viene de internet y solo lo necesita
+     la cuenta de supervisión. El HTML que se genera para los agentes trae
+     los datos adentro y sale sin esta línea: ese funciona sin conexión. -->
+<script id="lector-xlsx" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   Tablero claro y sobrio: se lee bien en cualquier monitor, imprime
+   decente y no le pide nada a la tarjeta de video.
+   ══════════════════════════════════════════════════════════════════════ */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --tinta:#132840; --tinta2:#3D566E; --tinta3:#7A8CA3; --tinta4:#A9B6C6;
+  --fondo:#F4F7FA; --panel:#FFFFFF; --linea:#DFE6EE; --linea2:#EDF2F7;
+  --verde:#0E7C66; --verde-cl:#E6F4F0; --azul:#1B4F7E; --azul-cl:#E8F0F8;
+  --ok:#15803D; --ok-bg:#E8F6EC; --mal:#C2410C; --mal-bg:#FDEEE7;
+  --alerta:#B45309; --alerta-bg:#FEF6E7;
+  --sans:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
+  --mono:'Cascadia Mono',Consolas,'SF Mono',ui-monospace,monospace;
+  --sombra:0 1px 2px rgba(19,40,64,.06),0 4px 12px rgba(19,40,64,.05);
+}
+body{font-family:var(--sans);background:var(--fondo);color:var(--tinta);font-size:14px;
+  -webkit-font-smoothing:antialiased}
+button,input,select{font-family:inherit;color:inherit;font-size:inherit}
+button{cursor:pointer;border:none;background:none}
+a{color:var(--azul)}
+
+/* ── Acceso ─────────────────────────────────────────────────────────── */
+#acceso{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:linear-gradient(150deg,#16324F,#0E7C66)}
+.caja{width:min(400px,100%);background:var(--panel);border-radius:14px;padding:34px 30px;
+  box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.caja .logo{width:46px;height:46px;border-radius:11px;margin:0 auto 16px;display:grid;
+  place-items:center;font-size:22px;background:var(--verde-cl)}
+.caja h1{font-size:19px;font-weight:600;text-align:center}
+.caja .org{text-align:center;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--tinta3);margin:6px 0 24px;font-weight:600}
+.campo{margin-bottom:14px}
+.campo label{display:block;font-size:11.5px;font-weight:600;color:var(--tinta2);margin-bottom:6px}
+.campo input{width:100%;padding:11px 13px;border:1px solid var(--linea);border-radius:9px;
+  outline:none;transition:border-color .18s,box-shadow .18s}
+.campo input:focus{border-color:var(--verde);box-shadow:0 0 0 3px rgba(14,124,102,.12)}
+.btn-entrar{width:100%;padding:12px;border-radius:9px;background:var(--verde);color:#fff;
+  font-weight:600;letter-spacing:.02em;transition:background .18s}
+.btn-entrar:hover{background:#0B6454}
+.err{display:none;font-size:12px;color:var(--mal);background:var(--mal-bg);
+  border:1px solid #F6D5C6;border-radius:8px;padding:9px 12px;margin-bottom:14px}
+.pie{margin-top:18px;padding-top:15px;border-top:1px solid var(--linea2);font-size:11.5px;
+  color:var(--tinta3);text-align:center;line-height:1.6}
+.pie b{color:var(--tinta2)}
+
+/* ── Barra ──────────────────────────────────────────────────────────── */
+#app{display:none}
+nav{background:var(--panel);border-bottom:1px solid var(--linea);padding:0 22px;
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;position:sticky;top:0;z-index:30;
+  box-shadow:0 1px 3px rgba(19,40,64,.05)}
+.marca{display:flex;align-items:center;gap:10px;padding:11px 0}
+.marca .ic{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;
+  background:var(--verde-cl);font-size:16px}
+.marca b{display:block;font-size:13px;font-weight:600;line-height:1.3}
+.marca small{display:block;font-size:10.5px;color:var(--tinta3)}
+.tabs{display:flex;gap:2px;flex-wrap:wrap}
+.tab{padding:14px 14px 12px;font-size:13px;font-weight:500;color:var(--tinta2);
+  border-bottom:2px solid transparent;transition:color .18s,border-color .18s}
+.tab:hover{color:var(--tinta)}
+.tab.act{color:var(--verde);border-bottom-color:var(--verde);font-weight:600}
+.der{margin-left:auto;display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:8px 0}
+.quien{display:flex;align-items:center;gap:9px;padding:5px 12px 5px 6px;border-radius:30px;
+  background:var(--fondo);border:1px solid var(--linea)}
+.quien .av{width:28px;height:28px;border-radius:50%;background:var(--azul);color:#fff;
+  display:grid;place-items:center;font-size:11px;font-weight:700}
+.quien .n{font-size:12px;font-weight:600;line-height:1.3;max-width:210px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.quien .n small{display:block;font-size:10px;color:var(--tinta3);font-weight:500}
+.bt{padding:8px 14px;border-radius:8px;border:1px solid var(--linea);background:var(--panel);
+  font-size:12.5px;font-weight:600;color:var(--tinta2);white-space:nowrap;
+  transition:all .18s}
+.bt:hover{border-color:var(--tinta4);background:var(--fondo)}
+.bt.pri{background:var(--verde);border-color:var(--verde);color:#fff}
+.bt.pri:hover{background:#0B6454}
+.bt.sec{background:var(--azul);border-color:var(--azul);color:#fff}
+.bt.sec:hover{background:#163F66}
+.bt:disabled{opacity:.45;cursor:not-allowed}
+
+main{max-width:1500px;margin:0 auto;padding:26px 22px 60px}
+.vista{display:none}.vista.act{display:block}
+h2{font-size:21px;font-weight:600;letter-spacing:-.01em}
+.sub{font-size:13px;color:var(--tinta3);margin-top:5px;line-height:1.55}
+.cab{margin-bottom:22px;display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.cab .der2{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ── Conmutador mi grupo / todos ─────────────────────────────────────── */
+.conm{display:inline-flex;background:var(--linea2);border-radius:9px;padding:3px;gap:2px}
+.conm button{padding:7px 15px;border-radius:7px;font-size:12.5px;font-weight:600;
+  color:var(--tinta2);transition:all .18s}
+.conm button.act{background:var(--panel);color:var(--verde);box-shadow:var(--sombra)}
+
+/* ── Tarjetas ───────────────────────────────────────────────────────── */
+.cifras{display:grid;gap:13px;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));
+  margin-bottom:22px}
+.cifra{background:var(--panel);border:1px solid var(--linea);border-radius:11px;padding:15px 17px;
+  box-shadow:var(--sombra)}
+.cifra .n{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--tinta3)}
+.cifra .v{font-family:var(--mono);font-size:27px;font-weight:600;margin-top:6px;
+  font-variant-numeric:tabular-nums;line-height:1}
+.cifra .d{font-size:11.5px;color:var(--tinta3);margin-top:4px}
+.cifra.ok .v{color:var(--ok)} .cifra.mal .v{color:var(--mal)}
+.cifra.alerta .v{color:var(--alerta)}
+
+.panel{background:var(--panel);border:1px solid var(--linea);border-radius:12px;
+  box-shadow:var(--sombra);margin-bottom:20px;overflow:hidden}
+.ph{padding:13px 18px;border-bottom:1px solid var(--linea);display:flex;align-items:center;
+  gap:12px;flex-wrap:wrap;background:#FBFCFE}
+.ph .t{font-size:13px;font-weight:600}
+.ph .s{font-size:12px;color:var(--tinta3)}
+.ph .d{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.pc{overflow-x:auto}
+.pc.pad{padding:17px 18px}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 14px;font-size:10.5px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--tinta3);background:#FBFCFE;
+  border-bottom:1px solid var(--linea);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid var(--linea2);vertical-align:middle}
+tbody tr:hover td{background:#FAFCFE}
+tbody tr:last-child td{border-bottom:none}
+td.cen,th.cen{text-align:center}
+td.mn{font-family:var(--mono);font-size:11.5px;color:var(--tinta3);font-variant-numeric:tabular-nums}
+.nm{font-weight:600}
+
+.barra{min-width:92px}
+.barra .p{height:6px;border-radius:4px;background:var(--linea2);overflow:hidden}
+.barra .p i{display:block;height:100%;border-radius:4px;transition:width .5s ease-out}
+.barra .q{font-size:11px;color:var(--tinta3);margin-top:4px;font-family:var(--mono)}
+
+.etq{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:600;
+  white-space:nowrap}
+.etq.ok{background:var(--ok-bg);color:var(--ok)}
+.etq.mal{background:var(--mal-bg);color:var(--mal)}
+.etq.gris{background:var(--linea2);color:var(--tinta3)}
+.etq.azul{background:var(--azul-cl);color:var(--azul)}
+.etq.verde{background:var(--verde-cl);color:var(--verde)}
+
+/* ── Indicadores del agente ─────────────────────────────────────────── */
+.kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.kpi{background:var(--panel);border:1px solid var(--linea);border-left:3px solid var(--tinta4);
+  border-radius:10px;padding:14px 16px;box-shadow:var(--sombra)}
+.kpi .n{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--tinta3);min-height:26px;line-height:1.35}
+.kpi .v{font-family:var(--mono);font-size:25px;font-weight:600;margin-top:7px;
+  font-variant-numeric:tabular-nums;line-height:1}
+.kpi .m{font-size:11.5px;color:var(--tinta3);margin-top:5px}
+.kpi.ok{border-left-color:var(--ok)} .kpi.ok .v{color:var(--ok)}
+.kpi.mal{border-left-color:var(--mal)} .kpi.mal .v{color:var(--mal)}
+
+/* ── Anillo de cumplimiento, en SVG ─────────────────────────────────── */
+.anillo{display:flex;align-items:center;gap:18px;padding:18px}
+.anillo svg{flex:0 0 auto}
+.anillo .txt .g{font-family:var(--mono);font-size:30px;font-weight:600;line-height:1}
+.anillo .txt .p{font-size:12.5px;color:var(--tinta3);margin-top:4px}
+
+/* ── Acompañamientos ────────────────────────────────────────────────── */
+.aud{border:1px solid var(--linea);border-radius:11px;margin-bottom:13px;overflow:hidden;
+  background:var(--panel);box-shadow:var(--sombra)}
+.aud .c{padding:11px 16px;background:#FBFCFE;border-bottom:1px solid var(--linea);
+  display:flex;gap:11px;align-items:center;flex-wrap:wrap;font-size:12.5px}
+.aud .c .f{font-weight:600}
+.aud .c .n{margin-left:auto;color:var(--tinta3);font-size:11.5px}
+.aud .b{padding:4px 16px 12px}
+.aud .i{display:grid;grid-template-columns:minmax(140px,220px) 1fr;gap:14px;padding:10px 0;
+  border-bottom:1px solid var(--linea2)}
+.aud .i:last-child{border-bottom:none}
+.aud .k{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--tinta3);line-height:1.5}
+.aud .o{font-size:13px;line-height:1.6}
+.aud .o.sin{color:var(--tinta4);font-style:italic}
+@media(max-width:700px){.aud .i{grid-template-columns:1fr;gap:3px}}
+
+.vacio{text-align:center;padding:46px 20px;color:var(--tinta3);line-height:1.7}
+.vacio b{display:block;color:var(--tinta);font-size:15px;margin-bottom:5px}
+.vacio .ic{font-size:34px;opacity:.4;margin-bottom:10px}
+.aviso{font-size:12.5px;line-height:1.65;padding:13px 16px;border-radius:10px;margin-bottom:18px;
+  background:var(--alerta-bg);border:1px solid #F3DFB8;color:#7C4A08}
+.aviso b{color:#5C3606}
+.nota{font-size:12.5px;line-height:1.65;padding:13px 16px;border-radius:10px;margin-bottom:18px;
+  background:var(--azul-cl);border:1px solid #CFE0EF;color:#194265}
+.nota b{color:#0F2F4C}
+
+.zona{background:var(--panel);border:2px dashed var(--linea);border-radius:12px;padding:38px 24px;
+  text-align:center;transition:all .2s}
+.zona.sobre{border-color:var(--verde);background:var(--verde-cl)}
+.zona .ic{font-size:36px;opacity:.5;margin-bottom:12px}
+.zona h3{font-size:16px;font-weight:600;margin-bottom:7px}
+.zona p{font-size:13px;color:var(--tinta3);max-width:520px;margin:0 auto 18px;line-height:1.65}
+
+.spt{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.spt button{padding:8px 15px;border-radius:8px;font-size:12.5px;font-weight:600;
+  border:1px solid var(--linea);background:var(--panel);color:var(--tinta2)}
+.spt button.act{background:var(--azul);border-color:var(--azul);color:#fff}
+.ss{display:none}.ss.act{display:block}
+
+.opc{display:flex;gap:11px;align-items:flex-start;padding:12px 15px;border:1px solid var(--linea);
+  border-radius:10px;margin-bottom:10px;cursor:pointer;background:var(--panel)}
+.opc input{width:16px;height:16px;margin-top:2px;accent-color:#0E7C66;flex:0 0 auto}
+.opc b{display:block;font-size:13px;margin-bottom:3px}
+.opc span{font-size:12px;color:var(--tinta3);line-height:1.55}
+
+#msg{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(14px);z-index:90;
+  padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;
+  pointer-events:none;transition:all .25s;background:var(--tinta);color:#fff;
+  box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:92vw;text-align:center}
+#msg.on{opacity:1;transform:translateX(-50%)}
+#msg.mal{background:#9A3412}
+@media print{nav,#msg,.bt,.conm{display:none}.vista{display:block!important}
+  body{background:#fff}.panel{box-shadow:none;break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<!-- Aquí el generador inserta los datos del periodo. Si la marca sigue
+     vacía, este es el archivo del supervisor y espera el Excel. -->
+<!--PAQUETE-->
+
+<div id="acceso">
+  <div class="caja">
+    <div class="logo">🌾</div>
+    <h1>Resultados del equipo</h1>
+    <div class="org">Banco Agrario de Colombia</div>
+    <div class="err" id="err"></div>
+    <div class="campo">
+      <label for="u">Usuario</label>
+      <input id="u" type="text" placeholder="Número de cédula" autocomplete="username" spellcheck="false">
+    </div>
+    <div class="campo">
+      <label for="p">Contraseña</label>
+      <input id="p" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-entrar" onclick="entrar()">Entrar</button>
+    <div class="pie" id="pie">
+      Tu <b>usuario</b> y tu <b>contraseña</b> son el mismo número de cédula,<br>sin puntos ni espacios.
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <nav>
+    <div class="marca"><div class="ic">🌾</div>
+      <div><b>Resultados del equipo</b><small id="marca-sub">Banco Agrario</small></div></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="der">
+      <button class="bt pri" id="bt-cargar" onclick="document.getElementById('fx').click()">
+        Cargar Excel</button>
+      <input type="file" id="fx" accept=".xlsx,.xlsm,.xls,.ods" style="display:none"
+             onchange="recibir(this.files)">
+      <button class="bt sec" id="bt-portal" onclick="ir('portal')">Generar portal</button>
+      <div class="quien"><div class="av" id="av"></div><div class="n" id="qn"></div></div>
+      <button class="bt" onclick="salir()" title="Cerrar sesión">Salir</button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- Equipo -->
+    <div class="vista act" id="v-equipo">
+      <div class="cab">
+        <div><h2 id="t-equipo">Mi equipo</h2><div class="sub" id="s-equipo"></div></div>
+        <div class="der2" id="d-equipo"></div>
+      </div>
+      <div id="c-equipo"></div>
+    </div>
+
+    <!-- Un agente -->
+    <div class="vista" id="v-agente">
+      <div class="cab">
+        <div><h2 id="t-agente">Detalle del agente</h2><div class="sub" id="s-agente"></div></div>
+        <div class="der2" id="d-agente"></div>
+      </div>
+      <div id="c-anillo"></div>
+      <div class="spt" id="spt">
+        <button class="act" onclick="irSub('ind',this)">Indicadores</button>
+        <button onclick="irSub('pend',this)">Pendientes por tipificar</button>
+        <button onclick="irSub('aud',this)">Lado a lado</button>
+      </div>
+      <div class="ss act" id="ss-ind"><div id="c-ind"></div></div>
+      <div class="ss" id="ss-pend"><div id="c-pend"></div></div>
+      <div class="ss" id="ss-aud"><div id="c-aud"></div></div>
+    </div>
+
+    <!-- Generar el portal de los agentes -->
+    <div class="vista" id="v-portal">
+      <div class="cab">
+        <div><h2>Generar el portal de los agentes</h2>
+          <div class="sub">Crea un HTML con los datos ya adentro. Ese archivo es el que les
+            repartes: entran con su cédula y no necesitan Excel ni internet.</div></div>
+      </div>
+      <div id="c-portal"></div>
+    </div>
+  </main>
+</div>
+
+<div id="msg"></div>
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   NÓMINA — 109 agentes
+   Sale del archivo que entregó la operación. El usuario y la contraseña
+   de cada agente son su misma cédula.
+   ══════════════════════════════════════════════════════════════════════ */
+const AGENTES = [
+  { ced:'1019052673', nombre:'ARIZA VILLARRAGA ALEXANDER', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1073694313', nombre:'CANTOR MARTINEZ ACENED ESTEFFANIA', skill:'', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'52463960', nombre:'CASILIMAS PINZON JENNY LILIANA', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'53136285', nombre:'CIFUENTES CAMPOS MARIA AURORA', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1030597570', nombre:'COLORADO GAITAN JONATHAN ALEXANDER', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1007158550', nombre:'GONZALEZ SARMIENTO LUISA FERNANDA', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1007101442', nombre:'LOPEZ MENDEZ KARENT DANIELA', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1030548168', nombre:'MOJICA ROCHA PAOLA CATERINE', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1020816999', nombre:'PEÑA ROMERO SEBASTIAN', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1003656223', nombre:'PEÑATA REYES JHON JAIRO', skill:'', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1001091502', nombre:'PINEDA SANCHEZ ERIKA ALEXANDRA', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1012438650', nombre:'QUEVEDO ROMERO YURY YINETH', skill:'', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1011321174', nombre:'RENGIFO ARREDONDO SOFIA', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1001050371', nombre:'TORRES CORREDOR LAURA', skill:'INBOUND', jefe:'FONSECA GONZALEZ DAVID ALEXANDER' },
+  { ced:'1043141989', nombre:'ARZUZA LLERENA KATHLEEN SMITH', skill:'INBOUND', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1233490096', nombre:'AVILA BERMEJO ANGELO JACOBO', skill:'INBOUND', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1098641297', nombre:'BAUTISTA OSPINA ALEJANDRA', skill:'INBOUND', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1016712031', nombre:'CALDERON BORJA YULY ALEJANDRA', skill:'INBOUND', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1015994524', nombre:'CASTILLO BERNAL ANGEL DAVID', skill:'INBOUND', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1032466978', nombre:'CORTES CORTES CRISTHIAN DARIO', skill:'INBOUND', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1030683268', nombre:'FIERRO BONILLA JUAN CARLOS', skill:'', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1000859890', nombre:'GARCIA MONTOYA CAMILA ANDREA', skill:'INBOUND', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1193278006', nombre:'MADERA HERRERA DIANA CAROLINA', skill:'APOYO ELITE', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1082918689', nombre:'MELENDEZ REDONDO JUDITH SOFIA', skill:'', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1030555166', nombre:'OROZCO HERRERA MIGUEL ANGEL', skill:'INBOUND', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1001343388', nombre:'RAMIREZ QUIROZ LICED GABRIELA', skill:'INBOUND', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1019014068', nombre:'RUEDA MENE CESAR GABRIEL', skill:'ELITE', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1233893774', nombre:'SANCHEZ CUERVO JULLY ANDREA', skill:'', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1033733992', nombre:'SARMIENTO MUÑOZ EVELIN XIOMARA', skill:'ELITE', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1028484955', nombre:'WALDORF CAMACHO ANGELA GABRIELA VON', skill:'INBOUND', jefe:'GOMEZ PEREZ JOSE DANIEL' },
+  { ced:'1024609146', nombre:'ABRIL MELO ANGIE PAOLA', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1193603003', nombre:'AGUILAR PEREZ BRIAN STIVEN', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1007404206', nombre:'AYALA PORRAS DIEGO FERNANDO', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1052954536', nombre:'CAMPUZANO PERALTA KATY ELISA', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1014292708', nombre:'DIAZ PEREZ JHON ALEXANDER', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1055916745', nombre:'EGUIS BENJUMEA JEINER JOSE', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1000689412', nombre:'FORERO SANCHEZ BRAYAN CAMILO', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'53007877', nombre:'HERNANDEZ BARRERA ANA MARIA', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1083693877', nombre:'MEJIA GARCIA MARIA DEL CARMEN', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1074486893', nombre:'PALOMO QUINCHE MARIA FERNANDA', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1018421440', nombre:'RAMIREZ GAVIRIA JORGE EDUARDO', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1011089465', nombre:'VARGAS LINARES PAULA VALENTINA', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1032490695', nombre:'VIVAS GOMEZ CRISTHIAN DANIEL', skill:'INBOUND', jefe:'ORTIZ CODINA JESUS ANTONIO' },
+  { ced:'1099217237', nombre:'AMAYA SAENZ ELIO', skill:'', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'1010960671', nombre:'BASTIDAS CARDOZO LUNA ALEJANDRA', skill:'INBOUND', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'1032940824', nombre:'CARDOZO DAZA ANDRES', skill:'INBOUND', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'52129052', nombre:'ESTUPIÑAN CACERES FLOR AMALIA', skill:'INBOUND', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'1001317229', nombre:'GONZALES ORTIZ SOFIA NICOL', skill:'INBOUND', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'1006507935', nombre:'MONTALVO COLLAZOS KATERINE', skill:'INBOUND', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'1010239688', nombre:'PEÑA ACOSTA JOSE BRAYAN', skill:'INBOUND', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'1116873524', nombre:'QUIMBAYA SALCEDO CESAR AUGUSTO', skill:'INBOUND', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'1052412126', nombre:'SANCHEZ ESCAMILLA JUAN DAVID', skill:'INBOUND', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'1143447798', nombre:'UPEGUI BANQUEZ ANDREA NATALY', skill:'', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'1019067327', nombre:'VARGAS ROJAS JAVIER FELIPE', skill:'INBOUND', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'1000593737', nombre:'ZAMBRANO GOMEZ SERGIO ESTEBAN', skill:'ELITE', jefe:'TROCHA MORALES EUDYMAR' },
+  { ced:'6079952', nombre:'AGUILAR GUERRERO FELIX ALBERTO', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1014291349', nombre:'BOLIVAR JARAMILLO CRISTIAN SANTIAGO', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1062078571', nombre:'CALIZ YONDA INGRID YULIETH', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1018480929', nombre:'CASTIBLANCO VICENTES JOHN DEYVY', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1002297526', nombre:'CELIS SALAS YADIRA', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1007408013', nombre:'CLAVIJO GARAY ANDERSON LEONARDO', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1024502402', nombre:'CONTRERAS GONZALEZ JULIETH', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1069728622', nombre:'CUENCA ROMERO DANIELA', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1007677081', nombre:'DIAZ LUNA SUSAN ANGELICA', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1031168560', nombre:'GARCIA CAÑON CARLAYN JHOANA', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1012333413', nombre:'GORDILLO TORRES DAYAN KATHERINNE', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1013659634', nombre:'LABRADOR ROBLES JIMMY ALEJANDRO', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1015429676', nombre:'MESA QUIROGA MAYERLI YOANA', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1003660950', nombre:'NEIRA HUERTAS ALEJANDRO', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1003235912', nombre:'OROZCO ACUÑA RICHARD JOSE', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1002378830', nombre:'RUIZ BETANCUR MARIA TERESA', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1109848001', nombre:'SAENZ GARCIA JESSICA KATERINE', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1022365378', nombre:'SALAZAR HERRERA SANDRA SUSANA', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1095799850', nombre:'SOTO FREITE ESTEFANY PAOLA', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1013658280', nombre:'VALENCIA DUQUE DIANA MARCELA', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1000125624', nombre:'VARGAS ARISMENDY DAVID ESTEBAN', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'1032495578', nombre:'VILLOTA BLANDON VALENTINA', skill:'MONITOREO TRANSACCIONAL', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO' },
+  { ced:'4192355', nombre:'BELTRAN GUIO JOHN JAIRO', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1020753243', nombre:'BERMUDEZ MUÑOZ SERGIO DAVID', skill:'BACKOFFICE', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'52788256', nombre:'CEPEDA SALINAS JENNY LILIANA', skill:'PQR_ DND', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1105054305', nombre:'CHICO LARA NAYELI', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1003879250', nombre:'CORTES MARTIN LIZBETH JULIANA', skill:'PQR_ DEPOSITOS', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1004494125', nombre:'CUSCUE MUNOZ JOSE DAMIAN', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1012430391', nombre:'DIAZ CASTRO BLEIDY ALEJANDRA', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'52177532', nombre:'DIAZ YOLANDA CAICEDO', skill:'LINEA TRANSPARENTE', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1007458395', nombre:'FORERO SOTO JOHN CARLOS', skill:'PQR_ DOCUMENTACION INCOMPLETA', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1001090933', nombre:'GARCIA MENDOZA JULIANA ANDREA', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1019131086', nombre:'GOMEZ PAREDES PAULA KARELY', skill:'BACKOFFICE', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1094975878', nombre:'GUTIERREZ BERNAL JULY ALEXANDRA', skill:'PQR_ DEPOSITOS', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1013107569', nombre:'HOYOS HENAO NATALIA', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'79793770', nombre:'LANCHEROS NOVOA CARLOS ALBERTO', skill:'PQR_ DEPOSITOS', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'53039756', nombre:'MARCIALES HERNANDEZ CLAUDIA LILIANA', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1123633125', nombre:'MEDINA DE LOS REYES YILDA MARIA', skill:'PQR_ DOCUMENTACION INCOMPLETA', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1022395279', nombre:'MUÑOZ FORERO JONATHAN', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1234093032', nombre:'MUÑOZ GAITAN DANIEL CAMILO', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1020715756', nombre:'NARANJO GALINDO BRALLAN ESTIVEN', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1013681738', nombre:'NEIRA MANRIQUE SERGIO ANTONIO', skill:'', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1098837184', nombre:'OLIVEROS MEJIA MARIELA ANDREINA', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1020758337', nombre:'PAEZ RINCON DIANA PAOLA', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1031654984', nombre:'PEREZ MURCIA FERNANDO ALEXANDER', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1020833936', nombre:'PIÑEROS CHUNZA LAURA VALENTINA', skill:'BACKOFFICE', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'80068136', nombre:'QUINTERO MONTAÑA WILSON JAVIER', skill:'PQR_ DEPOSITOS', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1025060015', nombre:'RAIGOSO GOMEZ YESID ALEXANDER', skill:'ENTES DE CONTROL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1003923278', nombre:'RODRIGUEZ VIRGUEZ VICTORIA ZULAY', skill:'INBOUND', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1013105758', nombre:'ROSALES GASCA JAVIER ALEJANDRO', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1087811744', nombre:'SANCHEZ ESTUPIÑAN DIANA MARCELA', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1019117661', nombre:'SANCHEZ MIDEROS JUAN SEBASTIAN', skill:'', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1042996314', nombre:'SARMIENTO MEZA MIGUEL DARIO', skill:'PQR_ DEPOSITOS', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+  { ced:'1070608217', nombre:'TOVAR CORDOBA KATHERIN JOHANA', skill:'EMAIL', jefe:'ORTIZ QUITIAN OLGA LUCIA' },
+];
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   SUPERVISORES
+   «jefe» es el nombre tal como viene en la columna del Excel: por ahí se
+   arma «mi grupo». Vacío significa que ve a todo el mundo.
+   De la contraseña solo queda la huella SHA-256, para que abrir el HTML
+   en un editor no la revele. Al generar el portal de los agentes esas
+   huellas se borran, así la copia que circula no entra aquí.
+   ══════════════════════════════════════════════════════════════════════ */
+const SAL = 'BAC-equipos-v1|';
+const SUPERVISORES = [
+  { usuario:'Olga', jefe:'ORTIZ QUITIAN OLGA LUCIA',          
+    area:'Email, PQR, Backoffice y Entes de control', hash:'2ca1dc223522f54f89f6ac5dbefb70f0431801530fb2b43fd4c0d34d45d9e5cc' },
+  { usuario:'Alex', jefe:'DOTOR SANTIAGO ALEX ALEJANDRO',     
+    area:'Monitoreo Transaccional', hash:'76994bec0e85d2b9f7bcdd9ad7e62c692a98587dc022160d3a71e6f3cf73b0da' },
+  { usuario:'Daniel', jefe:'GOMEZ PEREZ JOSE DANIEL',           
+    area:'Inbound y Élite', hash:'50735758233c06a2e7e8f52b3df900c6deaa2076a9c3ce718850e67b72c4e55e' },
+  { usuario:'David', jefe:'FONSECA GONZALEZ DAVID ALEXANDER',  
+    area:'Inbound', hash:'f56b80852fcfa1251c3151140182b529ecdd7a43d23b88ad27aa228970f1648c' },
+  { usuario:'Jesus', jefe:'ORTIZ CODINA JESUS ANTONIO',        
+    area:'Inbound', hash:'356cd951672f908e3c78637bc406846c51bb506f7bca29c3cf068c78ea44f3b5' },
+  { usuario:'Eudymar', jefe:'TROCHA MORALES EUDYMAR',            
+    area:'Inbound y Élite', hash:'c490ef30f1987ea23bf0801182633e584c17512e29424ca4d860b592f9008c37' },
+  { usuario:'Oscar', jefe:'',                                  
+    area:'Chat, RRSS y soporte del tablero', hash:'20e3639bf313ae4f50da4ff8aa36ae63a3042d2b8abcf61a9ed71dbb1d89f4b1' },
+];
+
+/* SHA-256 en JavaScript puro. No se usa crypto.subtle porque ese exige
+   página servida por HTTPS y aquí el archivo se abre con doble clic. */
+function sha256(msg){
+  function rotr(x,n){ return (x>>>n)|(x<<(32-n)); }
+  var K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+         0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+         0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+         0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+         0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+         0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+         0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+         0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  var H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  var by=[], i, c, c2, cp;
+  for(i=0;i<msg.length;i++){
+    c=msg.charCodeAt(i);
+    if(c<0x80) by.push(c);
+    else if(c<0x800) by.push(0xc0|(c>>6), 0x80|(c&63));
+    else if(c<0xd800||c>=0xe000) by.push(0xe0|(c>>12), 0x80|((c>>6)&63), 0x80|(c&63));
+    else { c2=msg.charCodeAt(++i); cp=0x10000+(((c&0x3ff)<<10)|(c2&0x3ff));
+           by.push(0xf0|(cp>>18), 0x80|((cp>>12)&63), 0x80|((cp>>6)&63), 0x80|(cp&63)); }
+  }
+  var bl=by.length*8;
+  by.push(0x80);
+  while(by.length%64!==56) by.push(0);
+  var hi=Math.floor(bl/4294967296), lo=bl>>>0;
+  by.push((hi>>>24)&255,(hi>>>16)&255,(hi>>>8)&255,hi&255,
+          (lo>>>24)&255,(lo>>>16)&255,(lo>>>8)&255,lo&255);
+  var w=new Array(64), b, t, s0, s1, a, bb, cc, d, e, f, g, h, S0, S1, ch, mj, t1, t2;
+  for(b=0;b<by.length;b+=64){
+    for(t=0;t<16;t++) w[t]=(by[b+t*4]<<24)|(by[b+t*4+1]<<16)|(by[b+t*4+2]<<8)|by[b+t*4+3];
+    for(t=16;t<64;t++){
+      s0=rotr(w[t-15],7)^rotr(w[t-15],18)^(w[t-15]>>>3);
+      s1=rotr(w[t-2],17)^rotr(w[t-2],19)^(w[t-2]>>>10);
+      w[t]=(w[t-16]+s0+w[t-7]+s1)|0;
+    }
+    a=H[0];bb=H[1];cc=H[2];d=H[3];e=H[4];f=H[5];g=H[6];h=H[7];
+    for(t=0;t<64;t++){
+      S1=rotr(e,6)^rotr(e,11)^rotr(e,25);
+      ch=(e&f)^(~e&g);
+      t1=(h+S1+ch+K[t]+w[t])|0;
+      S0=rotr(a,2)^rotr(a,13)^rotr(a,22);
+      mj=(a&bb)^(a&cc)^(bb&cc);
+      t2=(S0+mj)|0;
+      h=g;g=f;f=e;e=(d+t1)|0;d=cc;cc=bb;bb=a;a=(t1+t2)|0;
+    }
+    H[0]=(H[0]+a)|0;H[1]=(H[1]+bb)|0;H[2]=(H[2]+cc)|0;H[3]=(H[3]+d)|0;
+    H[4]=(H[4]+e)|0;H[5]=(H[5]+f)|0;H[6]=(H[6]+g)|0;H[7]=(H[7]+h)|0;
+  }
+  return H.map(function(x){ return ('00000000'+(x>>>0).toString(16)).slice(-8); }).join('');
+}
+
+
+/* ══ ESTADO ══════════════════════════════════════════════════════════ */
+var YO=null;              // quién inició sesión
+var MANDO=false;          // true si entró un supervisor
+var FOCO=null;            // el agente que se está mirando
+var ALCANCE='mio';        // 'mio' = mi grupo · 'todos' = toda la operación
+var VISTA='equipo', SUB='ind';
+var ORDEN='peor';
+
+var IND=[], PEND=[], AUD=[];
+var ARCHIVO='', PERIODO='';
+
+var esc=function(s){ return String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+var norm=function(s){ return String(s||'').trim().toUpperCase()
+  .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' '); };
+var ced=function(s){ return String(s==null?'':s).replace(/[^0-9]/g,''); };
+var iniciales=function(n){ var p=String(n||'').trim().split(/\s+/);
+  return (((p[0]||'')[0]||'')+((p[1]||'')[0]||'')).toUpperCase(); };
+var pct=function(x){ return (x*100).toFixed(1).replace('.',',')+'%'; };
+/* El nombre completo del banco viene con apellidos primero; para saludar
+   basta con las dos últimas palabras, que suelen ser los nombres. */
+var corto=function(n){
+  var p=String(n||'').trim().split(/\s+/);
+  return p.length>2 ? p.slice(-2).join(' ') : n;
+};
+
+function msg(t, malo){
+  var n=document.getElementById('msg');
+  n.textContent=t;
+  n.className='on'+(malo?' mal':'');
+  clearTimeout(n._t);
+  n._t=setTimeout(function(){ n.className=''; }, 4200);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   LECTURA DEL EXCEL
+   Viene del tablero de Chat y RRSS sin cambios de fondo: ya estaba
+   probada contra los archivos reales. Lo único que se agregó es leer
+   el skill y el jefe de cada fila, que aquí sirven para separar grupos.
+   ══════════════════════════════════════════════════════════════════════ */
+var cel = function(ws,r,c){
+  var x=ws[XLSX.utils.encode_cell({r:r,c:c})];
+  if(!x) return null;
+  /* Una celda con error —#N/D de un BUSCARV que no encontró el nombre,
+     #¡VALOR!, #¡REF!— no trae un dato. Hay que tratarla como vacía: el
+     lector de Excel entrega ahí un número interno que si no, se colaría
+     como si fuera el resultado del indicador. */
+  if(x.t==='e') return null;
+  return x.v!==undefined ? x.v : x.w;
+};
+
+/* ── Hoja de indicadores ──────────────────────────────────────────────
+   Fila 1: el nombre de la categoría, combinado sobre 3 columnas.
+   Fila 2: cedula | nombre_completo | RESULTADO | META | CUMPLIMIENTO | …
+   El CUMPLIMIENTO es el puntaje ganado: trae el peso si cumplió, o 0.  */
+function leerHojaIndicadores(ws){
+  if(!ws || !ws['!ref']) return null;
+  var rg=XLSX.utils.decode_range(ws['!ref']);
+
+  /* Fila 1: al estar combinada, el nombre se arrastra a la derecha */
+  var cat=[], actual='';
+  for(var c=0;c<=rg.e.c;c++){
+    var v=cel(ws,0,c);
+    if(v!=null && String(v).trim()) actual=String(v).trim();
+    cat[c]=actual;
+  }
+  /* Fila 2: subtítulos */
+  var sub=[], colCed=-1, colNom=-1, colSk=-1, colJefe=-1;
+  for(var c2=0;c2<=rg.e.c;c2++){
+    var s=String(cel(ws,1,c2)||'').trim();
+    sub[c2]=s;
+    if(/^c[eé]dula$/i.test(s))          colCed=c2;
+    else if(/nombre_completo|nombre/i.test(s) && colNom===-1) colNom=c2;
+    else if(/^skill$|servicio|etiqueta/i.test(s) && colSk===-1) colSk=c2;
+    else if(/jefe|supervisor/i.test(s) && colJefe===-1) colJefe=c2;
+  }
+  if(colCed===-1) return null;
+
+  /* Se agrupan las columnas por categoría */
+  var bloques=[];
+  for(var c3=0;c3<=rg.e.c;c3++){
+    if(c3===colCed||c3===colNom||c3===colSk||c3===colJefe) continue;
+    if(!cat[c3] || /^agentes?$/i.test(cat[c3])) continue;
+    var b=bloques.filter(function(x){ return x.cat===cat[c3]; })[0];
+    if(!b){ b={cat:cat[c3], cols:[]}; bloques.push(b); }
+    b.cols.push({c:c3, sub:sub[c3]});
+  }
+
+  var filas=[];
+  for(var r=2;r<=rg.e.r;r++){
+    var cd=ced(cel(ws,r,colCed));
+    if(!cd) continue;
+    var reg={ ced:cd, nombre:String(cel(ws,r,colNom)||'').trim(),
+              skill: colSk===-1 ? '' : String(cel(ws,r,colSk)||'').trim().toUpperCase(),
+              jefe : colJefe===-1 ? '' : String(cel(ws,r,colJefe)||'').trim().toUpperCase(),
+              inds:[], extras:[] };
+    bloques.forEach(function(b){
+      var col=function(re){ return b.cols.filter(function(x){ return re.test(x.sub); })[0]; };
+      var cR=col(/^resultado$/i), cM=col(/^meta$/i), cC=col(/^cumplimiento$/i);
+      if(cR){
+        var res=cel(ws,r,cR.c), meta=cM?cel(ws,r,cM.c):null, pts=cC?cel(ws,r,cC.c):null;
+        var nRes=aNumero(res), nMeta=aNumero(meta), nPts=aNumero(pts);
+        reg.inds.push({ nombre:b.cat,
+          res:nRes, resTxt: fmt(nRes==null?res:nRes, b.cat),
+          meta:nMeta, metaTxt: nMeta==null?'':fmt(nMeta, b.cat),
+          pts:nPts, estado: veredicto(b.cat, nRes, nMeta, nPts) });
+      } else {
+        /* Bloques sin RESULTADO/META, como PRODUCTIVIDAD: se listan tal cual */
+        b.cols.forEach(function(x){
+          var v=cel(ws,r,x.c);
+          if(v==null||v==='') return;
+          var n=aNumero(v);
+          reg.extras.push({ grupo:b.cat, nombre:x.sub, texto:fmt(n==null?v:n, x.sub) });
+        });
+      }
+    });
+    filas.push(reg);
+  }
+
+  /* Un indicador en blanco para TODO el equipo no es que todos hayan
+     incumplido: es que todavía no se ha diligenciado este mes. Se saca
+     del conteo y no se pinta, y queda anotado para poder avisarlo. Si el
+     dato le falta solo a una persona, esa sí queda en rojo. */
+  var conDato={};
+  filas.forEach(function(f){
+    f.inds.forEach(function(i){ if(i.res!=null) conDato[i.nombre]=true; });
+  });
+  var sinMedir=[];
+  if(filas.length)
+    filas[0].inds.forEach(function(i){ if(!conDato[i.nombre]) sinMedir.push(i.nombre); });
+  filas.forEach(function(f){
+    f.sinMedir=sinMedir;
+    f.inds=f.inds.filter(function(i){ return conDato[i.nombre]; });
+  });
+  return filas;
+}
+
+/* Lo que la plantilla declara pero nadie ha diligenciado, por hoja */
+function faltanPorDiligenciar(){
+  var out=[], visto={};
+  IND.forEach(function(f){
+    if(visto[f.hoja] || !(f.sinMedir||[]).length) return;
+    visto[f.hoja]=1;
+    out.push({ hoja:f.hoja.replace(/_/g,' '), inds:f.sinMedir });
+  });
+  return out;
+}
+/* Cuántos indicadores van diligenciados de los que declara la plantilla */
+function cuentaIndicadores(){
+  var med=0, dec=0, visto={};
+  IND.forEach(function(f){
+    if(visto[f.hoja]) return; visto[f.hoja]=1;
+    med+=f.inds.length; dec+=f.inds.length+(f.sinMedir||[]).length;
+  });
+  return { med:med, dec:dec };
+}
+
+/* Las celdas no siempre vienen como número: a veces quedan escritas como
+   texto —«98,0 %», «0,05», «13:23»— y así no se pueden comparar con la meta.
+   Aquí se convierten a número; el porcentaje queda en fracción, igual que
+   cuando Excel lo guarda como número. */
+function aNumero(v){
+  if(typeof v==='number') return v;
+  if(v==null) return null;
+  var t=String(v).replace(/\u00a0/g,' ').trim();
+  if(!t) return null;
+  if(/^\d{1,3}:\d{2}(:\d{2})?$/.test(t)){            // mm:ss o hh:mm:ss
+    var p=t.split(':').map(Number);
+    return p.length===2 ? p[0]*60+p[1] : p[0]*3600+p[1]*60+p[2];
+  }
+  var pct=/%/.test(t);
+  t=t.replace(/%/g,'').replace(/\s+/g,'');
+  /* Punto y coma pueden ser decimal o miles según quién escriba. El que
+     aparezca de último manda: en «1.234,5» decide la coma, en «1,234.5»
+     el punto. Con uno solo, ese es el decimal. */
+  var pp=t.lastIndexOf('.'), pc=t.lastIndexOf(',');
+  if(pp>=0 && pc>=0){
+    if(pc>pp) t=t.replace(/\./g,'').replace(',', '.');
+    else      t=t.replace(/,/g,'');
+  } else if(pc>=0) t=t.replace(',', '.');
+  if(!/^-?\d*\.?\d+$/.test(t)) return null;
+  var n=parseFloat(t);
+  if(isNaN(n)) return null;
+  return pct ? n/100 : n;
+}
+
+/* Si el resultado quedó en escala 0-100 y la meta en 0-1 —o al revés—, la
+   comparación daría cualquier cosa. Se llevan las dos a la misma escala. */
+function mismaEscala(res, meta){
+  if(res==null || meta==null) return [res, meta];
+  if(meta>0 && meta<=1 && res>1)  return [res/100, meta];
+  if(res>0 && res<=1 && meta>1 && meta<=100) return [res, meta/100];
+  return [res, meta];
+}
+
+/* En estos indicadores un número menor es mejor: no se cumple superando la
+   meta sino quedando por debajo. */
+var MENOR_ES_MEJOR = /tmo|tmr|aht|tiempo|ausent|abandon|desconex|error|mal\s*radicad|mora|espera/i;
+
+/* Cumple o no cumple sale de comparar el resultado con la meta, no de la
+   columna CUMPLIMIENTO: esa es un puntaje que el supervisor calcula aparte y,
+   si queda en cero, un 98% de adherencia aparecía en rojo.
+   El único caso que sí necesita esa columna es cuando resultado y meta son
+   cero: ahí no se distingue «cumplió con meta cero» de «no hay medición». */
+function veredicto(nombre, res, meta, pts){
+  /* Solo dos estados: cumple o no cumple. Una celda vacía no puede dar por
+     cumplido nada, así que cuenta como no cumple y se nota a simple vista. */
+  if(res==null || meta==null) return 'bad';
+  var e=mismaEscala(res, meta), r=e[0], m=e[1];
+  return (MENOR_ES_MEJOR.test(nombre) ? r<=m : r>=m) ? 'ok' : 'bad';
+}
+
+/* Porcentajes entre 0 y 1; TMO y TMR en segundos */
+function fmt(v, nombre){
+  if(v==null||v==='') return '—';
+  if(typeof v!=='number') return String(v);
+  var n=String(nombre||'');
+  if(/tmo|tmr|aht/i.test(n)){
+    var t=Math.round(v), m=Math.floor(t/60), s=t%60;
+    return m+':'+(s<10?'0':'')+s;
+  }
+  if(/dias|d[ií]as|promedio_diario|contestados|mensual/i.test(n) && v>1)
+    return Math.round(v).toLocaleString('es-CO');
+  if(v>=0 && v<=1) return (v*100).toFixed(1).replace('.',',')+'%';
+  return Number.isInteger(v) ? v.toLocaleString('es-CO') : v.toFixed(1).replace('.',',');
+}
+
+/* ── Hoja de pendientes ─────────────────────────────────────────────── */
+function leerHojaPendientes(ws){
+  if(!ws || !ws['!ref']) return [];
+  var rg=XLSX.utils.decode_range(ws['!ref']);
+  var hdr=-1, col={};
+  for(var r=0;r<=Math.min(8,rg.e.r);r++){
+    var e={};
+    for(var c=0;c<=rg.e.c;c++){
+      var v=cel(ws,r,c); if(v==null) continue;
+      var t=String(v).trim().toLowerCase(); if(!t) continue;
+      if(e.agente===undefined && /nombre_agente|user_name|nombre|agente|asesor/.test(t)) e.agente=c;
+      else if(e.id===undefined   && (/^id[_\s]/.test(t)||/genesys|interacc/.test(t)))     e.id=c;
+      else if(e.link===undefined && /link|url|gesti/.test(t))                             e.link=c;
+      else if(e.cola===undefined && /^cola$/.test(t))                                     e.cola=c;
+      else if(e.macro===undefined && /macroproceso/.test(t))                              e.macro=c;
+      else if(e.proc===undefined  && /^proceso$/.test(t))                                 e.proc=c;
+      else if(e.s1===undefined    && /subproceso[_\s]*(uno|1)/.test(t))                   e.s1=c;
+      else if(e.s2===undefined    && /subproceso[_\s]*(dos|2)/.test(t))                   e.s2=c;
+      else if(e.obs===undefined   && /observaci/.test(t))                                 e.obs=c;
+    }
+    if(e.agente!==undefined && (e.id!==undefined||e.link!==undefined)){ hdr=r; col=e; break; }
+  }
+  if(hdr===-1) return [];
+  var txt=function(r,c){ return c===undefined ? '' : String(cel(ws,r,c)||'').trim(); };
+  var out=[];
+  for(var r2=hdr+1;r2<=rg.e.r;r2++){
+    var nom=txt(r2,col.agente); if(!nom) continue;
+    out.push({ agente:nom, idLlamada:txt(r2,col.id), link:txt(r2,col.link), cola:txt(r2,col.cola),
+      macroproceso:txt(r2,col.macro), proceso:txt(r2,col.proc),
+      subproceso1:txt(r2,col.s1), subproceso2:txt(r2,col.s2), observaciones:txt(r2,col.obs) });
+  }
+  return out;
+}
+
+/* ── Hoja de auditorías «lado a lado» ────────────────────────────────
+   Primera columna: el nombre del agente. Una columna de fecha. Todas las
+   demás son criterios, y el supervisor escribe una observación en cada
+   una. No hay nota: lo que califica es lo que quede escrito. Si mañana
+   se agregan criterios nuevos, aparecen solos.                        */
+function leerHojaAuditorias(ws){
+  if(!ws || !ws['!ref']) return [];
+  var rg=XLSX.utils.decode_range(ws['!ref']);
+
+  var hdr=-1, colNom=-1, colFecha=-1, colId=-1, crit=[];
+  for(var r=0; r<=Math.min(8,rg.e.r); r++){
+    var nom=-1, fec=-1, id=-1, cs=[];
+    for(var c=0; c<=rg.e.c; c++){
+      var v=cel(ws,r,c); if(v==null) continue;
+      var t=String(v).trim(); if(!t) continue;
+      var tl=t.toLowerCase();
+      if(nom===-1 && /nombre|agente|asesor/.test(tl)){ nom=c; continue; }
+      if(fec===-1 && /fecha/.test(tl)){ fec=c; continue; }
+      if(id===-1  && (/^id\b/.test(tl) || /interacc|llamada|gesti/.test(tl))){ id=c; continue; }
+      if(nom!==-1) cs.push({c:c, nm:t});
+    }
+    if(nom!==-1 && cs.length){ hdr=r; colNom=nom; colFecha=fec; colId=id; crit=cs; break; }
+  }
+  if(hdr===-1) return [];
+
+  var out=[];
+  for(var r2=hdr+1; r2<=rg.e.r; r2++){
+    var nombre=String(cel(ws,r2,colNom)||'').trim();
+    if(!nombre) continue;
+    var obs=[];
+    crit.forEach(function(k){
+      var v=cel(ws,r2,k.c);
+      var txt=(v==null?'':String(v)).trim();
+      obs.push({ criterio:k.nm, texto:txt });
+    });
+    /* Una fila sin una sola observación es un agente aún sin auditar */
+    if(!obs.some(function(x){ return x.texto; })) continue;
+    var idTxt = colId===-1 ? '' : String(cel(ws,r2,colId)||'').trim();
+    out.push({ agente:nombre, fecha:fechaTexto(colFecha===-1?null:cel(ws,r2,colFecha)),
+               orden:fechaOrden(colFecha===-1?null:cel(ws,r2,colFecha)),
+               idInter:idTxt, link:colId===-1?'':enlaceDeCelda(ws,r2,colId), obs:obs });
+  }
+  return out;
+}
+
+/* El link puede venir de tres formas: como hipervínculo sobre la celda,
+   como texto pegado, o dentro de una fórmula HIPERVINCULO/HYPERLINK.   */
+function enlaceDeCelda(ws,r,c){
+  var ref=XLSX.utils.encode_cell({r:r,c:c});
+  var x=ws[ref];
+  if(!x) return '';
+  if(x.l && x.l.Target) return String(x.l.Target).trim();
+  if(x.f){
+    var m=String(x.f).match(/(?:HYPERLINK|HIPERVINCULO)\s*\(\s*"([^"]+)"/i);
+    if(m) return m[1].trim();
+  }
+  var v=String(x.v==null?'':x.v).trim();
+  return /^https?:\/\//i.test(v) ? v : '';
+}
+
+/* Cuando el ID viene pegado como la URL entera, mostrarla completa llena la
+   cabecera de ruido. Se busca el identificador de la interacción dentro. */
+function idBonito(txt){
+  var t=String(txt||'').trim();
+  if(!t) return '';
+  if(!/^https?:\/\//i.test(t)) return t;
+  var guid=t.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if(guid) return guid[0];
+  var partes=t.split(/[\/#?]+/).filter(function(x){ return x && !/^https?:$/i.test(x); });
+  return partes.length ? partes[partes.length-1] : '';
+}
+
+/* Se abre en una pestaña nueva del mismo Chrome, sin tocar el portal. */
+function abrirGestion(url){
+  if(!/^https?:\/\//i.test(url||'')){ aviso('Ese registro no trae link', true); return; }
+  window.open(url,'_blank','noopener,noreferrer');
+}
+
+/* El destino de la interacción va después del # y lo resuelve la propia
+   aplicación del CRM, no el servidor. Si el agente aún no ha iniciado
+   sesión, el CRM lo lleva a autenticarse y al volver lo deja en su bandeja,
+   perdiendo el destino. Copiar el enlace y pegarlo en la pestaña donde ya
+   tiene sesión abierta sí llega a la interacción. */
+function copiarEnlace(url, btn){
+  if(!/^https?:\/\//i.test(url||'')){ aviso('Ese registro no trae link', true); return; }
+  var listo=function(){
+    var antes=btn.textContent;
+    btn.textContent='✔ Copiado';
+    setTimeout(function(){ btn.textContent=antes; }, 2000);
+    aviso('Enlace copiado — pégalo en la pestaña donde ya tienes el CRM abierto');
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(listo, function(){ copiarAntiguo(url, listo); });
+  } else { copiarAntiguo(url, listo); }
+}
+function copiarAntiguo(url, listo){
+  var t=document.createElement('textarea');
+  t.value=url; t.setAttribute('readonly','');
+  t.style.cssText='position:fixed;top:-1000px;opacity:0';
+  document.body.appendChild(t); t.select();
+  try{ document.execCommand('copy'); listo(); }
+  catch(e){ aviso('No se pudo copiar. El enlace está en el título del botón.', true); }
+  t.remove();
+}
+
+/* Excel entrega la fecha como número de serie o como texto */
+function fechaSerie(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number'){
+    /* El serial de Excel cuenta días desde 1900 y se arma en UTC. Si se
+       leyera con la hora local, en Colombia caería un día antes, así que
+       se reconstruye con las partes en UTC. */
+    var u=new Date(Math.round((v-25569)*86400000));
+    if(isNaN(u.getTime())) return null;
+    return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(),
+                    u.getUTCHours(), u.getUTCMinutes());
+  }
+  if(v instanceof Date) return v;
+  var s=String(v).trim();
+  var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){
+    var a=m[3].length===2?('20'+m[3]):m[3];
+    return new Date(+a, +m[2]-1, +m[1]);
+  }
+  var d2=new Date(s);
+  return isNaN(d2.getTime())?null:d2;
+}
+function fechaTexto(v){
+  var d=fechaSerie(v);
+  if(!d) return String(v==null?'':v).trim();
+  return d.toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'});
+}
+function fechaOrden(v){
+  var d=fechaSerie(v);
+  return d ? d.getTime() : 0;
+}
+
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   SESIÓN
+   Dos puertas en el mismo archivo: los supervisores entran con su usuario
+   y su clave; cada agente, con su cédula en los dos campos.
+   ══════════════════════════════════════════════════════════════════════ */
+function entrar(){
+  var uR=document.getElementById('u').value.trim();
+  var pR=document.getElementById('p').value;
+  var e=document.getElementById('err');
+  var fallo=function(t){ e.textContent=t; e.style.display='block'; };
+  if(!uR||!pR) return fallo('Escribe tu usuario y tu contraseña.');
+
+  var sup=SUPERVISORES.filter(function(s){
+    return s.usuario.toLowerCase()===uR.toLowerCase(); })[0];
+  if(sup){
+    if(String(sup.hash).length!==64)
+      return fallo('Esta copia es la de los agentes: la supervisión está desactivada.');
+    if(sha256(SAL+pR)!==sup.hash) return fallo('Contraseña incorrecta.');
+    return abrir({ nombre:sup.usuario, jefe:sup.jefe, area:sup.area }, true);
+  }
+
+  var c=ced(uR), q=ced(pR);
+  var ag=AGENTES.filter(function(a){ return ced(a.ced)===c; })[0];
+  if(!c || !ag || c!==q)
+    return fallo('Cédula incorrecta. Recuerda: el usuario y la contraseña son tu misma cédula.');
+  /* El portal generado es el de un equipo: si alguien de otro entra, más
+     vale decírselo que mostrarle una pantalla en blanco. */
+  if(PAQUETE && PAQUETE.cedulas && PAQUETE.cedulas.indexOf(c)<0)
+    return fallo('Este portal es del equipo de '+(PAQUETE.equipo||'otro supervisor')
+      +'. Pídele el tuyo a tu supervisor.');
+  abrir(ag, false);
+}
+
+function abrir(quien, mando){
+  YO=quien; MANDO=mando;
+  FOCO = mando ? null : quien;
+  ALCANCE = (mando && quien.jefe) ? 'mio' : 'todos';
+  document.getElementById('err').style.display='none';
+  document.getElementById('p').value='';
+  document.getElementById('acceso').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('av').textContent = mando ? quien.nombre.slice(0,2).toUpperCase()
+                                                    : iniciales(quien.nombre);
+  document.getElementById('qn').innerHTML = esc(mando? quien.nombre : corto(quien.nombre))
+    +'<small>'+esc(mando ? (quien.jefe? 'Supervisión' : 'Soporte')
+                         : (quien.skill||'Agente')+' · C.C. '+quien.ced)+'</small>';
+  document.getElementById('marca-sub').textContent = mando
+    ? (quien.area||'Banco Agrario') : 'Banco Agrario';
+  ['bt-cargar','bt-portal'].forEach(function(id){
+    document.getElementById(id).style.display = mando ? '' : 'none';
+  });
+  document.getElementById('tabs').innerHTML = (mando
+    ? [['equipo','Mi equipo'],['agente','Detalle del agente'],['portal','Generar portal']]
+    : [['agente','Mis resultados']]
+    ).map(function(x,i){
+      return '<button class="tab'+(i===0?' act':'')+'" data-v="'+x[0]+'" '
+        +'onclick="ir(\''+x[0]+'\',this)">'+esc(x[1])+'</button>'; }).join('');
+  ir(mando?'equipo':'agente');
+}
+
+function salir(){
+  YO=null; MANDO=false; FOCO=null;
+  if(!PAQUETE){ IND=[]; PEND=[]; AUD=[]; ARCHIVO=''; }
+  document.getElementById('app').style.display='none';
+  document.getElementById('acceso').style.display='flex';
+  document.getElementById('u').value=''; document.getElementById('p').value='';
+}
+
+document.addEventListener('keydown', function(ev){
+  if(ev.key==='Enter' && document.getElementById('acceso').style.display!=='none') entrar();
+});
+
+/* ══ NAVEGACIÓN ══════════════════════════════════════════════════════ */
+function ir(v, btn){
+  VISTA=v;
+  document.querySelectorAll('.vista').forEach(function(x){ x.classList.remove('act'); });
+  var s=document.getElementById('v-'+v);
+  if(!s) return;
+  s.classList.add('act');
+  document.querySelectorAll('.tab').forEach(function(t){
+    t.classList.toggle('act', t.getAttribute('data-v')===v); });
+  pintar(v);
+  window.scrollTo({top:0});
+}
+function irSub(k, btn){
+  SUB=k;
+  document.querySelectorAll('.ss').forEach(function(x){ x.classList.remove('act'); });
+  document.getElementById('ss-'+k).classList.add('act');
+  document.querySelectorAll('#spt button').forEach(function(b){ b.classList.remove('act'); });
+  if(btn) btn.classList.add('act');
+}
+function pintar(v){
+  if(v==='equipo')      pintarEquipo();
+  else if(v==='agente') pintarAgente();
+  else if(v==='portal') pintarPortal();
+}
+function hayDatos(){ return !!(IND.length||PEND.length||AUD.length); }
+
+/* ══ QUIÉNES SE VEN ══════════════════════════════════════════════════
+   El universo es la gente que trae el archivo cargado. El conmutador solo
+   recorta ese universo al grupo de quien está mirando. */
+function universo(){
+  var vistos={}, out=[];
+  AGENTES.forEach(function(a){
+    var c=ced(a.ced), n=norm(a.nombre);
+    var tiene = IND.some(function(f){ return f.ced===c || norm(f.nombre)===n; })
+             || PEND.some(function(p){ return norm(p.agente)===n; })
+             || AUD.some(function(x){ return norm(x.agente)===n; });
+    if(tiene && !vistos[c]){ vistos[c]=1; out.push(a); }
+  });
+  return out;
+}
+function visibles(){
+  var u=universo();
+  if(ALCANCE==='todos' || !MANDO || !YO.jefe) return u;
+  return u.filter(function(a){ return norm(a.jefe)===norm(YO.jefe); });
+}
+function verAlcance(a){ ALCANCE=a; pintarEquipo(); }
+
+function datosDe(ag){
+  if(!ag) return { ind:null, pend:[], aud:[] };
+  var n=norm(ag.nombre), c=ced(ag.ced||'');
+  return {
+    ind: (c? IND.filter(function(f){ return f.ced===c; })[0] : null)
+         || IND.filter(function(f){ return norm(f.nombre)===n; })[0] || null,
+    pend: PEND.filter(function(p){ return norm(p.agente)===n; }),
+    aud : AUD.filter(function(x){ return norm(x.agente)===n; })
+             .sort(function(a,b){ return b.orden-a.orden; })
+  };
+}
+function resumen(lista){
+  return (lista||visibles()).map(function(a){
+    var d=datosDe(a);
+    var tot=d.ind? d.ind.inds.length : 0;
+    var ok =d.ind? d.ind.inds.filter(function(i){ return i.estado==='ok'; }).length : 0;
+    return { ag:a, ind:d.ind, tot:tot, ok:ok, frac: tot? ok/tot : null,
+             pend:d.pend.length, aud:d.aud.length };
+  });
+}
+
+/* ══ CARGA DEL EXCEL ═════════════════════════════════════════════════ */
+function recibir(files){
+  if(!files || !files.length) return;
+  if(typeof XLSX==='undefined'){
+    msg('No se cargó el lector de Excel. Revisa la conexión y vuelve a abrir el archivo.', true);
+    return;
+  }
+  var file=files[0], fr=new FileReader();
+  fr.onload=function(ev){
+    try{
+      var wb=XLSX.read(ev.target.result,{type:'array'});
+      var ind=[], pend=[], aud=[];
+      wb.SheetNames.forEach(function(hoja){
+        if(/indicadores/i.test(hoja)){
+          var filas=leerHojaIndicadores(wb.Sheets[hoja]);
+          if(filas) filas.forEach(function(f){ f.hoja=hoja; ind.push(f); });
+        }
+        else if(/pendiente|tipific/i.test(hoja))
+          pend=pend.concat(leerHojaPendientes(wb.Sheets[hoja]));
+        else if(/lado[\s_-]*a[\s_-]*lado|auditor|acompa/i.test(hoja))
+          aud=aud.concat(leerHojaAuditorias(wb.Sheets[hoja]));
+      });
+      if(!ind.length && !pend.length && !aud.length){
+        msg('De «'+file.name+'» no se pudo sacar nada. ¿Es la plantilla del mes?', true);
+      } else {
+        IND=ind; PEND=pend; AUD=aud; ARCHIVO=file.name;
+        msg('Cargado: '+ind.length+' agentes · '+pend.length+' pendientes · '
+            +aud.length+' lado a lado');
+        FOCO=null;
+        pintar(VISTA);
+      }
+    }catch(err){
+      msg('No se pudo leer el archivo: '+err.message, true);
+    }finally{
+      var f=document.getElementById('fx'); if(f) f.value='';
+    }
+  };
+  fr.onerror=function(){ msg('No se pudo abrir el archivo', true); };
+  fr.readAsArrayBuffer(file);
+}
+function activarSoltar(el){
+  if(!el || el._s) return; el._s=true;
+  ['dragenter','dragover'].forEach(function(e){
+    el.addEventListener(e, function(ev){ ev.preventDefault(); el.classList.add('sobre'); }); });
+  ['dragleave','drop'].forEach(function(e){
+    el.addEventListener(e, function(ev){ ev.preventDefault(); el.classList.remove('sobre'); }); });
+  el.addEventListener('drop', function(ev){
+    if(ev.dataTransfer && ev.dataTransfer.files) recibir(ev.dataTransfer.files); });
+}
+function zonaCarga(){
+  return '<div class="zona" id="zona"><div class="ic">📂</div>'
+    +'<h3>Carga el Excel del mes</h3>'
+    +'<p>Arrástralo aquí o usa el botón <b>Cargar Excel</b> de arriba. Es la plantilla con '
+    +'las hojas de indicadores, pendientes por tipificar y lado a lado.</p>'
+    +'<button class="bt pri" onclick="document.getElementById(\'fx\').click()">'
+    +'Escoger archivo</button></div>';
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   VISTAS
+   ══════════════════════════════════════════════════════════════════════ */
+function ordenar(o){ ORDEN=o; pintarEquipo(); }
+
+function pintarEquipo(){
+  var c=document.getElementById('c-equipo');
+  var d=document.getElementById('d-equipo');
+  document.getElementById('t-equipo').textContent =
+    (ALCANCE==='todos'||!YO.jefe) ? 'Toda la operación' : 'Mi equipo';
+
+  /* El conmutador solo tiene sentido si esta persona tiene grupo propio */
+  d.innerHTML = (MANDO && YO.jefe)
+    ? '<div class="conm">'
+      +'<button class="'+(ALCANCE==='mio'?'act':'')+'" onclick="verAlcance(\'mio\')">'
+        +'Mi grupo</button>'
+      +'<button class="'+(ALCANCE==='todos'?'act':'')+'" onclick="verAlcance(\'todos\')">'
+        +'Todos</button></div>'
+    : '';
+
+  if(!hayDatos()){
+    document.getElementById('s-equipo').textContent='Todavía no has cargado el archivo del mes.';
+    c.innerHTML=zonaCarga();
+    activarSoltar(document.getElementById('zona'));
+    return;
+  }
+
+  var r=resumen();
+  document.getElementById('s-equipo').textContent =
+    r.length+' agentes · Archivo: '+ARCHIVO+(PERIODO? ' · '+PERIODO : '');
+
+  if(!r.length){
+    c.innerHTML='<div class="panel"><div class="vacio"><div class="ic">◌</div>'
+      +'<b>El archivo no trae a nadie de tu grupo.</b>'
+      +'Prueba con «Todos» para ver a toda la operación.</div></div>';
+    return;
+  }
+
+  var med=r.filter(function(x){ return x.tot; });
+  var frac=med.length? med.reduce(function(a,x){ return a+x.frac; },0)/med.length : 0;
+  var pend=r.reduce(function(a,x){ return a+x.pend; },0);
+  var bajo=med.filter(function(x){ return x.frac<0.8; }).length;
+  var sinAud=r.filter(function(x){ return !x.aud; }).length;
+  var ci=cuentaIndicadores(), faltan=faltanPorDiligenciar();
+
+  var h='<div class="cifras">'
+    +tarjeta('Agentes', r.length, '', med.length+' con medición')
+    +tarjeta('Indicadores en meta', med.length? pct(frac):'—',
+             frac>=0.9?'ok':(frac>=0.75?'':'mal'), ci.med+' de '+ci.dec+' diligenciados')
+    +tarjeta('Pendientes por tipificar', pend, pend?'alerta':'ok',
+             r.filter(function(x){return x.pend;}).length+' agentes con cola')
+    +tarjeta('Bajo el 80%', bajo, bajo?'mal':'ok', 'de sus indicadores en meta')
+    +tarjeta('Sin lado a lado', sinAud, '', AUD.length+' acompañamientos')
+    +'</div>';
+
+  if(faltan.length){
+    h+='<div class="aviso"><b>Faltan indicadores por diligenciar.</b> Mientras una columna '
+      +'esté en blanco para todo el equipo no se cuenta ni aparece, así que el porcentaje '
+      +'de arriba es sobre lo que ya está cargado.<br>'
+      +faltan.map(function(x){
+          return '<b>'+esc(x.hoja)+':</b> '+x.inds.map(esc).join(' · '); }).join('<br>')
+      +'</div>';
+  }
+
+  var f={ peor:function(a,b){ return (a.frac==null?9:a.frac)-(b.frac==null?9:b.frac); },
+          cola:function(a,b){ return b.pend-a.pend; },
+          nombre:function(a,b){ return a.ag.nombre.localeCompare(b.ag.nombre); },
+          jefe:function(a,b){ return a.ag.jefe.localeCompare(b.ag.jefe)
+                                  || a.ag.nombre.localeCompare(b.ag.nombre); } };
+  r.sort(f[ORDEN]||f.peor);
+
+  var verJefe = (ALCANCE==='todos'||!YO.jefe)
+    && [...new Set(r.map(function(x){ return x.ag.jefe; }))].length>1;
+
+  h+='<div class="panel"><div class="ph">'
+    +'<span class="t">Nómina</span>'
+    +'<span class="s">'+(verJefe? 'Toda la operación' : esc(corto(YO.jefe||'')))+'</span>'
+    +'<span class="d"><span class="s">Ordenar:</span>'
+    +[['peor','Cumplimiento'],['cola','Pendientes'],['nombre','Nombre']]
+      .concat(verJefe? [['jefe','Supervisor']] : [])
+      .map(function(x){ return '<button class="bt'+(ORDEN===x[0]?' sec':'')
+        +'" onclick="ordenar(\''+x[0]+'\')">'+x[1]+'</button>'; }).join('')
+    +'<button class="bt" onclick="window.print()">Imprimir</button>'
+    +'</span></div><div class="pc"><table><thead><tr>'
+    +'<th>Agente</th><th>Skill</th>'+(verJefe?'<th>Supervisor</th>':'')
+    +'<th class="cen">Pendientes</th><th>Indicadores en meta</th>'
+    +'<th class="cen">Lado a lado</th><th></th></tr></thead><tbody>';
+  r.forEach(function(x){
+    var fr=x.frac;
+    h+='<tr><td class="nm">'+esc(x.ag.nombre)+'</td>'
+      +'<td>'+(x.ag.skill? '<span class="etq verde">'+esc(x.ag.skill)+'</span>'
+                         : '<span class="etq gris">sin skill</span>')+'</td>'
+      +(verJefe? '<td style="font-size:12px;color:var(--tinta3)">'
+          +esc(corto(x.ag.jefe))+'</td>' : '')
+      +'<td class="cen">'+(x.pend? '<span class="etq mal">'+x.pend+'</span>'
+                                 : '<span class="etq ok">0</span>')+'</td>'
+      +'<td>'+(fr==null? '<span class="etq gris">Sin medición</span>'
+        : '<div class="barra"><div class="p"><i style="width:'+(fr*100).toFixed(1)+'%;'
+          +'background:'+(fr>=0.9?'var(--ok)':fr>=0.75?'var(--azul)':'var(--mal)')+'"></i></div>'
+          +'<div class="q">'+x.ok+' de '+x.tot+' · '+pct(fr)+'</div></div>')+'</td>'
+      +'<td class="cen">'+(x.aud? '<span class="etq azul">'+x.aud+'</span>'
+                                : '<span class="etq gris">—</span>')+'</td>'
+      +'<td><button class="bt sec" onclick="verAgente(\''+esc(x.ag.ced)+'\')">Ver</button></td>'
+      +'</tr>';
+  });
+  c.innerHTML=h+'</tbody></table></div></div>';
+}
+
+function tarjeta(n, v, cls, d){
+  return '<div class="cifra '+(cls||'')+'"><div class="n">'+esc(n)+'</div>'
+    +'<div class="v">'+esc(String(v))+'</div>'
+    +(d? '<div class="d">'+esc(d)+'</div>' : '')+'</div>';
+}
+
+function verAgente(c){
+  var ag=AGENTES.filter(function(a){ return ced(a.ced)===ced(c); })[0];
+  if(!ag) return;
+  FOCO=ag; ir('agente');
+}
+function enfocar(c){ var a=AGENTES.filter(function(x){ return ced(x.ced)===ced(c); })[0];
+  if(a){ FOCO=a; pintarAgente(); } }
+
+/* ── Anillo de cumplimiento, en SVG ─────────────────────────────────── */
+function anillo(frac, ok, tot){
+  var R=48, C=2*Math.PI*R;
+  var col = frac>=0.9 ? 'var(--ok)' : (frac>=0.75 ? 'var(--azul)' : 'var(--mal)');
+  return '<div class="panel"><div class="anillo">'
+    +'<svg width="124" height="124" viewBox="0 0 124 124">'
+      +'<circle cx="62" cy="62" r="'+R+'" fill="none" stroke="var(--linea2)" stroke-width="11"/>'
+      +'<circle cx="62" cy="62" r="'+R+'" fill="none" stroke="'+col+'" stroke-width="11"'
+        +' stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'"'
+        +' stroke-dashoffset="'+(C*(1-(tot?frac:0))).toFixed(1)+'"'
+        +' transform="rotate(-90 62 62)"/>'
+    +'</svg>'
+    +'<div class="txt"><div class="g" style="color:'+(tot?col:'var(--tinta4)')+'">'
+      +(tot? pct(frac) : '—')+'</div>'
+    +'<div class="p">'+(tot? ok+' de '+tot+' indicadores en meta'
+                           : 'Sin indicadores diligenciados')+'</div></div>'
+    +'</div></div>';
+}
+
+function pintarAgente(){
+  var quien = MANDO ? FOCO : YO;
+  var d2=document.getElementById('d-agente');
+  d2.innerHTML = MANDO
+    ? '<select class="bt" style="padding:8px 11px" onchange="enfocar(this.value)">'
+      +'<option value="">— escoger agente —</option>'
+      +visibles().map(function(a){
+          return '<option value="'+esc(a.ced)+'"'+(quien&&quien.ced===a.ced?' selected':'')+'>'
+            +esc(a.nombre)+'</option>'; }).join('')
+      +'</select><button class="bt" onclick="ir(\'equipo\')">Volver al equipo</button>'
+    : '';
+
+  document.getElementById('t-agente').textContent = MANDO
+    ? (quien? quien.nombre : 'Detalle del agente') : 'Mis resultados';
+
+  var cA=document.getElementById('c-anillo');
+  var sp=document.getElementById('spt');
+
+  if(!hayDatos()){
+    document.getElementById('s-agente').textContent = MANDO
+      ? 'Carga el Excel del mes para empezar.'
+      : 'Tu supervisor aún no ha cargado los resultados en este archivo.';
+    cA.innerHTML=''; sp.style.display='none';
+    document.getElementById('c-ind').innerHTML = MANDO ? zonaCarga()
+      : '<div class="panel"><div class="vacio"><div class="ic">◌</div>'
+        +'<b>Todavía no hay datos en este archivo.</b>Pídele a tu supervisor el del periodo.'
+        +'</div></div>';
+    document.getElementById('c-pend').innerHTML='';
+    document.getElementById('c-aud').innerHTML='';
+    if(MANDO) activarSoltar(document.getElementById('zona'));
+    return;
+  }
+  if(MANDO && !quien){
+    document.getElementById('s-agente').textContent='Escoge a quién quieres revisar.';
+    cA.innerHTML=''; sp.style.display='none';
+    document.getElementById('c-ind').innerHTML='<div class="panel"><div class="vacio">'
+      +'<div class="ic">👥</div><b>Ningún agente seleccionado.</b>'
+      +'Escoge a alguien arriba, o entra desde «Mi equipo».</div></div>';
+    document.getElementById('c-pend').innerHTML='';
+    document.getElementById('c-aud').innerHTML='';
+    return;
+  }
+
+  sp.style.display='flex';
+  var d=datosDe(quien);
+  var tot=d.ind? d.ind.inds.length:0;
+  var ok =d.ind? d.ind.inds.filter(function(i){ return i.estado==='ok'; }).length:0;
+  document.getElementById('s-agente').textContent =
+    (quien.skill? quien.skill+' · ' : '')+'C.C. '+quien.ced
+    +(MANDO && quien.jefe? ' · '+corto(quien.jefe) : '')
+    +(PERIODO? ' · '+PERIODO : '');
+  cA.innerHTML=anillo(tot? ok/tot : 0, ok, tot);
+
+  pintarInd(d);
+  pintarPend(d, quien);
+  pintarAud(d);
+}
+
+function pintarInd(d){
+  var c=document.getElementById('c-ind');
+  if(!d.ind){
+    c.innerHTML='<div class="panel"><div class="vacio"><div class="ic">◌</div>'
+      +'<b>No encontramos sus indicadores en este archivo.</b>'
+      +'Revisa que sea el Excel del mes correcto.</div></div>';
+    return;
+  }
+  var falta=d.ind.sinMedir||[];
+  if(!d.ind.inds.length){
+    c.innerHTML='<div class="panel"><div class="vacio"><div class="ic">◌</div>'
+      +'<b>Todavía no hay ningún indicador diligenciado.</b>'
+      +'La plantilla declara '+falta.length+': '+esc(falta.join(' · '))+'</div></div>';
+    return;
+  }
+  var h='';
+  if(falta.length)
+    h+='<div class="aviso">'+falta.length+' indicador(es) están en blanco para todo el equipo '
+      +'y por eso no se cuentan: <b>'+esc(falta.join(' · '))+'</b></div>';
+  h+='<div class="kpis">';
+  d.ind.inds.forEach(function(i){
+    h+='<div class="kpi '+(i.estado==='ok'?'ok':'mal')+'">'
+      +'<div class="n">'+esc(i.nombre)+'</div>'
+      +'<div class="v">'+esc(i.resTxt)+'</div>'
+      +(i.metaTxt? '<div class="m">Meta: '+esc(i.metaTxt)+'</div>':'')
+      +'<div class="m"><span class="etq '+(i.estado==='ok'?'ok':'mal')+'">'
+        +(i.estado==='ok'?'Cumple':'No cumple')+'</span></div></div>';
+  });
+  h+='</div>';
+  if(d.ind.extras.length){
+    var g=[];
+    d.ind.extras.forEach(function(x){
+      var y=g.filter(function(z){ return z.nm===x.grupo; })[0];
+      if(!y){ y={nm:x.grupo, items:[]}; g.push(y); }
+      y.items.push(x);
+    });
+    g.forEach(function(y){
+      h+='<div class="panel" style="margin-top:18px"><div class="ph">'
+        +'<span class="t">'+esc(y.nm)+'</span></div><div class="pc"><table><thead><tr>'
+        +y.items.map(function(x){ return '<th>'+esc(x.nombre)+'</th>'; }).join('')
+        +'</tr></thead><tbody><tr>'
+        +y.items.map(function(x){ return '<td class="nm">'+esc(x.texto)+'</td>'; }).join('')
+        +'</tr></tbody></table></div></div>';
+    });
+  }
+  c.innerHTML=h;
+}
+
+function pintarPend(d, quien){
+  var c=document.getElementById('c-pend');
+  if(!d.pend.length){
+    c.innerHTML='<div class="panel"><div class="vacio"><div class="ic">✔</div>'
+      +'<b>'+(MANDO?'Sin cola de tipificación.':'¡Vas al día!')+'</b>'
+      +'No hay interacciones pendientes por tipificar.</div></div>';
+    return;
+  }
+  var opc=[{k:'cola',nm:'Cola'},{k:'macroproceso',nm:'Macroproceso'},{k:'proceso',nm:'Proceso'},
+           {k:'subproceso1',nm:'Subproceso 1'},{k:'subproceso2',nm:'Subproceso 2'},
+           {k:'observaciones',nm:'Observaciones'}]
+    .filter(function(x){ return d.pend.some(function(r){ return String(r[x.k]||'').trim(); }); });
+  var verId=d.pend.some(function(r){ return String(r.idLlamada||'').trim(); });
+  var h='<div class="panel"><div class="ph"><span class="t">Pendientes por tipificar</span>'
+    +'<span class="s">'+d.pend.length+' interacción(es)</span></div>'
+    +'<div class="pc"><table><thead><tr><th class="cen">#</th>'
+    +(verId?'<th>ID interacción</th>':'')
+    +opc.map(function(x){ return '<th>'+x.nm+'</th>'; }).join('')
+    +'<th class="cen">Gestión</th></tr></thead><tbody>';
+  d.pend.forEach(function(r,i){
+    var link=/^https?:\/\//i.test(r.link||'')? r.link : '';
+    h+='<tr><td class="cen mn">'+(i+1)+'</td>'
+      +(verId? '<td class="mn">'+esc(idBonito(r.idLlamada)||r.idLlamada)+'</td>':'')
+      +opc.map(function(x){ return '<td>'+(esc(r[x.k])||'—')+'</td>'; }).join('')
+      +'<td class="cen">'+(link
+        ? '<button class="bt sec" onclick="abrirGestion(this.dataset.u)" data-u="'
+          +esc(link)+'">Ver</button>' : '—')+'</td></tr>';
+  });
+  c.innerHTML=h+'</tbody></table></div></div>';
+}
+
+function pintarAud(d){
+  var c=document.getElementById('c-aud');
+  if(!d.aud.length){
+    c.innerHTML='<div class="panel"><div class="vacio"><div class="ic">📝</div>'
+      +'<b>'+(MANDO?'Sin acompañamientos registrados.':'Todavía no tienes acompañamientos.')
+      +'</b>'+(MANDO?'Cuando registres el lado a lado en el Excel, aparece aquí.'
+                    :'Cuando tu supervisor te acompañe, las observaciones salen aquí.')
+      +'</div></div>';
+    return;
+  }
+  var h='';
+  d.aud.forEach(function(a){
+    var con=a.obs.filter(function(o){ return o.texto; }).length;
+    h+='<div class="aud"><div class="c">'
+      +'<span class="f">'+(a.fecha? esc(a.fecha):'Sin fecha')+'</span>'
+      +(idBonito(a.idInter)? '<span class="etq gris" title="'+esc(a.idInter)+'">'
+          +esc(idBonito(a.idInter))+'</span>':'')
+      +(a.link? '<button class="bt sec" onclick="abrirGestion(this.dataset.u)" data-u="'
+          +esc(a.link)+'">Ver interacción</button>'
+        +'<button class="bt" onclick="copiarEnlace(this.dataset.u,this)" data-u="'
+          +esc(a.link)+'" title="'+esc(a.link)+'">Copiar enlace</button>':'')
+      +'<span class="n">'+con+' de '+a.obs.length+' criterios con observación</span>'
+      +'</div><div class="b">';
+    a.obs.forEach(function(o){
+      h+='<div class="i"><div class="k">'+esc(o.criterio)+'</div>'
+        +'<div class="o'+(o.texto?'':' sin')+'">'
+        +(o.texto? esc(o.texto):'Sin observación en este acompañamiento')+'</div></div>';
+    });
+    h+='</div></div>';
+  });
+  c.innerHTML=h;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PORTAL DE LOS AGENTES
+   Reescribe este mismo archivo con los datos del periodo adentro y sin
+   las huellas de las contraseñas. Lo que sale es un HTML independiente:
+   el agente lo abre con doble clic, entra con su cédula y ve lo suyo.
+
+   El descargable SIEMPRE lleva a todos los del archivo, sin importar si
+   el supervisor está mirando «mi grupo» o «todos»: se reparte uno solo.
+   ══════════════════════════════════════════════════════════════════════ */
+function pintarPortal(){
+  var c=document.getElementById('c-portal');
+  if(!hayDatos()){
+    c.innerHTML=zonaCarga();
+    activarSoltar(document.getElementById('zona'));
+    return;
+  }
+  var u=universo();
+  var jefes=[...new Set(u.map(function(a){ return a.jefe; }))].filter(Boolean);
+  var r=resumen(u);
+  var conPend=r.reduce(function(a,x){ return a+x.pend; },0);
+  var conAud =r.reduce(function(a,x){ return a+x.aud;  },0);
+
+  c.innerHTML='<div class="cifras">'
+    +tarjeta('Agentes en el portal', u.length, '', 'entran con su cédula')
+    +tarjeta('Indicadores', r.filter(function(x){return x.tot;}).length, '', 'agentes con medición')
+    +tarjeta('Pendientes', conPend, '', 'interacciones por tipificar')
+    +tarjeta('Lado a lado', conAud, '', 'acompañamientos')
+    +tarjeta('Supervisores', jefes.length, '', jefes.length>1? 'archivo compartido':'equipo único')
+    +'</div>'
+
+    +(jefes.length>1
+      ? '<div class="nota"><b>Este archivo es compartido.</b> El portal que se descarga lleva a '
+        +'los '+u.length+' agentes de los '+jefes.length+' supervisores que están en el Excel, '
+        +'no solo a los tuyos. Se reparte uno solo para todo el grupo, aunque arriba estés '
+        +'mirando únicamente tu equipo.<br>'
+        +jefes.map(function(j){
+            var n=u.filter(function(a){ return a.jefe===j; }).length;
+            return esc(corto(j))+' ('+n+')'; }).join(' · ')
+        +'</div>'
+      : '')
+
+    +'<div class="panel"><div class="ph"><span class="t">Antes de generar</span></div>'
+    +'<div class="pc pad">'
+      +'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">'
+      +'<div class="campo" style="flex:1 1 220px;margin:0"><label for="periodo">'
+        +'Periodo — lo verán los agentes</label>'
+        +'<input id="periodo" type="text" value="'+esc(PERIODO||periodoSugerido())+'"></div>'
+      +'<div class="campo" style="flex:1 1 220px;margin:0"><label for="equipo">'
+        +'Nombre del equipo</label>'
+        +'<input id="equipo" type="text" value="'+esc(equipoSugerido(jefes))+'"></div>'
+      +'</div>'
+      +opcion('inc-aud','Incluir los lado a lado',
+              'Las observaciones de cada acompañamiento, tal como las escribiste.', conAud>0)
+      +opcion('inc-pend','Incluir los pendientes por tipificar',
+              'La cola de cada agente, con el enlace a la interacción.', conPend>0)
+      +'<button class="bt pri" style="margin-top:14px;padding:12px 22px" '
+        +'onclick="generar()">Generar y descargar el portal</button>'
+    +'</div></div>'
+
+    +'<div class="nota"><b>Cómo funciona.</b> El archivo que se descarga es una copia de este '
+    +'tablero con los datos escritos adentro. Las cuentas de supervisión quedan desactivadas y '
+    +'el botón de cargar Excel desaparece: un agente solo puede entrar con su cédula y ver lo '
+    +'suyo. Tampoco pide internet.<br><br>'
+    +'<b>Lo que conviene saber.</b> Como todo va en un solo archivo sin servidor, los datos del '
+    +'grupo viajan dentro del HTML. La pantalla le muestra a cada agente lo suyo, pero alguien '
+    +'que sepa abrir las herramientas del navegador podría leer los de sus compañeros. Para '
+    +'indicadores y pendientes del día a día no es grave; si algún dato fuera reservado, no lo '
+    +'incluyas.</div>';
+}
+function opcion(id, tit, txt, marcado){
+  return '<label class="opc"><input type="checkbox" id="'+id+'"'+(marcado?' checked':'')
+    +(marcado?'':' disabled')+'>'
+    +'<span><b>'+esc(tit)+'</b><span>'+esc(txt)+'</span></span></label>';
+}
+function periodoSugerido(){
+  var M=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre',
+         'octubre','noviembre','diciembre'];
+  var d=new Date();
+  return M[d.getMonth()].replace(/^./,function(x){return x.toUpperCase();})+' '+d.getFullYear();
+}
+function equipoSugerido(jefes){
+  if(!jefes.length) return 'Equipo';
+  if(jefes.length===1) return corto(jefes[0]);
+  /* Varios jefes en el mismo archivo: se nombra por el skill que más pesa */
+  var u=universo(), cuenta={};
+  u.forEach(function(a){ if(a.skill) cuenta[a.skill]=(cuenta[a.skill]||0)+1; });
+  var top=Object.keys(cuenta).sort(function(a,b){ return cuenta[b]-cuenta[a]; })[0];
+  return top ? top.charAt(0)+top.slice(1).toLowerCase() : 'Equipo';
+}
+
+function generar(){
+  if(!FUENTE || FUENTE.indexOf('<!--PAQUETE-->')<0){
+    msg('No se pudo leer la plantilla del archivo. Vuelve a abrir el HTML y reintenta.', true);
+    return;
+  }
+  var cAud=document.getElementById('inc-aud');
+  var cPend=document.getElementById('inc-pend');
+  var conAud=cAud && cAud.checked, conPend=cPend && cPend.checked;
+  PERIODO=(document.getElementById('periodo').value||'').trim() || periodoSugerido();
+  var nombreEq=(document.getElementById('equipo').value||'').trim() || 'Equipo';
+
+  /* Todos los del archivo, no solo el grupo que se está mirando */
+  var u=universo();
+  var cedulas=u.map(function(a){ return ced(a.ced); });
+  var nombres=u.map(function(a){ return norm(a.nombre); });
+  var mio=function(nm){ return nombres.indexOf(norm(nm))>=0; };
+
+  var datos={
+    v:1, periodo:PERIODO, equipo:nombreEq,
+    generado:new Date().toISOString().slice(0,10),
+    archivo:ARCHIVO, cedulas:cedulas,
+    ind : IND.filter(function(x){ return cedulas.indexOf(x.ced)>=0 || mio(x.nombre); }),
+    pend: conPend? PEND.filter(function(x){ return mio(x.agente); }) : [],
+    aud : conAud ? AUD.filter(function(x){ return mio(x.agente); })  : []
+  };
+
+  var json;
+  try{ json=JSON.stringify(datos); }
+  catch(e){ msg('No se pudieron empaquetar los datos: '+e.message, true); return; }
+  json=json.replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/\u2028|\u2029/g,'');
+
+  var cierre='<'+'/script>';
+  var salida=FUENTE.replace('<!--PAQUETE-->',
+    '<script id="paquete" type="application/json">'+json+cierre);
+
+  /* Sin huellas de contraseña no hay forma de entrar a la supervisión */
+  var antes=salida;
+  salida=salida.replace(/hash:'[0-9a-f]{64}'/g, "hash:'-'");
+  if(salida===antes){
+    msg('Ojo: no se pudieron desactivar las cuentas de supervisión. No repartas esa copia.', true);
+    return;
+  }
+  /* Y sin el lector de Excel: el portal abre sin internet */
+  salida=salida.replace(/<script id="lector-xlsx"[\s\S]*?<\/script>/,
+    '<!-- Este portal trae los datos adentro: no necesita internet -->');
+  salida=salida.replace(/<title>[\s\S]*?<\/title>/,
+    '<title>'+esc('Mis resultados — '+PERIODO+' · '+nombreEq)+'</title>');
+
+  var archivo='Portal_'+(nombreEq+'_'+PERIODO).replace(/[^0-9A-Za-zÁÉÍÓÚáéíóúÑñ]+/g,'_')+'.html';
+  try{
+    var blob=new Blob([salida], {type:'text/html;charset=utf-8'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url; a.download=archivo;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 6000);
+    msg(archivo+' · '+u.length+' agentes · '+Math.round(salida.length/1024)
+        +' KB — ese es el archivo que repartes');
+  }catch(e){ msg('No se pudo descargar: '+e.message, true); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ARRANQUE
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Copia fiel del archivo tal como se abrió, tomada antes de que el
+   tablero escriba nada. De aquí sale el portal de los agentes, sin tener
+   que volver a leer el disco: así funciona con doble clic. */
+var FUENTE='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+
+var PAQUETE=(function(){
+  var el=document.getElementById('paquete');
+  if(!el) return null;
+  try{ var p=JSON.parse(el.textContent); return (p && typeof p==='object') ? p : null; }
+  catch(e){ console.warn('paquete ilegible', e); return null; }
+})();
+
+if(PAQUETE){
+  IND=PAQUETE.ind||[]; PEND=PAQUETE.pend||[]; AUD=PAQUETE.aud||[];
+  PERIODO=PAQUETE.periodo||''; ARCHIVO=PAQUETE.archivo||'';
+  var pie=document.getElementById('pie');
+  if(pie) pie.innerHTML='<b>'+esc(PAQUETE.equipo||'Equipo')+' · '+esc(PERIODO)+'</b><br>'
+    +'Tu <b>usuario</b> y tu <b>contraseña</b> son el mismo número de cédula, '
+    +'sin puntos ni espacios.';
+}
+</script>
+</body>
+</html>

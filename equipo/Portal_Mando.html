@@ -433,6 +433,27 @@ table.mapa tr.tot td{background:linear-gradient(180deg,rgba(34,211,238,.2),rgba(
   font-family:var(--mono)}
 .esc span{flex:1}
 
+/* ══ PEGAR DEL BI ══════════════════════════════════════════════════════ */
+#peg-txt{width:100%;min-height:180px;padding:14px 16px;border-radius:13px;resize:vertical;
+  background:rgba(4,8,22,.62);border:1px solid var(--edge);color:var(--ink);
+  font-family:var(--mono);font-size:12px;line-height:1.6;outline:none;white-space:pre}
+#peg-txt:focus{border-color:rgba(34,211,238,.55);box-shadow:0 0 0 4px rgba(34,211,238,.10)}
+#peg-txt::placeholder{color:var(--ink-4);font-family:var(--sans);white-space:pre-line}
+table.map{border-collapse:collapse;font-size:11.5px;width:100%}
+table.map th{padding:9px;vertical-align:top;border-bottom:1px solid var(--edge);
+  background:rgba(4,8,22,.5);min-width:158px;text-align:left}
+table.map td{padding:6px 9px;border-bottom:1px solid rgba(150,190,255,.07);
+  font-family:var(--mono);font-size:11px;color:var(--ink-2);white-space:nowrap;
+  max-width:230px;overflow:hidden;text-overflow:ellipsis}
+table.map tr.si td{color:var(--ink)}
+table.map tr.no td{color:var(--ink-4);opacity:.55}
+table.map select,table.map input{width:100%;padding:6px 8px;border-radius:7px;font-size:11.5px;
+  background:rgba(4,8,22,.7);border:1px solid var(--edge);color:var(--ink);outline:none;
+  margin-bottom:4px;font-family:var(--sans)}
+table.map select:focus,table.map input:focus{border-color:rgba(34,211,238,.5)}
+.mini{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-4);margin:5px 0 3px}
+
 /* ══ PANEL LATERAL ═════════════════════════════════════════════════════ */
 #velo{position:fixed;inset:0;z-index:110;background:rgba(3,4,12,.6);opacity:0;pointer-events:none;
   transition:opacity .3s;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
@@ -630,6 +651,17 @@ body.sobrio::before{content:'';position:fixed;inset:0;z-index:0;
           ni esta pantalla de supervisión.</div>
       </div>
       <div id="c-paquete"></div>
+    </div>
+
+    <!-- Traer los resultados pegándolos del BI, sin pasar por Excel -->
+    <div class="vista" id="v-pegar">
+      <div class="cab rev">
+        <h1>Pegar del <b>BI</b></h1>
+        <div class="sub">Copia la tabla en el BI y pégala aquí. El tablero la entiende,
+          la cruza con tu nómina y la suma a lo que ya tengas. Puedes pegar un informe
+          hoy y otro mañana: cada uno agrega sus columnas.</div>
+      </div>
+      <div id="c-pegar"></div>
     </div>
   </main>
 </div>
@@ -1863,7 +1895,7 @@ function salir(){
 function pintarPestanas(){
   var lista = MANDO
     ? [['mando','Mando'],['equipo','Mi equipo'],['detalle','Agente'],
-       ['turnos','Turnos'],['paquete','Portal de agentes']]
+       ['pegar','Pegar del BI'],['turnos','Turnos'],['paquete','Portal de agentes']]
     : [['detalle','Mis resultados']];
   if(!MANDO && misTurnos().length) lista.push(['turnos','Mi semana']);
   document.getElementById('pestanas').innerHTML = lista.map(function(x,i){
@@ -2040,6 +2072,7 @@ function pintarVista(v){
   else if(v==='detalle') pintarDetalle();
   else if(v==='turnos')  pintarTurnos();
   else if(v==='paquete') pintarPaquete();
+  else if(v==='pegar')   pintarPegar();
   activarCristal();
 }
 function hayDatos(){ return !!(IND.length || PEND.length || AUD.length); }
@@ -2942,6 +2975,269 @@ function semanaDe(filas){
     h+='</div></div>';
   });
   return h+'</div>';
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PEGAR DEL BI
+   El BI no deja bajar los resultados: toca leerlos en pantalla. Entonces
+   el camino corto es copiar la tabla y pegarla aquí. No hace falta que
+   venga limpia: las filas que no correspondan a nadie de la nómina —los
+   encabezados, el Total— se descartan solas, y cada pegado agrega sus
+   columnas a lo que ya haya cargado.
+   ══════════════════════════════════════════════════════════════════════ */
+var PEG = { filas:[], cols:[], ancho:0, firma:'' };
+
+/* Al copiar, el BI separa con tabulaciones. Si la selección se hizo
+   arrastrando el mouse, a veces llegan dos o más espacios en su lugar. */
+function partirPegado(txt){
+  var lineas=String(txt||'').replace(/\r/g,'').split('\n')
+    .filter(function(l){ return l.trim()!==''; });
+  var conTab=lineas.some(function(l){ return l.indexOf('\t')>=0; });
+  return lineas.map(function(l){
+    return (conTab ? l.split('\t') : l.split(/\s{2,}/))
+      .map(function(x){ return String(x).trim(); });
+  });
+}
+/* El BI escribe «1.099» para mil noventa y nueve y «70.2 %» para setenta
+   coma dos: el mismo punto para miles y para decimales. Se distinguen por
+   los dígitos que van detrás — tres exactos y nada más es separador de
+   miles. Esto solo se aplica a lo pegado; la lectura del Excel se queda
+   como estaba, que ahí los números llegan como números. */
+function numeroPegado(t){
+  var x=String(t==null?'':t).trim();
+  if(!x) return null;
+  if(/^-?\d{1,3}(\.\d{3})+$/.test(x)) x=x.replace(/\./g,'');
+  return aNumero(x);
+}
+function porNombre(t){
+  var s=norm(t);
+  if(!s) return null;
+  return AGENTES.filter(function(a){ return norm(a.nombre)===s; })[0] || null;
+}
+function porCedula(t){
+  var c=ced(t);
+  if(c.length<6) return null;
+  return AGENTES.filter(function(a){ return ced(a.ced)===c; })[0] || null;
+}
+
+/* ¿Qué parece cada columna? El nombre y la cédula se adivinan contando
+   cuántas celdas caen en la nómina; para las demás se propone como
+   nombre del indicador lo que diga la primera fila. */
+function adivinarColumnas(){
+  var cols=[], mejorNom=-1, nNom=0, mejorCed=-1, nCed=0;
+  for(var i=0;i<PEG.ancho;i++){
+    var hn=0, hc=0;
+    PEG.filas.forEach(function(f){
+      if(porNombre(f[i])) hn++;
+      if(porCedula(f[i])) hc++;
+    });
+    if(hn>nNom){ nNom=hn; mejorNom=i; }
+    if(hc>nCed){ nCed=hc; mejorCed=i; }
+    cols.push({ tipo:'no', nombre:'', meta:'' });
+  }
+  if(nNom>0) cols[mejorNom].tipo='nombre';
+  if(nCed>0 && mejorCed!==mejorNom) cols[mejorCed].tipo='cedula';
+  /* El encabezado sirve de nombre propuesto para los indicadores */
+  var cab=PEG.filas[0]||[];
+  for(var j=0;j<PEG.ancho;j++){
+    if(cols[j].tipo!=='no') continue;
+    var t=String(cab[j]||'').trim();
+    if(t && !porNombre(t)) cols[j].nombre=t.toUpperCase();
+  }
+  return cols;
+}
+
+function analizarPegado(){
+  var txt=document.getElementById('peg-txt').value;
+  var g=partirPegado(txt);
+  if(g.length<2){
+    aviso('Pega al menos la fila de títulos y una de datos.', true); return;
+  }
+  PEG.ancho=Math.max.apply(null, g.map(function(f){ return f.length; }));
+  PEG.filas=g.map(function(f){
+    var r=f.slice(0,PEG.ancho);
+    while(r.length<PEG.ancho) r.push('');
+    return r;
+  });
+  PEG.cols=adivinarColumnas();
+  PEG.firma=(PEG.filas[0]||[]).join('|').slice(0,180);
+  /* Si ya mapeó este mismo informe antes, se reusa lo que dijo */
+  try{
+    var g2=JSON.parse(localStorage.getItem('mando-mapeos')||'{}')[PEG.firma];
+    if(g2 && g2.length===PEG.cols.length) PEG.cols=g2;
+  }catch(e){}
+  pintarPegar();
+}
+function reiniciarPegado(){ PEG={filas:[],cols:[],ancho:0,firma:''}; pintarPegar(); }
+
+function tocarCol(i, campo, valor, repintar){
+  PEG.cols[i][campo]=valor;
+  if(campo==='tipo' && valor!=='ind'){ PEG.cols[i].meta=''; }
+  if(repintar) pintarPegar(); else contarPegado();
+}
+/* Una fila cuenta solo si se le reconoce el agente */
+function agenteDeFila(f){
+  var iN=-1, iC=-1;
+  PEG.cols.forEach(function(c,i){
+    if(c.tipo==='nombre') iN=i;
+    if(c.tipo==='cedula') iC=i;
+  });
+  return (iC>=0 ? porCedula(f[iC]) : null) || (iN>=0 ? porNombre(f[iN]) : null);
+}
+function contarPegado(){
+  var ok=PEG.filas.filter(agenteDeFila).length;
+  var inds=PEG.cols.filter(function(c){ return c.tipo==='ind' && c.nombre.trim(); }).length;
+  var el=document.getElementById('peg-cuenta');
+  if(el) el.textContent=ok+' de '+PEG.filas.length+' filas reconocidas · '
+    +inds+' indicador(es) por traer';
+  var b=document.getElementById('peg-ok');
+  if(b) b.disabled = !(ok && inds);
+}
+
+function pintarPegar(){
+  var c=document.getElementById('c-pegar');
+  if(!PEG.filas.length){
+    c.innerHTML='<div class="panelo gl blur rev"><div class="ph">'
+      +'<span class="tt">Copia la tabla en el BI y pégala aquí</span></div>'
+      +'<div class="pc pad">'
+      +'<textarea id="peg-txt" placeholder="Selecciona la tabla en el BI, Ctrl+C, y Ctrl+V aquí.\n'
+      +'Puedes pegar con los títulos y con la fila de Total: lo que no sea un agente de tu '
+      +'nómina se descarta solo."></textarea>'
+      +'<div style="display:flex;gap:9px;margin-top:14px;flex-wrap:wrap">'
+      +'<button class="bt cian" onclick="analizarPegado()">Analizar lo pegado</button>'
+      +'<button class="bt" onclick="document.getElementById(\'peg-txt\').value=\'\'">Limpiar</button>'
+      +'</div></div></div>'
+      +'<div class="nota rev"><b>Cómo funciona.</b> En el BI pon los filtros que quieras '
+      +'—el mes, tu nombre en Supervisor, la vista por Agente— selecciona la tabla y cópiala. '
+      +'Aquí le dices una sola vez qué columna es cada cosa y el tablero se acuerda del mapeo '
+      +'para la próxima.<br><br>'
+      +'<b>Se suma, no reemplaza.</b> Si ya cargaste el Excel o pegaste otro informe, esto '
+      +'agrega sus columnas encima. Así puedes traer el TMO de un tablero, la calidad de otro '
+      +'y las encuestas de un tercero.</div>';
+    activarCristal(c); revelar(c);
+    return;
+  }
+
+  var h='<div class="panelo gl blur rev"><div class="ph">'
+    +'<span class="tt">Dime qué es cada columna</span>'
+    +'<span class="ss" id="peg-cuenta"></span>'
+    +'<span class="der">'
+    +'<button class="bt" onclick="reiniciarPegado()">Pegar otra cosa</button>'
+    +'<button class="bt cian" id="peg-ok" onclick="aplicarPegado()">Traer al tablero</button>'
+    +'</span></div><div class="pc"><table class="map"><thead><tr>';
+  PEG.cols.forEach(function(col,i){
+    h+='<th><select onchange="tocarCol('+i+',\'tipo\',this.value,true)">'
+      +[['no','— ignorar —'],['nombre','Nombre del agente'],['cedula','Cédula'],
+        ['ind','Indicador…']].map(function(o){
+          return '<option value="'+o[0]+'"'+(col.tipo===o[0]?' selected':'')+'>'
+            +o[1]+'</option>'; }).join('')
+      +'</select>';
+    if(col.tipo==='ind'){
+      h+='<div class="mini">Nombre</div>'
+        +'<input value="'+esc(col.nombre)+'" placeholder="TMO, CALIDAD…" '
+        +'oninput="tocarCol('+i+',\'nombre\',this.value,false)">'
+        +'<div class="mini">Meta</div>'
+        +'<input value="'+esc(col.meta)+'" placeholder="600 · 95%" '
+        +'oninput="tocarCol('+i+',\'meta\',this.value,false)">';
+    }
+    h+='</th>';
+  });
+  h+='</tr></thead><tbody>';
+  PEG.filas.slice(0,14).forEach(function(f){
+    var ag=agenteDeFila(f);
+    h+='<tr class="'+(ag?'si':'no')+'">'
+      +f.map(function(x){ return '<td>'+(esc(x)||'·')+'</td>'; }).join('')+'</tr>';
+  });
+  h+='</tbody></table></div>'
+    +'<div class="leg">Las filas en gris no se van a traer: no corresponden a nadie de tu '
+    +'nómina. Ahí caen los títulos y el Total, que es justo lo que se quiere dejar afuera.'
+    +(PEG.filas.length>14? ' Se muestran las primeras 14 de '+PEG.filas.length+'.' : '')
+    +'</div></div>';
+  c.innerHTML=h;
+  contarPegado();
+  activarCristal(c); revelar(c);
+}
+
+/* Un indicador que nadie tiene medido no se cuenta: la misma regla del
+   Excel, recalculada cada vez que entra data nueva. */
+function recalcularFaltantes(){
+  var porHoja={};
+  IND.forEach(function(f){ (porHoja[f.hoja]=porHoja[f.hoja]||[]).push(f); });
+  Object.keys(porHoja).forEach(function(hj){
+    var filas=porHoja[hj], todos=[], conDato={};
+    filas.forEach(function(f){
+      (f.todos||f.inds).forEach(function(i){
+        if(todos.indexOf(i.nombre)<0) todos.push(i.nombre);
+      });
+      (f.todos||f.inds).forEach(function(i){ if(i.res!=null) conDato[i.nombre]=true; });
+    });
+    filas.forEach(function(f){
+      var base=f.todos||f.inds, por={};
+      base.forEach(function(i){ por[i.nombre]=i; });
+      /* Todo el mundo lleva la lista completa: al que le falte un dato,
+         queda en rojo, y así se nota quién no tiene medición. */
+      f.todos=todos.map(function(nm){
+        return por[nm] || { nombre:nm, res:null, resTxt:'—', meta:null, metaTxt:'',
+                            pts:null, estado:'bad' };
+      });
+      f.sinMedir=todos.filter(function(nm){ return !conDato[nm]; });
+      f.inds=f.todos.filter(function(i){ return conDato[i.nombre]; });
+    });
+  });
+}
+
+function aplicarPegado(){
+  var iN=-1, iC=-1, inds=[];
+  PEG.cols.forEach(function(c,i){
+    if(c.tipo==='nombre') iN=i;
+    else if(c.tipo==='cedula') iC=i;
+    else if(c.tipo==='ind' && c.nombre.trim())
+      inds.push({ i:i, nombre:c.nombre.trim().toUpperCase(), meta:aNumero(c.meta) });
+  });
+  if(!inds.length){ aviso('Marca al menos una columna como indicador.', true); return; }
+
+  var hoja = PEG.cols.length ? 'Pegado del BI' : 'Pegado del BI';
+  var traidos=0, nuevos=0;
+  PEG.filas.forEach(function(f){
+    var ag=agenteDeFila(f);
+    if(!ag) return;
+    traidos++;
+    var c=ced(ag.ced);
+    var reg=IND.filter(function(x){ return x.ced===c; })[0]
+         || IND.filter(function(x){ return norm(x.nombre)===norm(ag.nombre); })[0];
+    if(!reg){
+      reg={ ced:c, nombre:ag.nombre, skill:ag.canal||'', jefe:'', hoja:hoja,
+            inds:[], todos:[], extras:[], sinMedir:[] };
+      IND.push(reg); nuevos++;
+    }
+    if(!reg.todos) reg.todos=reg.inds.slice();
+    inds.forEach(function(d){
+      var res=numeroPegado(f[d.i]);
+      var meta=(d.meta!=null) ? d.meta : null;
+      var ya=reg.todos.filter(function(x){ return x.nombre===d.nombre; })[0];
+      if(!ya){ ya={nombre:d.nombre}; reg.todos.push(ya); }
+      if(meta==null && ya.meta!=null) meta=ya.meta;      // conserva la meta anterior
+      ya.res=res; ya.meta=meta;
+      ya.resTxt=fmt(res, d.nombre);
+      ya.metaTxt=(meta==null? '' : fmt(meta, d.nombre));
+      ya.pts=null;
+      ya.estado=veredicto(d.nombre, res, meta, null);
+    });
+  });
+  recalcularFaltantes();
+
+  /* Se recuerda el mapeo de este informe para la próxima vez */
+  try{
+    var m=JSON.parse(localStorage.getItem('mando-mapeos')||'{}');
+    m[PEG.firma]=PEG.cols;
+    localStorage.setItem('mando-mapeos', JSON.stringify(m));
+  }catch(e){}
+
+  if(!ARCH_RES) ARCH_RES='Pegado del BI';
+  aviso('✔ '+traidos+' agente(s) · '+inds.length+' indicador(es)'
+        +(nuevos? ' · '+nuevos+' nuevo(s) en el tablero' : ''));
+  reiniciarPegado();
+  irA('equipo');
 }
 
 /* ══════════════════════════════════════════════════════════════════════

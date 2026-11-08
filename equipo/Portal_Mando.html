@@ -454,6 +454,42 @@ table.map select:focus,table.map input:focus{border-color:rgba(34,211,238,.5)}
 .mini{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
   color:var(--ink-4);margin:5px 0 3px}
 
+/* ══ CONVERSACIÓN ══════════════════════════════════════════════════════
+   El chat se lee como en el teléfono: el cliente a la izquierda, el banco
+   a la derecha, y el bot en un tono aparte para no confundirlo con la
+   persona que atendió. */
+.lal2{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;
+  align-items:start}
+@media(max-width:1000px){.lal2{grid-template-columns:1fr}}
+.lal2 .der{position:sticky;top:78px}
+.chat-cab{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 18px;
+  border-bottom:1px solid var(--edge);font-size:11.5px;color:var(--ink-3)}
+.chat-cab b{color:var(--ink-2)}
+.chat{padding:16px 18px;max-height:70vh;overflow-y:auto;
+  background:linear-gradient(180deg,rgba(4,8,22,.35),rgba(4,8,22,.15))}
+.msg{display:flex;margin-bottom:9px}
+.msg.cli{justify-content:flex-start}
+.msg.age,.msg.bot{justify-content:flex-end}
+.burb{max-width:78%;padding:9px 13px 7px;border-radius:14px;font-size:13px;line-height:1.55;
+  position:relative;word-break:break-word}
+.msg.cli .burb{background:rgba(255,255,255,.07);border:1px solid var(--edge);
+  border-bottom-left-radius:4px}
+.msg.age .burb{background:linear-gradient(170deg,rgba(14,124,102,.5),rgba(14,124,102,.3));
+  border:1px solid rgba(52,211,153,.3);border-bottom-right-radius:4px}
+.msg.bot .burb{background:rgba(139,92,246,.13);border:1px solid rgba(139,92,246,.26);
+  border-bottom-right-radius:4px;color:var(--ink-2)}
+.burb .q{display:block;font-size:9.5px;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;opacity:.65;margin-bottom:4px}
+.burb .h{display:block;text-align:right;font-size:9.5px;opacity:.5;margin-top:3px;
+  font-family:var(--mono)}
+.burb a{color:var(--cyan-hi)}
+.burb .bt-chip{display:inline-block;margin:6px 5px 0 0;padding:4px 11px;border-radius:14px;
+  font-size:11px;font-weight:700;background:rgba(255,255,255,.1);border:1px solid var(--edge)}
+.gap{text-align:center;font-size:10px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--warn);margin:13px 0;font-weight:700}
+.gap span{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);
+  padding:3px 12px;border-radius:20px}
+
 /* ══ PANEL LATERAL ═════════════════════════════════════════════════════ */
 #velo{position:fixed;inset:0;z-index:110;background:rgba(3,4,12,.6);opacity:0;pointer-events:none;
   transition:opacity .3s;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
@@ -2443,25 +2479,38 @@ function pintarDetalle(){
     sub.textContent = MANDO ? 'Pega los resultados del BI para empezar.'
                             : 'Tu supervisor aún no ha cargado los resultados en este archivo.';
     med.innerHTML='';
-    ['ind','pend','aud'].forEach(function(k){
+    ['ind','pend'].forEach(function(k){
       document.getElementById('c-'+k).innerHTML = MANDO
         ? zonaCarga()
         : '<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
           +'<b>Todavía no hay datos en este archivo.</b><br>'
           +'Pídele a tu supervisor el portal del periodo.</div></div>';
     });
-    if(MANDO) activarSoltar(document.getElementById('suelta'));
+    /* El lado a lado no depende de los resultados: se puede empezar en frío,
+       y al leer el chat exportado el propio archivo dice de quién es. */
+    if(MANDO){
+      pintarAuditorias({ aud:[] });
+      activarSoltar(document.getElementById('suelta'));
+    } else {
+      document.getElementById('c-aud').innerHTML=
+        '<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
+        +'<b>Todavía no hay datos en este archivo.</b><br>'
+        +'Pídele a tu supervisor el portal del periodo.</div></div>';
+    }
     return;
   }
   if(MANDO && !quien){
-    sub.textContent='Escoge un agente en el selector de arriba, o entra desde «Mi equipo».';
+    sub.textContent='Escoge un agente arriba, o lee un chat exportado y se escoge solo.';
     med.innerHTML='';
-    ['ind','pend','aud'].forEach(function(k){
+    ['ind','pend'].forEach(function(k){
       document.getElementById('c-'+k).innerHTML='<div class="panelo gl blur"><div class="vacio">'
         +'<div class="ic">◈</div><b>Ningún agente seleccionado.</b><br>'
-        +'Escoge a alguien arriba para ver sus indicadores, su cola de tipificación '
-        +'y sus acompañamientos.</div></div>';
+        +'Escoge a alguien arriba para ver sus indicadores y su cola de tipificación.'
+        +'</div></div>';
     });
+    /* El lado a lado sí se puede empezar sin escoger: al leer el chat
+       exportado, el propio archivo dice de quién es. */
+    pintarAuditorias({ aud:[] });
     return;
   }
 
@@ -2614,6 +2663,142 @@ function pintarPendientes(d, quien){
    este navegador y entran en el portal que se les genera a los agentes.
    ══════════════════════════════════════════════════════════════════════ */
 var CRIT_LAL = ['Ortografía', 'Calidad de la información', 'Observaciones'];
+
+/* ── Lectura del chat exportado ────────────────────────────────────────
+   El exportable trae una cabecera de «clave: valor» y luego una tabla de
+   cuatro columnas. El texto viene envuelto en marcas invisibles de
+   dirección que hay que quitar o se cuelan en la pantalla. */
+var MESES_CH = {enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,
+  septiembre:8,setiembre:8,octubre:9,noviembre:10,diciembre:11};
+
+function limpiarDir(x){
+  return String(x==null?'':x)
+    .replace(/[‪-‮⁦-⁩‎‏​]/g,'').trim();
+}
+function horaChat(t){
+  var m=String(t||'').match(
+    /(\d{1,2})\s+de\s+([a-záéíóú]+)\s+de\s+(\d{4})[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?/i);
+  if(!m) return null;
+  var mes=MESES_CH[m[2].toLowerCase()];
+  if(mes===undefined) return null;
+  var h=+m[4]%12;
+  if(/p/i.test(m[7])) h+=12;
+  return new Date(+m[3], mes, +m[1], h, +m[5], +(m[6]||0));
+}
+function leerChatExport(txt){
+  var lineas=String(txt||'').replace(/\r/g,'').split('\n');
+  var meta={}, msgs=[], enTabla=false;
+  lineas.forEach(function(l){
+    var c=l.split('\t').map(limpiarDir);
+    if(!enTabla){
+      if(/^fecha\s*\/?\s*hora$/i.test(c[0]||'') && c.length>=4){ enTabla=true; return; }
+      if(c.length>=2 && /:$/.test(c[0]||''))
+        meta[c[0].replace(/:$/,'').trim()]=c.slice(1).join(' ').trim();
+      return;
+    }
+    if(c.length>=4 && horaChat(c[0])){
+      var tipo=c[1]||'', quien=c[2]||'';
+      msgs.push({
+        t:c[0], ms:horaChat(c[0]).getTime(), quien:quien,
+        lado: /^extern/i.test(tipo) ? 'cli'
+            : (/bot|flujo/i.test(quien) ? 'bot' : 'age'),
+        texto:c.slice(3).join(' ')
+      });
+    } else if(msgs.length && l.trim()){
+      /* Un mensaje con saltos de línea parte la fila: se vuelve a pegar */
+      msgs[msgs.length-1].texto += '\n'+limpiarDir(l);
+    }
+  });
+  if(!msgs.length) return null;
+  return {
+    id: meta['ID de la interacción']||'',
+    inicio: meta['Hora de inicio']||'',
+    fin: meta['Hora de finalización']||'',
+    duracion: meta['Duración']||'',
+    interno: meta['Participante(s) interno(s)']||'',
+    externo: meta['Participante(s) externo(s)']||'',
+    msgs: msgs
+  };
+}
+
+/* El bot manda botones como «button|pregunta|opción|opción» y usa
+   *negrita* y enlaces en corchetes, igual que WhatsApp. */
+function textoChat(t){
+  var botones=[];
+  var s=String(t||'');
+  if(/^button\|/i.test(s)){
+    var p=s.split('|');
+    s=p[1]||''; botones=p.slice(2).filter(Boolean);
+  }
+  var h=esc(s)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
+    .replace(/\n/g, '<br>');
+  if(botones.length)
+    h+='<div>'+botones.map(function(b){
+      return '<span class="bt-chip">'+esc(b)+'</span>'; }).join('')+'</div>';
+  return h;
+}
+function soloHora(t){
+  var d=horaChat(t);
+  if(!d) return '';
+  var h=d.getHours(), ap=h<12?'a. m.':'p. m.';
+  return ((h%12)||12)+':'+String(d.getMinutes()).padStart(2,'0')+' '+ap;
+}
+function pintarConversacion(ch){
+  if(!ch || !ch.msgs.length) return '';
+  var h='<div class="chat-cab">'
+    +(ch.duracion? '<span>Duración <b>'+esc(ch.duracion)+'</b></span>' : '')
+    +'<span>'+ch.msgs.length+' mensajes</span>'
+    +(ch.externo? '<span>Cliente <b>'+esc(ch.externo)+'</b></span>' : '')
+    +(ch.interno? '<span>Atendió <b>'+esc(ch.interno)+'</b></span>' : '')
+    +'</div><div class="chat">';
+  var prev=null;
+  ch.msgs.forEach(function(m){
+    /* Una espera larga dice tanto como lo que se escribió */
+    if(prev!=null && m.ms-prev > 90000){
+      var seg=Math.round((m.ms-prev)/1000);
+      var txt = seg<120 ? seg+' segundos después'
+        : Math.floor(seg/60)+' min '+(seg%60? (seg%60)+' s ':'')+'después';
+      h+='<div class="gap"><span>'+txt+'</span></div>';
+    }
+    prev=m.ms;
+    h+='<div class="msg '+m.lado+'"><div class="burb">'
+      +'<span class="q">'+esc(m.lado==='cli'? 'Cliente'
+          : (m.lado==='bot'? 'Bot' : m.quien))+'</span>'
+      +textoChat(m.texto)
+      +'<span class="h">'+esc(soloHora(m.t))+'</span>'
+      +'</div></div>';
+  });
+  return h+'</div>';
+}
+
+/* Lo que se pega en el formulario */
+var LAL_CHAT = null;
+function leerChatPegado(){
+  var e=document.getElementById('lal-chat');
+  if(!e || !e.value.trim()){ aviso('Pega primero el exportable del chat.', true); return; }
+  var ch=leerChatExport(e.value);
+  if(!ch){ aviso('No se reconoció ningún mensaje. ¿Es el exportable completo?', true); return; }
+  LAL_CHAT=ch;
+  /* El exportable ya dice de quién es y cuál interacción fue */
+  var ag=ch.interno ? porNombre(ch.interno) : null;
+  if(ag && MANDO && (!FOCO || FOCO.ced!==ag.ced)) FOCO=ag;
+  aviso('✔ '+ch.msgs.length+' mensajes'+(ag? ' · '+ag.nombre : ''));
+  pintarDetalle();
+}
+function quitarChat(){ LAL_CHAT=null; pintarDetalle(); }
+function leerChatArchivo(files){
+  if(!files || !files.length) return;
+  var fr=new FileReader();
+  fr.onload=function(ev){
+    var e=document.getElementById('lal-chat');
+    if(e){ e.value=ev.target.result; leerChatPegado(); }
+    var f=document.getElementById('chat-file'); if(f) f.value='';
+  };
+  fr.readAsText(files[0]);
+}
 var LAL_EDIT = null;        // null · 'nuevo' · el id de uno existente
 
 /* El input de fecha entrega «2026-11-12». Armarla con new Date de esa
@@ -2645,20 +2830,26 @@ function guardarLAL(){
     fechaIso: fIn,
     fecha: d.toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'}),
     orden: d.getTime(),
-    idInter: idTxt,
+    idInter: idTxt || (LAL_CHAT? LAL_CHAT.id : ''),
     link: /^https?:\/\//i.test(idTxt) ? idTxt : '',
-    obs: obs
+    obs: obs,
+    chat: LAL_CHAT || null
   };
   var i=AUD.map(function(a){ return a.lid; }).indexOf(reg.lid);
   if(i>=0) AUD[i]=reg; else AUD.push(reg);
   persistirLAL();
-  LAL_EDIT=null;
+  LAL_EDIT=null; LAL_CHAT=null;
   aviso(i>=0 ? '✔ Acompañamiento actualizado' : '✔ Acompañamiento guardado');
   pintarDetalle();
 }
-function nuevoLAL(){ LAL_EDIT='nuevo'; pintarDetalle(); }
-function editarLAL(lid){ LAL_EDIT=lid; pintarDetalle(); }
-function cancelarLAL(){ LAL_EDIT=null; pintarDetalle(); }
+function nuevoLAL(){ LAL_EDIT='nuevo'; LAL_CHAT=null; pintarDetalle(); }
+function editarLAL(lid){
+  LAL_EDIT=lid;
+  var a=AUD.filter(function(x){ return x.lid===lid; })[0];
+  LAL_CHAT = a && a.chat ? a.chat : null;
+  pintarDetalle();
+}
+function cancelarLAL(){ LAL_EDIT=null; LAL_CHAT=null; pintarDetalle(); }
 function borrarLAL(lid){
   var a=AUD.filter(function(x){ return x.lid===lid; })[0];
   if(!a) return;
@@ -2715,9 +2906,39 @@ function formularioLAL(){
   var ed = (LAL_EDIT && LAL_EDIT!=='nuevo')
     ? AUD.filter(function(a){ return a.lid===LAL_EDIT; })[0] : null;
   var v=function(i){ return ed ? esc((ed.obs[i]||{}).texto||'') : ''; };
-  return '<div class="panelo gl blur rev"><div class="ph">'
+  var quien=MANDO?FOCO:YO;
+
+  /* Con la conversación cargada, la pantalla se parte: el chat a la
+     izquierda y la evaluación a la derecha, que es como se revisa. */
+  var izq = LAL_CHAT
+    ? '<div class="panelo gl blur"><div class="ph">'
+      +'<span class="tt">La conversación</span>'
+      +'<span class="ss">'+esc(LAL_CHAT.inicio||'')+'</span>'
+      +'<span class="der"><button class="bt" onclick="quitarChat()">Quitar</button></span>'
+      +'</div>'+pintarConversacion(LAL_CHAT)+'</div>'
+    : '<div class="panelo gl blur"><div class="ph">'
+      +'<span class="tt">Trae la conversación</span>'
+      +'<span class="ss">opcional, pero vale la pena</span></div><div class="pc pad">'
+      +'<textarea id="lal-chat" rows="5" placeholder="Pega aquí el exportable del chat, '
+      +'o súbelo con el botón de abajo." style="width:100%;padding:12px 14px;'
+      +'border-radius:11px;resize:vertical;background:rgba(4,8,22,.62);'
+      +'border:1px solid var(--edge);color:var(--ink);font-family:var(--mono);'
+      +'font-size:11.5px;line-height:1.6;outline:none"></textarea>'
+      +'<div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap">'
+      +'<button class="bt cian" onclick="leerChatPegado()">Leer conversación</button>'
+      +'<button class="bt" onclick="document.getElementById(\'chat-file\').click()">'
+        +'⬆ Subir archivo</button>'
+      +'<input type="file" id="chat-file" accept=".txt,.csv,.tsv" style="display:none" '
+        +'onchange="leerChatArchivo(this.files)">'
+      +'</div>'
+      +'<div style="font-size:11.5px;color:var(--ink-3);margin-top:12px;line-height:1.6">'
+      +'El exportable ya dice de quién es la interacción y cuál fue, así que al leerlo '
+      +'se escoge el agente y se llena el ID solo.</div>'
+      +'</div></div>';
+
+  var der = '<div class="panelo gl blur"><div class="ph">'
     +'<span class="tt">'+(ed? 'Editar acompañamiento' : 'Nuevo acompañamiento')+'</span>'
-    +'<span class="ss">'+esc((MANDO?FOCO:YO).nombre)+'</span></div>'
+    +'<span class="ss">'+esc(quien? quien.nombre : '—')+'</span></div>'
     +'<div class="pc pad">'
     +'<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:4px">'
       +'<div class="campo" style="flex:0 0 190px;margin:0">'
@@ -2727,7 +2948,7 @@ function formularioLAL(){
       +'<div class="campo" style="flex:1 1 320px;margin:0">'
         +'<label for="lal-id">ID de la interacción</label>'
         +'<input id="lal-id" type="text" placeholder="el ID, o pega el enlace completo" '
-        +'value="'+esc(ed? ed.idInter||'' : '')+'">'
+        +'value="'+esc(ed? (ed.idInter||'') : (LAL_CHAT? LAL_CHAT.id : ''))+'">'
       +'</div>'
     +'</div>'
     +CRIT_LAL.map(function(c,i){
@@ -2742,6 +2963,8 @@ function formularioLAL(){
       +'<button class="bt cian" onclick="guardarLAL()">Guardar</button>'
       +'<button class="bt" onclick="cancelarLAL()">Cancelar</button>'
     +'</div></div></div>';
+
+  return '<div class="lal2 rev">'+izq+'<div class="der">'+der+'</div></div>';
 }
 
 function pintarAuditorias(d){
@@ -2779,7 +3002,16 @@ function pintarAuditorias(d){
     +(d.aud.length===1? ' acompañamiento':' acompañamientos')+'</span></div>';
   d.aud.forEach(function(a){
     var con=a.obs.filter(function(o){ return o.texto; }).length;
-    h+='<div class="aud gl blur rev"><div class="aud-c">'
+    /* Con conversación guardada, se lee el chat al lado de la evaluación */
+    var conChat=!!(a.chat && a.chat.msgs && a.chat.msgs.length);
+    if(conChat)
+      h+='<div class="lal2 rev" style="margin-bottom:16px">'
+        +'<div class="panelo gl blur" style="margin:0"><div class="ph">'
+        +'<span class="tt">La conversación</span>'
+        +'<span class="ss">'+esc(a.chat.inicio||'')+'</span></div>'
+        +pintarConversacion(a.chat)+'</div><div class="der">';
+    h+='<div class="aud gl blur'+(conChat?'':' rev')+'"'
+      +(conChat? ' style="margin:0"' : '')+'><div class="aud-c">'
       +'<span class="f">◆ '+(a.fecha? esc(a.fecha) : 'Sin fecha registrada')+'</span>'
       +(idBonito(a.idInter)? '<span class="etq gr" title="'+esc(a.idInter)+'">'
           +esc(idBonito(a.idInter))+'</span>' : '')
@@ -2799,6 +3031,7 @@ function pintarAuditorias(d){
         +(o.texto? esc(o.texto) : 'Sin observación en este acompañamiento')+'</div></div>';
     });
     h+='</div></div>';
+    if(conChat) h+='</div></div>';
   });
   c.innerHTML=h;
   activarCristal(c);

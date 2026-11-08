@@ -557,8 +557,114 @@ body.sobrio::before{content:'';position:fixed;inset:0;z-index:0;
     transition-duration:.01ms!important}
   .rev{opacity:1!important}
 }
+/* ══ ASISTENTE ═════════════════════════════════════════════════════════
+   El robot de la esquina y su ventana de conversación.                  */
+#bot-btn{position:fixed;right:22px;bottom:22px;z-index:158;width:68px;height:68px;
+  display:none;border-radius:50%;border:1px solid var(--edge-hi);padding:0;
+  background:radial-gradient(120% 120% at 32% 22%,rgba(34,211,238,.34),
+    rgba(139,92,246,.30) 58%,rgba(7,10,24,.96));
+  box-shadow:0 18px 42px -16px rgba(0,0,0,.92);
+  transition:transform .32s cubic-bezier(.16,1,.3,1),box-shadow .3s;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#bot-btn.on{display:grid;place-items:center}
+body.bot-ab #bot-btn{display:none}
+#bot-btn:hover{transform:translateY(-4px) scale(1.06);
+  box-shadow:0 24px 52px -14px rgba(0,0,0,.95),0 0 0 8px rgba(34,211,238,.09)}
+#bot-btn:active{transform:scale(.97)}
+#bot-btn svg{width:42px;height:42px;display:block;overflow:visible}
+#bot-btn .ojos{animation:bot-parpadeo 5.6s infinite;transform-origin:center}
+#bot-btn .ante{animation:bot-ping 2.8s infinite}
+@keyframes bot-parpadeo{0%,91%,100%{transform:scaleY(1)}94%{transform:scaleY(.08)}}
+@keyframes bot-ping{0%,100%{opacity:.45}50%{opacity:1}}
+body.sobrio #bot-btn .ojos,body.sobrio #bot-btn .ante{animation:none}
+#bot-btn .glob{position:absolute;right:76px;bottom:16px;white-space:nowrap;font-size:11.5px;
+  font-weight:600;padding:8px 13px;border-radius:12px;border:1px solid var(--edge);
+  background:rgba(10,16,36,.96);color:var(--ink-2);opacity:0;transform:translateX(8px);
+  transition:opacity .3s,transform .3s;pointer-events:none}
+#bot-btn:hover .glob{opacity:1;transform:none}
+
+#bot{position:fixed;right:20px;bottom:20px;z-index:159;
+  width:min(430px,calc(100vw - 24px));height:min(640px,calc(100vh - 36px));
+  display:none;flex-direction:column;border-radius:22px;overflow:hidden;
+  border:1px solid var(--edge-hi);background:linear-gradient(176deg,#0A1024,#070A18);
+  box-shadow:-10px 30px 80px -24px rgba(0,0,0,.95);
+  opacity:0;transform:translateY(16px) scale(.985);
+  transition:opacity .28s,transform .34s cubic-bezier(.16,1,.3,1)}
+#bot.ab{display:flex}
+#bot.on{opacity:1;transform:none}
+#bot .bc{padding:15px 18px;border-bottom:1px solid var(--edge);display:flex;gap:12px;
+  align-items:center;background:linear-gradient(100deg,rgba(34,211,238,.11),rgba(139,92,246,.11))}
+#bot .bc svg{width:34px;height:34px;flex:0 0 auto}
+#bot .bc .t{flex:1;min-width:0}
+#bot .bc .t b{font-size:13.5px;display:block}
+#bot .bc .t small{font-size:10.5px;color:var(--ink-3);display:block;margin-top:2px}
+#bot .bc button{font-size:21px;line-height:.8;color:var(--ink-3);transition:color .2s,transform .2s}
+#bot .bc button:hover{color:var(--ink);transform:rotate(90deg)}
+#bot-log{flex:1;overflow-y:auto;padding:16px 16px 6px;display:flex;flex-direction:column;gap:11px}
+#bot-log .bmg{max-width:88%;padding:11px 14px;border-radius:15px;font-size:12.5px;line-height:1.65;
+  animation:bot-sube .3s cubic-bezier(.16,1,.3,1) both;word-wrap:break-word;overflow-wrap:anywhere}
+body.sobrio #bot-log .bmg{animation:none}
+@keyframes bot-sube{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#bot-log .yo{align-self:flex-end;border:1px solid rgba(34,211,238,.3);
+  background:linear-gradient(140deg,rgba(34,211,238,.19),rgba(34,211,238,.07));
+  border-bottom-right-radius:5px}
+#bot-log .el{align-self:flex-start;border:1px solid var(--edge);background:var(--gl);
+  border-bottom-left-radius:5px;color:var(--ink-2)}
+#bot-log .el b{color:var(--ink)}
+#bot-log .el .ok{color:var(--ok);font-weight:700}
+#bot-log .el .bad{color:var(--bad);font-weight:700}
+#bot-log .el .wn{color:var(--warn);font-weight:700}
+#bot-log .el .mn{font-family:var(--mono);font-size:11.5px;color:var(--cyan-hi)}
+#bot-log .el ul{margin:7px 0 2px;padding-left:16px}
+#bot-log .el li{margin-bottom:5px}
+#bot-log .el hr{border:none;border-top:1px solid var(--edge);margin:10px 0}
+#bot-log .el .et{font-size:10.5px;color:var(--ink-4);display:block;margin-top:8px;
+  text-transform:uppercase;letter-spacing:.08em}
+#bot-chips{display:flex;gap:7px;flex-wrap:wrap;padding:4px 16px 12px}
+#bot-chips button{font-size:11px;padding:7px 12px;border-radius:20px;border:1px solid var(--edge);
+  background:var(--gl);color:var(--ink-2);transition:border-color .2s,color .2s,background .2s}
+#bot-chips button:hover{border-color:var(--edge-hi);color:var(--ink);background:var(--gl-2)}
+#bot-pie{border-top:1px solid var(--edge);padding:12px 14px;display:flex;gap:9px;align-items:flex-end;
+  background:rgba(3,4,12,.5)}
+#bot-in{flex:1;min-width:0;resize:none;max-height:96px;font-size:12.5px;line-height:1.55;
+  padding:11px 13px;border-radius:13px;border:1px solid var(--edge);background:var(--gl);
+  color:var(--ink);transition:border-color .2s}
+#bot-in:focus{outline:none;border-color:var(--cyan)}
+#bot-env{flex:0 0 auto;width:42px;height:42px;border-radius:13px;border:1px solid rgba(34,211,238,.34);
+  background:linear-gradient(140deg,rgba(34,211,238,.24),rgba(139,92,246,.2));font-size:16px;
+  transition:transform .2s,box-shadow .2s}
+#bot-env:hover{transform:translateY(-2px);box-shadow:0 10px 22px -10px rgba(34,211,238,.6)}
+#bot .ens{border-top:1px solid var(--edge);padding:14px 16px;display:none;
+  background:rgba(139,92,246,.07);max-height:60%;overflow-y:auto}
+#bot .ens.on{display:block}
+#bot .ens h4{font-size:12px;margin-bottom:10px;color:var(--violet-hi)}
+#bot .ens label{display:block;font-size:10.5px;color:var(--ink-3);margin:9px 0 4px;
+  text-transform:uppercase;letter-spacing:.07em}
+#bot .ens input,#bot .ens textarea,#bot .ens select{width:100%;font-size:12px;padding:9px 11px;
+  border-radius:10px;border:1px solid var(--edge);background:rgba(3,4,12,.5);color:var(--ink)}
+#bot .ens textarea{resize:vertical;min-height:74px;line-height:1.6}
+#bot .ens input:focus,#bot .ens textarea:focus,#bot .ens select:focus{outline:none;
+  border-color:var(--violet)}
+#bot .ens .fila{display:flex;gap:9px}
+#bot .ens .fila>div{flex:1;min-width:0}
+#bot .ens .acc{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}
+#bot .ens .acc button{font-size:11.5px;font-weight:600;padding:9px 15px;border-radius:11px;
+  border:1px solid var(--edge);background:var(--gl);transition:border-color .2s,background .2s}
+#bot .ens .acc button:hover{border-color:var(--edge-hi);background:var(--gl-2)}
+#bot .ens .acc .pr{border-color:rgba(139,92,246,.45);
+  background:linear-gradient(140deg,rgba(139,92,246,.26),rgba(34,211,238,.16))}
+#bot .ens .ya{font-size:10.5px;color:var(--ink-4);margin-top:11px;line-height:1.7}
+#bot .ens .ya span{color:var(--violet-hi);cursor:pointer}
+#bot .ens .ya span:hover{text-decoration:underline}
+@media (max-width:620px){
+  #bot{right:8px;left:8px;bottom:8px;width:auto;height:min(78vh,620px)}
+  #bot-btn{right:14px;bottom:14px;width:60px;height:60px}
+  #bot-btn svg{width:37px;height:37px}
+  #bot-btn .glob{display:none}
+}
+
 @media print{
-  #cielo,#rejilla,#velo-fondo,#ruido,nav,#lado,#velo,#barrido{display:none}
+  #cielo,#rejilla,#velo-fondo,#ruido,nav,#lado,#velo,#barrido,#bot,#bot-btn{display:none}
   body{background:#fff;color:#111}
   .vista{display:block!important}
   .gl{border-color:#ccc;background:#fff;box-shadow:none}
@@ -713,6 +819,103 @@ body.sobrio::before{content:'';position:fixed;inset:0;z-index:0;
   </div>
   <div class="lb" id="lado-b"></div>
 </aside>
+
+<!-- ══ ASISTENTE ═══════════════════════════════════════════════════════
+     El robot vive en la esquina. Responde con los datos que trae este
+     mismo archivo y con lo que la supervisión le haya enseñado: no sale
+     a internet ni consulta ninguna IA, así que funciona sin conexión.
+     ════════════════════════════════════════════════════════════════════ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="g-rb" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#7DE9F8"/><stop offset="1" stop-color="#C4B5FD"/>
+  </linearGradient>
+  <symbol id="robot" viewBox="0 0 48 48">
+    <g class="ante">
+      <line x1="24" y1="4" x2="24" y2="10" stroke="url(#g-rb)" stroke-width="2.4"
+            stroke-linecap="round"/>
+      <circle cx="24" cy="3.6" r="3" fill="#22D3EE"/>
+    </g>
+    <rect x="7" y="10" width="34" height="27" rx="9" fill="rgba(7,10,24,.75)"
+          stroke="url(#g-rb)" stroke-width="2.2"/>
+    <g class="ojos">
+      <circle cx="17.5" cy="22" r="3.1" fill="#7DE9F8"/>
+      <circle cx="30.5" cy="22" r="3.1" fill="#7DE9F8"/>
+    </g>
+    <path d="M18 29.5c2 2.2 8 2.2 10 0" stroke="#C4B5FD" stroke-width="2.1" fill="none"
+          stroke-linecap="round"/>
+    <line x1="4" y1="20" x2="4" y2="26" stroke="url(#g-rb)" stroke-width="2.2"
+          stroke-linecap="round"/>
+    <line x1="44" y1="20" x2="44" y2="26" stroke="url(#g-rb)" stroke-width="2.2"
+          stroke-linecap="round"/>
+    <path d="M14 40h20" stroke="url(#g-rb)" stroke-width="2.2" stroke-linecap="round"
+          opacity=".55"/>
+  </symbol>
+</defs></svg>
+
+<button id="bot-btn" onclick="BOT.abrir()" title="Pregúntame lo que sea"
+        aria-label="Abrir el asistente">
+  <svg><use href="#robot"/></svg>
+  <span class="glob">Pregúntame lo que sea</span>
+</button>
+
+<section id="bot" aria-label="Asistente">
+  <div class="bc">
+    <svg viewBox="0 0 48 48"><use href="#robot"/></svg>
+    <div class="t">
+      <b>Asistente del portal</b>
+      <small id="bot-sub">Responde con lo que está cargado aquí</small>
+    </div>
+    <button onclick="BOT.cerrar()" title="Cerrar" aria-label="Cerrar">×</button>
+  </div>
+
+  <div id="bot-log"></div>
+  <div id="bot-chips"></div>
+
+  <div id="bot-pie">
+    <textarea id="bot-in" rows="1" placeholder="Escribe tu pregunta…" spellcheck="false"
+              onkeydown="BOT.tecla(event)" oninput="BOT.tecla(event)"></textarea>
+    <button id="bot-env" onclick="BOT.enviar()" title="Enviar" aria-label="Enviar">➤</button>
+  </div>
+
+  <!-- Solo la supervisión: aquí se le enseña algo nuevo -->
+  <div class="ens" id="bot-ens">
+    <h4>Enseñarle una respuesta</h4>
+    <label for="kb-t">¿Sobre qué es?</label>
+    <input id="kb-t" placeholder="Ej.: Cómo tipificar un reclamo de Giros">
+    <label for="kb-k">Palabras con las que te lo van a preguntar</label>
+    <input id="kb-k" placeholder="giros, reclamo, tipificar, no llegó el giro">
+    <div class="fila">
+      <div>
+        <label for="kb-q">¿Para quién aplica?</label>
+        <select id="kb-q">
+          <option value="ambos">Natural y jurídica</option>
+          <option value="natural">Solo persona natural</option>
+          <option value="juridica">Solo persona jurídica</option>
+        </select>
+      </div>
+      <div>
+        <label for="kb-c">Canal</label>
+        <select id="kb-c">
+          <option value="ambos">Chat y RRSS</option>
+          <option value="Chat">Chat</option>
+          <option value="RRSS">RRSS</option>
+        </select>
+      </div>
+    </div>
+    <label for="kb-r">Respuesta (tal cual quieres que la lean)</label>
+    <textarea id="kb-r" placeholder="El guion, el paso a paso o la ruta de tipificación."></textarea>
+    <div class="acc">
+      <button class="pr" onclick="BOT.guardar()">Guardar</button>
+      <button onclick="BOT.limpiar()">Limpiar</button>
+      <button onclick="BOT.respaldo()">⬇ Respaldo</button>
+      <button onclick="document.getElementById('kb-file').click()">⬆ Restaurar</button>
+      <button onclick="BOT.enseniar(false)">Cerrar</button>
+    </div>
+    <input type="file" id="kb-file" accept=".json" style="display:none"
+           onchange="BOT.restaurar(this.files)">
+    <div class="ya" id="kb-ya"></div>
+  </div>
+</section>
 
 <div id="aviso"></div>
 <script>
@@ -1911,6 +2114,7 @@ function abrirSesion(quien, mando){
 
   pintarPestanas();
   marca('mk-nav');
+  BOT.mostrar(true);
   irA(mando?'mando':'detalle', null, true);
   pulso();
 }
@@ -1921,6 +2125,7 @@ function salir(){
   if(MED_MANDO) MED_MANDO.parar();
   if(MED_FOCO)  MED_FOCO.parar();
   MED_MANDO=MED_FOCO=null;
+  BOT.mostrar(false);
   document.getElementById('shell').style.display='none';
   var acc=document.getElementById('acceso');
   acc.classList.remove('fuera'); acc.style.display='flex';
@@ -3740,6 +3945,7 @@ function pintarPaquete(){
       +tarjeta('Pendientes', mios(PEND,'agente'), 'neutro', 'interacciones por tipificar')
       +tarjeta('Lado a lado', mios(AUD,'agente'), 'neutro', 'acompañamientos')
       +tarjeta('Malla', mallaMia.length, 'neutro', mallaMia.length? 'registros de tu equipo':'sin cargar')
+      +tarjeta('Asistente', KB.length, 'neutro', KB.length? 'respuestas que ya sabe':'aún sin enseñarle')
     +'</div></div>'
 
     +'<div class="panelo gl blur rev"><div class="ph">'
@@ -3772,7 +3978,16 @@ function pintarPaquete(){
     +'del equipo viajan dentro del HTML. La pantalla solo le muestra a cada agente lo suyo, '
     +'pero alguien que sepa abrir las herramientas del navegador podría leer los datos de sus '
     +'compañeros. Para notas y pendientes del día a día no es grave; si algún dato fuera '
-    +'reservado, mejor no lo incluyas.</div>';
+    +'reservado, mejor no lo incluyas.</div>'
+
+    +'<div class="nota rev"><b>El asistente.</b> El robot de la esquina viaja en la copia con '
+    +'las <b>'+KB.length+'</b> respuesta'+(KB.length===1?'':'s')+' que le has enseñado, y allá '
+    +'contesta lo mismo que aquí: los indicadores de cada agente, sus pendientes, sus lado a '
+    +'lado, su turno, y los guiones o rutas de tipificación que le hayas cargado. No sale a '
+    +'internet ni consulta ninguna IA, así que no se inventa nada: lo que no esté cargado, lo '
+    +'responde diciendo que no lo tiene. '
+    +(KB.length? '' : 'Todavía no le has enseñado nada: ábrelo y usa <b>✎ Enseñarle algo</b>.')
+    +'</div>';
   activarCristal(c);
   revelar(c);
 }
@@ -3818,7 +4033,10 @@ function generarPortal(){
     ind : IND.filter(function(x){ return docs.indexOf(x.ced)>=0 || mio(x.nombre); }),
     pend: conPend? PEND.filter(function(x){ return mio(x.agente); }) : [],
     aud : conAud ? AUD.filter(function(x){ return mio(x.agente); })  : [],
-    malla: conMalla? MALLA.filter(function(m){ return docs.indexOf(m.doc)>=0; }) : []
+    malla: conMalla? MALLA.filter(function(m){ return docs.indexOf(m.doc)>=0; }) : [],
+    /* Lo que el asistente ya sabe: guiones, rutas de tipificación, lo que
+       se le haya enseñado. Va completo, que para eso es. */
+    kb  : KB
   };
 
   var json;
@@ -3861,6 +4079,599 @@ function generarPortal(){
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   ASISTENTE
+   El robot de la esquina. No consulta internet ni ninguna IA: contesta
+   con lo que este archivo ya tiene adentro —los indicadores, los
+   pendientes, los lado a lado, la malla— y con las respuestas que la
+   supervisión le va enseñando. Por eso abre sin conexión, y por eso no
+   se inventa nada: si algo no está cargado, lo dice.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Lo que se le ha enseñado. Se guarda en este navegador y viaja dentro
+   del portal que se les genera a los agentes. */
+var KB=[];
+function persistirKB(){
+  try{ localStorage.setItem('mando-kb', JSON.stringify(KB)); }
+  catch(e){ aviso('No se pudo guardar en este navegador: '+e.message, true); }
+}
+function recuperarKB(){
+  try{
+    var v=JSON.parse(localStorage.getItem('mando-kb')||'[]');
+    if(Array.isArray(v)) KB=v;
+  }catch(e){}
+}
+
+var BOT=(function(){
+
+var abierto=false, saludado=false, ensenando=false, editando=null;
+
+function el(id){ return document.getElementById(id); }
+function sujeto(){ return MANDO ? FOCO : YO; }
+function corto(n){
+  var p=String(n||'').trim().split(/\s+/);
+  return p.length>2 ? p.slice(0,2).join(' ') : (n||'');
+}
+function pila(n){
+  var p=String(n||'').trim().split(/\s+/);
+  var x=p.length>2 ? p[2] : p[0];
+  return x ? x.charAt(0)+x.slice(1).toLowerCase() : '';
+}
+function lk(txt, js){
+  return '<button onclick="'+js+'" style="font-size:11px;font-weight:600;padding:5px 11px;'
+    +'margin:6px 6px 0 0;border-radius:9px;border:1px solid var(--edge-hi);background:var(--gl-2);'
+    +'color:var(--cyan-hi)">'+esc(txt)+'</button>';
+}
+
+/* ── Las palabras que no ayudan a distinguir una pregunta de otra ───── */
+var STOP=('QUE QUIEN QUIENES COMO CUAL CUALES PARA POR LOS LAS DEL UNA UNO CON MIS MIO SUS '
+ +'ESTA ESTE ESTO ESA ESO HAY SON ERA TIENE TENGO TIENEN DONDE CUANDO CUANTO CUANTOS CUANTAS '
+ +'DEBO PUEDO PUEDE PUEDES SOBRE DESDE HASTA PERO MAS MUY TODO TODA TODOS TODAS DIME DAME '
+ +'QUIERO NECESITO SABER FAVOR GRACIAS HOLA BUENAS').split(' ');
+
+function tk(q){
+  return norm(q).replace(/[^A-ZÑ0-9 ]/g,' ').split(/\s+/)
+    .filter(function(w){ return w.length>2 && STOP.indexOf(w)<0; });
+}
+
+/* ══ LO QUE SABE DE LOS DATOS ════════════════════════════════════════ */
+
+function sinPersona(){
+  if(MANDO) return 'Dime de quién. Puedes escribirme el apellido —por ejemplo '
+    +'<i>cómo va Cortés</i>— o escogerlo en la nómina. '+lk('Ver mi equipo',"BOT.ir('equipo')");
+  return 'No encuentro tu ficha en este archivo. Avísale a tu supervisor.';
+}
+
+function resultados(ag){
+  if(!ag) return sinPersona();
+  var d=datosDe(ag), f=d.ind;
+  if(!f || !f.inds.length)
+    return 'Todavía no hay indicadores cargados para <b>'+esc(corto(ag.nombre))+'</b>.'
+      +(MANDO? ' Se pegan del BI en la pestaña <b>Pegar del BI</b>. '+lk('Ir a pegar',"BOT.ir('pegar')") : '');
+  var mal=f.inds.filter(function(i){ return i.estado!=='ok'; });
+  var h='<b>'+esc(corto(ag.nombre))+'</b> — '+f.inds.length
+    +(f.inds.length===1? ' indicador medido, ':' indicadores medidos, ')
+    +'<span class="ok">'+(f.inds.length-mal.length)+' en verde</span>'
+    +(mal.length? ' y <span class="bad">'+mal.length+' en rojo</span>':'')+'.<ul>';
+  f.inds.forEach(function(i){
+    h+='<li><b>'+esc(i.nombre)+'</b>: <span class="mn">'+esc(i.resTxt)+'</span>'
+      +(i.metaTxt? ' <span style="color:var(--ink-4)">(meta '+esc(i.metaTxt)+')</span>':'')
+      +' · <span class="'+(i.estado==='ok'?'ok">cumple':'bad">no cumple')+'</span></li>';
+  });
+  h+='</ul>';
+  if((f.sinMedir||[]).length)
+    h+='<span class="et">Sin medir este periodo: '+esc(f.sinMedir.join(' · '))+'</span>';
+  if(mal.length) h+=lk('¿Qué hago con '+mal[0].nombre+'?', "BOT.pregunta('"+jsq(mal[0].nombre)+"')");
+  return h;
+}
+
+function jsq(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+/* Un indicador puntual: el número, la meta y, si se lo enseñaron, qué hacer */
+function unIndicador(ag, cual){
+  if(!ag) return sinPersona();
+  var f=datosDe(ag).ind;
+  if(!f) return resultados(ag);
+  var i=f.inds.filter(function(x){ return cual.test(norm(x.nombre)); })[0];
+  if(!i){
+    if((f.sinMedir||[]).some(function(n){ return cual.test(norm(n)); }))
+      return 'Ese indicador todavía no está medido este periodo: está en blanco para todo el '
+        +'equipo, así que no lo cuento ni en verde ni en rojo.';
+    return resultados(ag);
+  }
+  var h='<b>'+esc(i.nombre)+'</b> de '+esc(corto(ag.nombre))+': <span class="mn">'
+    +esc(i.resTxt)+'</span>'+(i.metaTxt? ', meta <span class="mn">'+esc(i.metaTxt)+'</span>':'')
+    +'. <span class="'+(i.estado==='ok'?'ok">Cumple':'bad">No cumple')+'</span>.';
+  if(/TMO|TMR|AHT/.test(norm(i.nombre)))
+    h+='<br><span class="et">En estos cumplir es quedar por debajo de la meta, no por encima.</span>';
+  var k=kbBuscar(i.nombre, ag);
+  if(k.length) h+='<hr>'+kbPinta(k[0]);
+  return h;
+}
+
+function pendientes(ag, delEquipo){
+  if(delEquipo || (MANDO && !ag)){
+    if(!PEND.length) return 'No hay pendientes por tipificar cargados.';
+    var por={};
+    PEND.forEach(function(p){ por[p.agente]=(por[p.agente]||0)+1; });
+    var lista=Object.keys(por).sort(function(a,b){ return por[b]-por[a]; });
+    var h='El equipo tiene <b>'+PEND.length+'</b> pendientes por tipificar, repartidos en '
+      +lista.length+' personas.<ul>';
+    lista.slice(0,8).forEach(function(n){
+      h+='<li>'+esc(corto(n))+' — <span class="mn">'+por[n]+'</span></li>';
+    });
+    h+='</ul>'+lk('Ver la nómina',"BOT.ir('equipo')");
+    return h;
+  }
+  if(!ag) return sinPersona();
+  var p=datosDe(ag).pend;
+  if(!p.length) return '<span class="ok">Sin pendientes por tipificar</span> para '
+    +esc(corto(ag.nombre))+'. Bien ahí.';
+  var h='<b>'+p.length+'</b> interacción(es) sin tipificar'+(MANDO? ' de '+esc(corto(ag.nombre)):'')
+    +'.<ul>';
+  p.slice(0,6).forEach(function(x){
+    var falta=[];
+    if(!x.macroproceso) falta.push('macroproceso');
+    if(!x.proceso) falta.push('proceso');
+    if(!x.subproceso1) falta.push('subproceso 1');
+    h+='<li><span class="mn">'+esc(idBonito(x.idLlamada||x.link)||'sin id')+'</span>'
+      +(x.cola? ' · '+esc(x.cola):'')
+      +(falta.length? '<br><span style="color:var(--warn)">falta '+falta.join(', ')+'</span>':'')
+      +'</li>';
+  });
+  h+='</ul>';
+  if(p.length>6) h+='<span class="et">Y '+(p.length-6)+' más en la pestaña de pendientes.</span>';
+  h+=lk('Abrir pendientes', "BOT.pend()");
+  return h;
+}
+
+function ladoALado(ag){
+  if(!ag) return sinPersona();
+  var a=datosDe(ag).aud;
+  if(!a.length) return 'Todavía no hay lado a lado registrado para '+esc(corto(ag.nombre))+'.'
+    +(MANDO? ' '+lk('Hacer uno ahora',"BOT.lal()") : ' Cuando te hagan uno, aquí te lo muestro completo.');
+  var u=a[0];
+  var h='El último fue el <b>'+esc(u.fecha||'—')+'</b>'
+    +(u.idInter? ' · <span class="mn">'+esc(idBonito(u.idInter))+'</span>':'')+'.<ul>';
+  (u.obs||[]).forEach(function(o){
+    if(!o.texto) return;
+    h+='<li><b>'+esc(o.criterio)+'</b>: '+esc(o.texto)+'</li>';
+  });
+  h+='</ul>';
+  if(u.chat) h+='<span class="et">Trae la conversación completa: se ve en la pestaña Lado a lado.</span>';
+  if(a.length>1) h+='<span class="et">Tienes '+a.length+' acompañamientos guardados.</span>';
+  h+=lk('Abrir lado a lado',"BOT.lal()");
+  return h;
+}
+
+/* ── Turnos ──────────────────────────────────────────────────────────── */
+function fechaPedida(q){
+  var n=norm(q), hoy=new Date();
+  var iso=function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+    +'-'+String(d.getDate()).padStart(2,'0'); };
+  if(/\bHOY\b/.test(n)) return iso(hoy);
+  if(/PASADO MANANA/.test(n)){ var p=new Date(hoy); p.setDate(p.getDate()+2); return iso(p); }
+  if(/\bMANANA\b/.test(n)){ var m=new Date(hoy); m.setDate(m.getDate()+1); return iso(m); }
+  if(/\bAYER\b/.test(n)){ var y=new Date(hoy); y.setDate(y.getDate()-1); return iso(y); }
+  var dia=['DOMINGO','LUNES','MARTES','MIERCOLES','JUEVES','VIERNES','SABADO']
+    .map(function(d,i){ return n.indexOf(d)>=0 ? i : -1; }).filter(function(i){ return i>=0; })[0];
+  if(dia===undefined) return '';
+  for(var k=0;k<8;k++){
+    var d=new Date(hoy); d.setDate(d.getDate()+k);
+    if(d.getDay()===dia) return iso(d);
+  }
+  return '';
+}
+
+function unDia(f){
+  var hay=NOVEDAD[f.nov] ? NOVEDAD[f.nov][0] : f.nov;
+  if(f.nov!=='TUR') return '<b>'+esc(fechaLarga(f.f))+'</b>: <span class="wn">'+esc(hay)+'</span>';
+  var h='<b>'+esc(fechaLarga(f.f))+'</b>: turno de <span class="mn">'+hhmm(f.ini)+' a '
+    +hhmm(f.fin)+'</span>'+(f.sk? ' · '+esc(SKILL[f.sk]||f.sk):'');
+  if((f.ps||[]).length){
+    h+='<ul>';
+    f.ps.forEach(function(p){
+      h+='<li>'+esc(p[2])+': <span class="mn">'+hhmm(p[0])+' – '+hhmm(p[1])+'</span></li>';
+    });
+    h+='</ul>';
+  }
+  return h;
+}
+
+function turnos(q, ag){
+  if(!MALLA.length) return 'No tengo la malla de turnos cargada en este archivo.'
+    +(MANDO? ' Se sube con <b>⬆ Cargar malla</b>.':'');
+  if(!ag) return sinPersona();
+  var m=datosDe(ag).malla;
+  if(!m.length) return 'La malla cargada no trae días de '+esc(corto(ag.nombre))
+    +'. Puede ser de otra semana o de otro equipo.';
+  var f=fechaPedida(q);
+  if(f){
+    var d=m.filter(function(x){ return x.f===f; })[0];
+    if(!d) return 'La malla que tengo cubre del <b>'+esc(fechaLarga(m[0].f))+'</b> al <b>'
+      +esc(fechaLarga(m[m.length-1].f))+'</b>, y ese día no está adentro.';
+    return unDia(d)+lk('Ver la semana',"BOT.ir('turnos')");
+  }
+  if(/DESCANS|LIBRE/.test(norm(q))){
+    var des=m.filter(function(x){ return x.nov!=='TUR'; });
+    if(!des.length) return 'En la malla cargada no tienes días de descanso: todos son de turno.';
+    return 'Tus días que no son de turno:<ul>'+des.map(function(x){
+      return '<li>'+esc(fechaLarga(x.f))+' — <span class="wn">'
+        +esc(NOVEDAD[x.nov]?NOVEDAD[x.nov][0]:x.nov)+'</span></li>'; }).join('')+'</ul>';
+  }
+  var h='Tu semana'+(MANDO? ' ('+esc(corto(ag.nombre))+')':'')+':<ul>';
+  m.forEach(function(x){
+    h+='<li>'+(x.nov==='TUR'
+      ? esc(fechaLarga(x.f))+' — <span class="mn">'+hhmm(x.ini)+' a '+hhmm(x.fin)+'</span>'
+      : esc(fechaLarga(x.f))+' — <span class="wn">'
+        +esc(NOVEDAD[x.nov]?NOVEDAD[x.nov][0]:x.nov)+'</span>')+'</li>';
+  });
+  h+='</ul>'+lk('Ver la malla',"BOT.ir('turnos')");
+  return h;
+}
+
+/* ── El equipo, solo para la supervisión ─────────────────────────────── */
+function equipo(q){
+  if(!IND.length) return 'Todavía no hay resultados cargados. Se pegan del BI. '
+    +lk('Ir a pegar',"BOT.ir('pegar')");
+  var n=norm(q);
+  var cual=null;
+  [[/TMO/,'TMO'],[/TMR/,'TMR'],[/ADHEREN/,'ADHERENCIA'],[/CALIDAD/,'CALIDAD'],
+   [/ENCUEST/,'ENCUESTAS'],[/TIPIFIC/,'TIPIFICACION'],[/AUSENT/,'AUSENTISMO']]
+    .forEach(function(p){ if(!cual && p[0].test(n)) cual=p[1]; });
+
+  if(cual){
+    var malos=IND.filter(function(f){
+      return f.inds.some(function(i){ return norm(i.nombre).indexOf(cual)>=0 && i.estado!=='ok'; });
+    });
+    if(!malos.length) return '<span class="ok">Nadie está en rojo en '+esc(cual)+'</span>.';
+    var h='<b>'+malos.length+'</b> en rojo en '+esc(cual)+':<ul>';
+    malos.forEach(function(f){
+      var i=f.inds.filter(function(x){ return norm(x.nombre).indexOf(cual)>=0; })[0];
+      h+='<li>'+esc(corto(f.nombre))+' — <span class="bad">'+esc(i.resTxt)+'</span>'
+        +(i.metaTxt? ' <span style="color:var(--ink-4)">(meta '+esc(i.metaTxt)+')</span>':'')
+        +' '+lk('ver',"BOT.ver('"+jsq(f.ced)+"')")+'</li>';
+    });
+    return h+'</ul>';
+  }
+
+  var tot=0, cum=0, peor=[];
+  IND.forEach(function(f){
+    var o=f.inds.filter(function(i){ return i.estado==='ok'; }).length;
+    tot+=f.inds.length; cum+=o;
+    if(f.inds.length) peor.push({ nom:f.nombre, ced:f.ced, mal:f.inds.length-o, de:f.inds.length });
+  });
+  peor.sort(function(a,b){ return b.mal-a.mal; });
+  var h='Del equipo cargado: <b>'+IND.length+'</b> personas, <b>'+tot+'</b> mediciones, '
+    +'<span class="ok">'+cum+' en verde</span> y <span class="bad">'+(tot-cum)+' en rojo</span>'
+    +(tot? ' ('+pct(cum/tot)+' de cumplimiento)':'')+'.';
+  var rojos=peor.filter(function(x){ return x.mal; });
+  if(rojos.length){
+    h+='<hr>Los que más necesitan acompañamiento:<ul>';
+    rojos.slice(0,6).forEach(function(x){
+      h+='<li>'+esc(corto(x.nom))+' — <span class="bad">'+x.mal+' de '+x.de+'</span> en rojo '
+        +lk('ver',"BOT.ver('"+jsq(x.ced)+"')")+'</li>';
+    });
+    h+='</ul>';
+  }
+  if(PEND.length) h+='<span class="et">Y '+PEND.length+' pendientes por tipificar sin cerrar.</span>';
+  return h;
+}
+
+/* ── Buscar a una persona por lo que escribieron ─────────────────────── */
+function agenteDeTexto(q){
+  var t=tk(q);
+  if(!t.length) return null;
+  var mejor=null, pts=0;
+  AGENTES.forEach(function(a){
+    var n=norm(a.nombre), p=0;
+    t.forEach(function(w){ if(w.length>3 && n.indexOf(w)>=0) p++; });
+    if(p>pts){ pts=p; mejor=a; }
+  });
+  return pts? mejor : null;
+}
+
+/* ══ LO QUE LE ENSEÑARON ═════════════════════════════════════════════ */
+function kbBuscar(q, ag){
+  if(!KB.length) return [];
+  var t=tk(q), n=norm(q);
+  var quien = /JURIDIC|EMPRESA|NIT|PERSONA JURIDICA/.test(n) ? 'juridica'
+            : /NATURAL|CEDULA|PERSONA NATURAL/.test(n) ? 'natural' : '';
+  var canal = ag && ag.canal ? ag.canal : '';
+  var res=[];
+  KB.forEach(function(k){
+    if(quien && k.quien && k.quien!=='ambos' && k.quien!==quien) return;
+    var campo=norm((k.tit||'')+' '+(k.claves||''));
+    var p=0;
+    t.forEach(function(w){ if(campo.indexOf(w)>=0) p+=2; });
+    (k.claves||'').split(/[,;]/).forEach(function(c){
+      c=norm(c).trim();
+      if(c.length>3 && n.indexOf(c)>=0) p+=3;
+    });
+    if(quien && k.quien===quien) p+=2;
+    if(canal && k.canal && k.canal!=='ambos' && k.canal!==canal) p-=1;
+    if(p>0) res.push({ k:k, p:p });
+  });
+  res.sort(function(a,b){ return b.p-a.p; });
+  return res.slice(0,3).map(function(x){ return x.k; });
+}
+
+function kbPinta(k){
+  var q = k.quien==='natural' ? 'Persona natural'
+        : k.quien==='juridica' ? 'Persona jurídica' : 'Natural y jurídica';
+  return '<b>'+esc(k.tit||'Respuesta')+'</b><br>'
+    +esc(k.txt||'').replace(/\n/g,'<br>')
+    +'<span class="et">'+esc(q)+(k.canal&&k.canal!=='ambos'? ' · '+esc(k.canal):'')+'</span>';
+}
+
+function noLoSe(q){
+  var h='Eso no lo tengo cargado, y prefiero decírtelo antes que inventarme una respuesta '
+    +'del banco.<br>';
+  if(KB.length) h+='Tengo <b>'+KB.length+'</b> respuesta'+(KB.length===1?'':'s')
+    +' enseñada'+(KB.length===1?'':'s')+'; ninguna coincide con eso.<br>';
+  h+='<span class="et">Lo que sí sé contestar</span>'
+    +'Tus indicadores y si cumples la meta · tus pendientes por tipificar · tus lado a lado '
+    +'con la conversación · tu turno, descansos y pausas'
+    +(MANDO? ' · cómo va el equipo y quién está en rojo':'')+'.';
+  if(MANDO) h+='<hr>Si esto debería saberlo, enséñaselo una vez y queda para todos: '
+    +lk('✎ Enseñarle esto',"BOT.enseniar(true)");
+  else h+='<hr>Si es algo de guion o de tipificación, pídele a tu supervisor que me lo cargue.';
+  return h;
+}
+
+function ayuda(){
+  var ag=sujeto();
+  var h='Pregúntame con tus palabras. Contesto con lo que está cargado en este archivo:<ul>'
+    +'<li><i>¿cómo voy?</i> — tus indicadores contra la meta</li>'
+    +'<li><i>¿cómo está mi TMO?</i> — un indicador puntual</li>'
+    +'<li><i>¿tengo pendientes?</i> — lo que falta por tipificar</li>'
+    +'<li><i>¿qué me dijeron en el lado a lado?</i></li>'
+    +'<li><i>¿a qué hora entro mañana?</i> · <i>¿cuándo descanso?</i></li>';
+  if(MANDO) h+='<li><i>¿cómo va el equipo?</i> · <i>¿quién está en rojo en TMO?</i> · '
+    +'<i>¿cómo va Cortés?</i></li>';
+  h+='</ul>';
+  if(KB.length) h+='Y '+KB.length+' respuesta(s) de guiones y tipificación que me enseñaron.';
+  else if(MANDO) h+='De guiones todavía no sé nada: eso se me enseña una vez y queda dentro del '
+    +'portal que les repartes. '+lk('✎ Enseñarle',"BOT.enseniar(true)");
+  else h+='De guiones todavía no me han cargado nada.';
+  return h;
+}
+
+/* ══ EL MOTOR ════════════════════════════════════════════════════════ */
+function responder(q){
+  var n=norm(q);
+  var ag=agenteDeTexto(q);
+  var yo=ag || sujeto();
+  if(ag && MANDO) FOCO=ag;
+
+  if(/^(HOLA|BUENAS|BUENOS DIAS|HEY|QUE MAS|AYUDA|MENU)/.test(n) || /QUE (PUEDES|SABES|HACES)/.test(n)
+     || /QUIEN ERES/.test(n))
+    return ayuda();
+
+  if(/PENDIENT|SIN TIPIFICAR|POR TIPIFICAR/.test(n))
+    return pendientes(yo, /EQUIPO|TODOS|TODO EL/.test(n));
+
+  if(/LADO A LADO|ACOMPANAMIENT|AUDITORI|ME CALIFIC|CALIFICARON|OBSERVACION/.test(n))
+    return ladoALado(yo);
+
+  if(/TURNO|HORARIO|DESCANS|ALMUERZ|PAUSA|ENTRO|SALGO|MI SEMANA|MANANA|HOY\b|LIBRE/.test(n))
+    return turnos(q, yo);
+
+  if(MANDO && /EQUIPO|TODOS|NOMINA|ROJO|PEOR|RANKING|CUMPLIMIENTO GENERAL/.test(n) && !ag)
+    return equipo(q);
+
+  var ind=[[/TMO\b|TIEMPO DE OPERACION/,/TMO/],[/TMR\b|TIEMPO DE RESPUESTA/,/TMR/],
+    [/ADHEREN/,/ADHEREN/],[/CALIDAD/,/CALIDAD/],[/ENCUEST/,/ENCUEST/],
+    [/TIPIFICACION/,/TIPIFIC/],[/AUSENT/,/AUSENT/]];
+  for(var i=0;i<ind.length;i++)
+    if(ind[i][0].test(n)) return unIndicador(yo, ind[i][1]);
+
+  if(/COMO VOY|MIS RESULTADOS|RESULTADO|CUMPL|INDICADOR|META|COMO ESTOY|COMO VA/.test(n))
+    return resultados(yo);
+
+  /* Guiones, tipificación y todo lo que se le haya enseñado */
+  var k=kbBuscar(q, yo);
+  if(k.length) return k.map(kbPinta).join('<hr>');
+
+  if(/NATURAL|JURIDIC|GUION|SCRIPT|QUE LE DIGO|COMO LE RESPONDO|TIPIFIC|PROCESO|MACROPROCESO/.test(n)){
+    var h='De eso todavía no tengo nada cargado'
+      +(/JURIDIC/.test(n)? ' para persona jurídica' : /NATURAL/.test(n)? ' para persona natural':'')
+      +'. No te voy a improvisar un guion del banco.';
+    if(MANDO) h+='<hr>Enséñame la respuesta una vez y queda dentro del portal de los agentes: '
+      +lk('✎ Enseñarle',"BOT.enseniar(true)");
+    else h+='<hr>Pídele a tu supervisor que me cargue ese guion.';
+    return h;
+  }
+
+  if(ag) return resultados(ag);
+  return noLoSe(q);
+}
+
+/* ══ LA VENTANA ══════════════════════════════════════════════════════ */
+function burbuja(cls, html){
+  var log=el('bot-log');
+  var d=document.createElement('div');
+  d.className='bmg '+cls;
+  d.innerHTML=html;
+  log.appendChild(d);
+  log.scrollTop=log.scrollHeight;
+}
+
+function chips(){
+  var c = MANDO
+    ? [['¿Cómo va el equipo?','¿Cómo va el equipo?'],
+       ['¿Quién está en rojo en TMO?','¿Quién está en rojo en TMO?'],
+       ['Pendientes del equipo','¿Cuántos pendientes tiene el equipo?'],
+       ['✎ Enseñarle algo','']]
+    : [['¿Cómo voy?','¿Cómo voy?'],['¿Tengo pendientes?','¿Tengo pendientes por tipificar?'],
+       ['Mi lado a lado','¿Qué me dijeron en el lado a lado?'],
+       ['¿A qué hora entro mañana?','¿A qué hora entro mañana?']];
+  el('bot-chips').innerHTML=c.map(function(x){
+    return x[1]
+      ? '<button onclick="BOT.pregunta(\''+jsq(x[1])+'\')">'+esc(x[0])+'</button>'
+      : '<button onclick="BOT.enseniar(true)">'+esc(x[0])+'</button>';
+  }).join('');
+}
+
+/* El pie de la ventana dice de qué está hecho lo que responde. A un
+   agente se le cuenta lo suyo, no el tamaño del equipo. */
+function firma(){
+  var p=[];
+  if(MANDO){
+    if(IND.length)  p.push(IND.length+' con indicadores');
+    if(PEND.length) p.push(PEND.length+' pendientes');
+    if(AUD.length)  p.push(AUD.length+' lado a lado');
+    if(MALLA.length)p.push('malla cargada');
+  }else{
+    var d=YO? datosDe(YO) : null;
+    if(d && d.ind)         p.push('tus indicadores');
+    if(d && d.pend.length) p.push(d.pend.length+(d.pend.length===1?' pendiente':' pendientes'));
+    if(d && d.aud.length)  p.push(d.aud.length+' lado a lado');
+    if(d && d.malla.length)p.push('tu semana');
+  }
+  if(KB.length) p.push(KB.length+(KB.length===1?' respuesta enseñada':' respuestas enseñadas'));
+  el('bot-sub').textContent = p.length? p.join(' · ') : 'Todavía no hay nada cargado';
+}
+
+function preguntar(q){
+  q=String(q||'').trim();
+  if(!q) return;
+  burbuja('yo', esc(q));
+  var r;
+  try{ r=responder(q); }
+  catch(e){ r='Se me atravesó un error leyendo los datos: '+esc(e.message); }
+  setTimeout(function(){ burbuja('el', r); }, QUIETO?0:170);
+}
+
+/* ── Enseñarle ───────────────────────────────────────────────────────── */
+function listaKB(){
+  var y=el('kb-ya');
+  if(!KB.length){ y.innerHTML='Todavía no le has enseñado nada.'; return; }
+  y.innerHTML='Ya sabe '+KB.length+' respuesta(s): '+KB.map(function(k){
+    return '<span onclick="BOT.editar(\''+jsq(k.kid)+'\')">'+esc(k.tit||'(sin título)')+'</span>';
+  }).join(' · ')+'<br>Toca una para corregirla.';
+}
+
+return {
+  abrir:function(){
+    if(!YO) return;
+    el('bot').classList.add('ab');
+    document.body.classList.add('bot-ab');
+    requestAnimationFrame(function(){ el('bot').classList.add('on'); });
+    abierto=true;
+    chips(); firma(); listaKB();
+    if(!saludado){
+      saludado=true;
+      burbuja('el', '¡Hola'+(YO? ', '+esc(pila(YO.nombre)) : '')+'! '+ayuda());
+    }
+    setTimeout(function(){ var i=el('bot-in'); if(i && window.innerWidth>620) i.focus(); }, 380);
+  },
+  cerrar:function(){
+    el('bot').classList.remove('on');
+    document.body.classList.remove('bot-ab');
+    setTimeout(function(){ el('bot').classList.remove('ab'); }, 300);
+    abierto=false;
+  },
+  alternar:function(){ abierto ? BOT.cerrar() : BOT.abrir(); },
+  mostrar:function(v){
+    el('bot-btn').classList.toggle('on', !!v);
+    if(!v){ BOT.cerrar(); saludado=false; el('bot-log').innerHTML=''; }
+  },
+  enviar:function(){
+    var i=el('bot-in');
+    preguntar(i.value);
+    i.value=''; i.style.height='';
+  },
+  tecla:function(ev){
+    var i=el('bot-in');
+    i.style.height='auto'; i.style.height=Math.min(i.scrollHeight,96)+'px';
+    if(ev.key==='Enter' && !ev.shiftKey){ ev.preventDefault(); BOT.enviar(); }
+  },
+  pregunta:function(q){ preguntar(q); },
+
+  /* Atajos que el propio asistente ofrece */
+  ir:function(v){ BOT.cerrar(); irA(v); },
+  ver:function(c){ BOT.cerrar(); verAgente(c); },
+  pend:function(){ BOT.cerrar(); irA('detalle'); irSub('pend'); },
+  lal:function(){ BOT.cerrar(); irA('detalle'); irSub('aud'); },
+
+  /* ── Conocimiento ─────────────────────────────────────────────────── */
+  enseniar:function(v){
+    if(!MANDO) return;
+    if(v && !abierto) BOT.abrir();
+    ensenando = v!==undefined ? !!v : !ensenando;
+    el('bot-ens').classList.toggle('on', ensenando);
+    if(ensenando){ listaKB(); setTimeout(function(){ el('kb-t').focus(); }, 120); }
+    else { editando=null; }
+  },
+  limpiar:function(){
+    ['kb-t','kb-k','kb-r'].forEach(function(id){ el(id).value=''; });
+    el('kb-q').value='ambos'; el('kb-c').value='ambos';
+    editando=null;
+  },
+  editar:function(kid){
+    var k=KB.filter(function(x){ return x.kid===kid; })[0];
+    if(!k) return;
+    editando=kid;
+    el('kb-t').value=k.tit||''; el('kb-k').value=k.claves||'';
+    el('kb-q').value=k.quien||'ambos'; el('kb-c').value=k.canal||'ambos';
+    el('kb-r').value=k.txt||'';
+    el('bot-ens').classList.add('on'); ensenando=true;
+    el('kb-t').focus();
+  },
+  guardar:function(){
+    var v=function(id){ return el(id).value.trim(); };
+    var tit=v('kb-t'), txt=v('kb-r');
+    if(!tit) { aviso('Ponle de qué se trata.', true); return; }
+    if(!txt) { aviso('Escribe la respuesta que debe dar.', true); return; }
+    var reg={ kid: editando || ('k'+Date.now()+Math.random().toString(36).slice(2,5)),
+      tit:tit, claves:v('kb-k'), quien:el('kb-q').value, canal:el('kb-c').value, txt:txt };
+    var i=KB.map(function(k){ return k.kid; }).indexOf(reg.kid);
+    if(i>=0) KB[i]=reg; else KB.push(reg);
+    persistirKB();
+    aviso(i>=0? '✔ Respuesta corregida' : '✔ Ya lo sabe');
+    BOT.limpiar(); listaKB(); firma(); pulso();
+    burbuja('el', 'Listo, ya lo sé:<hr>'+kbPinta(reg));
+  },
+  borrar:function(kid){
+    KB=KB.filter(function(k){ return k.kid!==kid; });
+    persistirKB(); listaKB(); firma();
+  },
+  respaldo:function(){
+    if(!KB.length){ aviso('Todavía no le has enseñado nada.', true); return; }
+    var b=new Blob([JSON.stringify(KB,null,1)],{type:'application/json'});
+    var u=URL.createObjectURL(b), a=document.createElement('a');
+    a.href=u; a.download='Conocimiento_asistente_'+hoyInput()+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(u); }, 5000);
+    aviso('✔ Respaldo descargado');
+  },
+  restaurar:function(files){
+    if(!files || !files.length) return;
+    var fr=new FileReader();
+    fr.onload=function(ev){
+      try{
+        var v=JSON.parse(ev.target.result);
+        if(!Array.isArray(v)) throw new Error('el archivo no trae una lista');
+        var ya={}; KB.forEach(function(k){ ya[k.kid]=1; });
+        var n=0;
+        v.forEach(function(k){
+          if(k && k.tit && k.txt && !ya[k.kid]){
+            if(!k.kid) k.kid='k'+Date.now()+Math.random().toString(36).slice(2,5);
+            KB.push(k); n++;
+          }
+        });
+        persistirKB(); listaKB(); firma();
+        aviso('✔ '+n+' respuesta(s) cargada(s)');
+      }catch(e){ aviso('No se pudo leer: '+e.message, true); }
+      el('kb-file').value='';
+    };
+    fr.readAsText(files[0]);
+  },
+  cuantas:function(){ return KB.length; }
+};
+})();
+
+/* ══════════════════════════════════════════════════════════════════════
    ARRANQUE
    ══════════════════════════════════════════════════════════════════════ */
 
@@ -3888,13 +4699,14 @@ if(PAQUETE){
   PERIODO  = PAQUETE.periodo || '';
   ARCH_RES = PAQUETE.archivo || '';
   ARCH_MAL = PAQUETE.archivoMalla || '';
+  KB   = PAQUETE.kb    || [];
   var pie=document.getElementById('acc-pie');
   if(pie) pie.innerHTML='<b style="color:var(--cyan-hi)">Resultados de '+esc(PERIODO)+'</b><br>'
     +'Tu <b>usuario</b> y tu <b>contraseña</b> son el mismo número de cédula, sin puntos '
     +'ni espacios.';
 }
 
-if(!PAQUETE) recuperarLAL();
+if(!PAQUETE){ recuperarLAL(); recuperarKB(); }
 
 if(SOBRIO) document.body.classList.add('sobrio');
 VIS.init();

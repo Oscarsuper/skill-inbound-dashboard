@@ -41,7 +41,7 @@ INDICADORES = [
     ('CALIDAD',        'pct',    0.90,  'mayor'),
     ('ENCUESTAS',      'pct',    0.80,  'mayor'),
     ('TIPIFICACION',   'pct',    0.98,  'mayor'),
-    ('TMO',            'seg',    700,   'menor'),
+    ('TMO',            'seg',    600,   'menor'),   # el BI: «Meta TMO Chat 600»
     ('TMR',            'seg',    30,    'menor'),
     ('AUSENTISMO',     'pct',    0.03,  'menor'),
 ]
@@ -150,6 +150,9 @@ print('Instrucciones: %d filas' % fila)
 # ═══════════════════════════════════════════════════════════════════════
 # 2. INDICADORES (una hoja por canal)
 # ═══════════════════════════════════════════════════════════════════════
+# Cada hoja puede pisar la meta de un indicador cuando difiera del resto.
+METAS_POR_HOJA = {}
+
 def hoja_indicadores(nombre, gente):
     ws = wb.create_sheet(nombre)
     ws.sheet_view.showGridLines = False
@@ -174,6 +177,8 @@ def hoja_indicadores(nombre, gente):
             ws.cell(1, col + k).fill = CAB if i % 2 == 0 else CAB2
         ws.cell(2, col, 'RESULTADO'); ws.cell(2, col + 1, 'META')
         ws.cell(2, col + 2, 'CUMPLIMIENTO')
+        if nombre in METAS_POR_HOJA and nm in METAS_POR_HOJA[nombre]:
+            meta = METAS_POR_HOJA[nombre][nm]
         sitio[nm] = (col, tipo, meta, direc)
         col += 3
 
@@ -219,14 +224,14 @@ def hoja_indicadores(nombre, gente):
             cr.alignment = cm.alignment = cc.alignment = Alignment(horizontal='center')
             if tipo == 'pct':
                 cr.number_format = cm.number_format = '0.0%'
-                cm.value = meta
-                cc.value = ('=IF({r}="","",IF({r}{op}{m},"CUMPLE","NO CUMPLE"))'
+                if meta is not None: cm.value = meta
+                cc.value = ('=IF(OR({r}="",{m}=""),"",IF({r}{op}{m},"CUMPLE","NO CUMPLE"))'
                             .format(r=res, m=met, op='>=' if direc == 'mayor' else '<='))
             else:
                 # segundos enteros: así la comparación es numérica de verdad
                 cr.number_format = cm.number_format = '0'
-                cm.value = meta
-                cc.value = ('=IF({r}="","",IF({r}<={m},"CUMPLE","NO CUMPLE"))'
+                if meta is not None: cm.value = meta
+                cc.value = ('=IF(OR({r}="",{m}=""),"",IF({r}<={m},"CUMPLE","NO CUMPLE"))'
                             .format(r=res, m=met))
             cm.font = Font(size=9.5, color='64748B')
             cc.fill = CALC

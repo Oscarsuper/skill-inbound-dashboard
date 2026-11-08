@@ -586,8 +586,9 @@ body.sobrio::before{content:'';position:fixed;inset:0;z-index:0;
     <div class="nav-der">
       <button class="bt" id="bt-sobrio" onclick="alternarSobrio()"
               title="Apaga los efectos si el equipo va lento">⚡ Efectos</button>
-      <button class="bt cian" id="bt-cargar" onclick="document.getElementById('fx').click()">
-        ⬆ Cargar Excel</button>
+      <button class="bt" id="bt-cargar" onclick="document.getElementById('fx').click()"
+              title="Solo la malla de turnos; los resultados se pegan del BI">
+        ⬆ Cargar malla</button>
       <input type="file" id="fx" accept=".xlsx,.xlsm,.xls,.ods" multiple style="display:none"
              onchange="recibirArchivos(this.files)">
       <button class="bt viol" id="bt-paquete" onclick="irA('paquete')">⬇ Generar portal</button>
@@ -1983,18 +1984,15 @@ function recibirArchivos(files){
     fr.onload=function(ev){
       try{
         var wb=XLSX.read(ev.target.result, {type:'array'});
+        /* Lo único que sigue llegando por archivo es la malla, que viene
+           de WFM. Los resultados se pegan del BI y los acompañamientos se
+           escriben aquí mismo. */
         if(esMalla(wb)){
           MALLA=leerMalla(wb); ARCH_MAL=file.name;
           leidos.push('Malla: '+MALLA.length+' registros');
         } else {
-          var r=leerResultados(wb);
-          if(!r.ind.length && !r.pend.length && !r.aud.length){
-            aviso('De «'+file.name+'» no se pudo sacar nada. ¿Es el archivo del mes?', true);
-          } else {
-            IND=r.ind; PEND=r.pend; AUD=r.aud; ARCH_RES=file.name;
-            leidos.push('Resultados: '+r.ind.length+' agentes, '+r.pend.length
-              +' pendientes, '+r.aud.length+' lado a lado');
-          }
+          aviso('Ese no es el archivo de la malla. Los resultados ya no se cargan por '
+                +'Excel: se pegan del BI.', true);
         }
       }catch(err){
         aviso('No se pudo leer «'+file.name+'»: '+err.message, true);
@@ -2094,26 +2092,28 @@ function zonaCarga(){
   var r=!!IND.length||!!PEND.length||!!AUD.length, m=!!MALLA.length;
   return '<div class="suelta gl blur" id="suelta">'
     +'<div class="ic">◈</div>'
-    +'<h3>Carga los archivos del periodo</h3>'
-    +'<p>Arrastra aquí los Excel, o usa <b>Cargar Excel</b> arriba. Puedes soltar los dos '
-    +'a la vez: el tablero reconoce solo cuál es el de resultados y cuál la malla de turnos.</p>'
-    +'<button class="bt cian" onclick="document.getElementById(\'fx\').click()">'
-    +'⬆ Escoger archivos</button>'
+    +'<h3>Arma el periodo</h3>'
+    +'<p>Los resultados ya no entran por Excel: se pegan del BI. Lo único que sigue '
+    +'llegando por archivo es la malla, que viene de WFM.</p>'
+    +'<button class="bt cian" onclick="irA(\'pegar\')">Ir a pegar del BI</button>'
     +'<div class="pasos">'
-    +'<div class="paso'+(r?' listo':'')+'"><div class="k">'+(r?'✔ LISTO':'01')+'</div>'
-      +'<h4>Excel de resultados</h4><p>'+(r
-        ? esc(ARCH_RES)+'<br>'+IND.length+' agentes · '+PEND.length+' pendientes · '
-          +AUD.length+' lado a lado'
-        : 'El del mes, con las hojas de indicadores, los pendientes por tipificar y los '
-          +'acompañamientos lado a lado.')+'</p></div>'
-    +'<div class="paso'+(m?' listo':'')+'"><div class="k">'+(m?'✔ LISTO':'02')+'</div>'
+    +'<div class="paso'+(IND.length?' listo':'')+'">'
+      +'<div class="k">'+(IND.length?'✔ LISTO':'01')+'</div>'
+      +'<h4>Indicadores</h4><p>'+(IND.length
+        ? IND.length+' agentes'
+        : 'Copia la tabla del BI y pégala en «Pegar del BI». Puedes traer un informe hoy '
+          +'y otro mañana.')+'</p></div>'
+    +'<div class="paso'+(PEND.length?' listo':'')+'">'
+      +'<div class="k">'+(PEND.length?'✔ LISTO':'02')+'</div>'
+      +'<h4>Pendientes y lado a lado</h4><p>'+(PEND.length
+        ? PEND.length+' pendientes · '+AUD.length+' lado a lado'
+        : 'La cola también se pega del BI. Los acompañamientos se escriben en la ficha '
+          +'de cada agente.')+'</p></div>'
+    +'<div class="paso'+(m?' listo':'')+'"><div class="k">'+(m?'✔ LISTO':'03')+'</div>'
       +'<h4>Malla de turnos</h4><p>'+(m
         ? esc(ARCH_MAL)+'<br>'+MALLA.length+' registros · '+fechasMalla().length+' días'
-        : 'La malla de la semana. Es opcional: sirve para la cobertura hora a hora y para '
-          +'que cada agente vea su propia jornada.')+'</p></div>'
-    +'<div class="paso"><div class="k">03</div><h4>Generar el portal</h4>'
-      +'<p>Cuando los datos estén listos, en <b>Portal de agentes</b> descargas el HTML '
-      +'que les repartes.</p></div>'
+        : 'Opcional, y esta sí por archivo: sirve para la cobertura hora a hora y para que '
+          +'cada agente vea su jornada.')+'</p></div>'
     +'</div></div>';
 }
 
@@ -2439,8 +2439,8 @@ function pintarDetalle(){
     ? (quien? esc(quien.nombre) : 'Detalle por <b>agente</b>')
     : 'Mis <b>resultados</b>';
 
-  if(!hayDatos()){
-    sub.textContent = MANDO ? 'Carga el Excel del mes para empezar.'
+  if(!hayDatos() && !(MANDO && quien)){
+    sub.textContent = MANDO ? 'Pega los resultados del BI para empezar.'
                             : 'Tu supervisor aún no ha cargado los resultados en este archivo.';
     med.innerHTML='';
     ['ind','pend','aud'].forEach(function(k){
@@ -2608,17 +2608,174 @@ function pintarPendientes(d, quien){
   revelar(c);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   LADO A LADO
+   Se escriben aquí mismo, sin pasar por el Excel. Quedan guardados en
+   este navegador y entran en el portal que se les genera a los agentes.
+   ══════════════════════════════════════════════════════════════════════ */
+var CRIT_LAL = ['Ortografía', 'Calidad de la información', 'Observaciones'];
+var LAL_EDIT = null;        // null · 'nuevo' · el id de uno existente
+
+/* El input de fecha entrega «2026-11-12». Armarla con new Date de esa
+   cadena la deja en UTC y en Colombia se corre un día. */
+function fechaDeInput(v){
+  var m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? new Date(+m[1], +m[2]-1, +m[3]) : null;
+}
+function hoyInput(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+    +'-'+String(d.getDate()).padStart(2,'0');
+}
+function guardarLAL(){
+  var quien = MANDO ? FOCO : YO;
+  if(!quien){ aviso('Primero escoge a quién se lo haces.', true); return; }
+  var val=function(id){ var e=document.getElementById(id); return e? e.value.trim() : ''; };
+  var fIn=val('lal-fecha');
+  var d=fechaDeInput(fIn);
+  if(!d){ aviso('Ponle la fecha del acompañamiento.', true); return; }
+  var idTxt=val('lal-id');
+  var obs=CRIT_LAL.map(function(c,i){ return { criterio:c, texto:val('lal-c'+i) }; });
+  if(!obs.some(function(o){ return o.texto; })){
+    aviso('Escribe al menos una observación.', true); return;
+  }
+  var reg={
+    lid: LAL_EDIT && LAL_EDIT!=='nuevo' ? LAL_EDIT : ('l'+Date.now()+Math.random().toString(36).slice(2,6)),
+    agente: quien.nombre,
+    fechaIso: fIn,
+    fecha: d.toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'}),
+    orden: d.getTime(),
+    idInter: idTxt,
+    link: /^https?:\/\//i.test(idTxt) ? idTxt : '',
+    obs: obs
+  };
+  var i=AUD.map(function(a){ return a.lid; }).indexOf(reg.lid);
+  if(i>=0) AUD[i]=reg; else AUD.push(reg);
+  persistirLAL();
+  LAL_EDIT=null;
+  aviso(i>=0 ? '✔ Acompañamiento actualizado' : '✔ Acompañamiento guardado');
+  pintarDetalle();
+}
+function nuevoLAL(){ LAL_EDIT='nuevo'; pintarDetalle(); }
+function editarLAL(lid){ LAL_EDIT=lid; pintarDetalle(); }
+function cancelarLAL(){ LAL_EDIT=null; pintarDetalle(); }
+function borrarLAL(lid){
+  var a=AUD.filter(function(x){ return x.lid===lid; })[0];
+  if(!a) return;
+  if(!confirm('¿Borrar el acompañamiento del '+(a.fecha||'')+'?')) return;
+  AUD=AUD.filter(function(x){ return x.lid!==lid; });
+  persistirLAL();
+  aviso('Acompañamiento borrado');
+  pintarDetalle();
+}
+/* Solo se guardan los que se escribieron aquí: los que vengan dentro de
+   un paquete generado no son de este navegador. */
+function persistirLAL(){
+  try{
+    localStorage.setItem('mando-lal',
+      JSON.stringify(AUD.filter(function(a){ return a.lid; })));
+  }catch(e){ aviso('No se pudo guardar en este navegador: '+e.message, true); }
+}
+function recuperarLAL(){
+  try{
+    var v=JSON.parse(localStorage.getItem('mando-lal')||'[]');
+    if(v && v.length) AUD=v.concat(AUD.filter(function(a){ return !a.lid; }));
+  }catch(e){}
+}
+function respaldoLAL(){
+  if(!AUD.length){ aviso('Todavía no hay acompañamientos.', true); return; }
+  var b=new Blob([JSON.stringify(AUD.filter(function(a){ return a.lid; }), null, 1)],
+    {type:'application/json'});
+  var u=URL.createObjectURL(b), a=document.createElement('a');
+  a.href=u; a.download='Lado_a_lado_'+hoyInput()+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(u); }, 5000);
+  aviso('✔ Respaldo descargado');
+}
+function restaurarLAL(files){
+  if(!files || !files.length) return;
+  var fr=new FileReader();
+  fr.onload=function(ev){
+    try{
+      var v=JSON.parse(ev.target.result);
+      if(!Array.isArray(v)) throw new Error('el archivo no trae una lista');
+      var ya={}; AUD.forEach(function(a){ if(a.lid) ya[a.lid]=1; });
+      var n=0;
+      v.forEach(function(a){ if(a && a.lid && !ya[a.lid]){ AUD.push(a); n++; } });
+      persistirLAL();
+      aviso('✔ '+n+' acompañamiento(s) recuperado(s)');
+      pintarDetalle();
+    }catch(e){ aviso('No se pudo leer el respaldo: '+e.message, true); }
+    var f=document.getElementById('lal-file'); if(f) f.value='';
+  };
+  fr.readAsText(files[0]);
+}
+
+function formularioLAL(){
+  var ed = (LAL_EDIT && LAL_EDIT!=='nuevo')
+    ? AUD.filter(function(a){ return a.lid===LAL_EDIT; })[0] : null;
+  var v=function(i){ return ed ? esc((ed.obs[i]||{}).texto||'') : ''; };
+  return '<div class="panelo gl blur rev"><div class="ph">'
+    +'<span class="tt">'+(ed? 'Editar acompañamiento' : 'Nuevo acompañamiento')+'</span>'
+    +'<span class="ss">'+esc((MANDO?FOCO:YO).nombre)+'</span></div>'
+    +'<div class="pc pad">'
+    +'<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:4px">'
+      +'<div class="campo" style="flex:0 0 190px;margin:0">'
+        +'<label for="lal-fecha">Fecha</label>'
+        +'<input id="lal-fecha" type="date" value="'+esc(ed? ed.fechaIso||'' : hoyInput())+'">'
+      +'</div>'
+      +'<div class="campo" style="flex:1 1 320px;margin:0">'
+        +'<label for="lal-id">ID de la interacción</label>'
+        +'<input id="lal-id" type="text" placeholder="el ID, o pega el enlace completo" '
+        +'value="'+esc(ed? ed.idInter||'' : '')+'">'
+      +'</div>'
+    +'</div>'
+    +CRIT_LAL.map(function(c,i){
+      return '<div class="campo" style="margin-top:12px"><label for="lal-c'+i+'">'+esc(c)+'</label>'
+        +'<textarea id="lal-c'+i+'" rows="'+(i===2?4:2)+'" '
+        +'style="width:100%;padding:11px 13px;border-radius:11px;resize:vertical;'
+        +'background:rgba(4,8,22,.62);border:1px solid var(--edge);color:var(--ink);'
+        +'font-family:var(--sans);font-size:13.5px;line-height:1.6;outline:none">'
+        +v(i)+'</textarea></div>';
+    }).join('')
+    +'<div style="display:flex;gap:9px;margin-top:16px;flex-wrap:wrap">'
+      +'<button class="bt cian" onclick="guardarLAL()">Guardar</button>'
+      +'<button class="bt" onclick="cancelarLAL()">Cancelar</button>'
+    +'</div></div></div>';
+}
+
 function pintarAuditorias(d){
   var c=document.getElementById('c-aud');
+
+  /* La barra de arriba solo la ve quien supervisa: el agente lee */
+  var barra = !MANDO ? '' :
+    '<div class="rev" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;'
+    +'margin-bottom:16px">'
+    +'<button class="bt cian" onclick="nuevoLAL()">＋ Nuevo acompañamiento</button>'
+    +'<span class="der" style="margin-left:auto;display:flex;gap:7px">'
+    +'<button class="bt" onclick="respaldoLAL()" '
+      +'title="Guarda los acompañamientos en un archivo, por si cambias de equipo">'
+      +'⬇ Respaldo</button>'
+    +'<button class="bt" onclick="document.getElementById(\'lal-file\').click()">'
+      +'⬆ Restaurar</button>'
+    +'<input type="file" id="lal-file" accept=".json" style="display:none" '
+      +'onchange="restaurarLAL(this.files)">'
+    +'</span></div>';
+
+  var form = (MANDO && LAL_EDIT) ? formularioLAL() : '';
+
   if(!d.aud.length){
-    c.innerHTML='<div class="panelo gl blur rev"><div class="vacio"><div class="ic">◌</div>'
+    c.innerHTML=barra+form
+      +(form? '' : '<div class="panelo gl blur rev"><div class="vacio"><div class="ic">◌</div>'
       +'<b>'+(MANDO? 'Sin acompañamientos registrados.' : 'Todavía no tienes auditorías.')+'</b><br>'
-      +(MANDO? 'Cuando registres el lado a lado en el Excel, aparecerá aquí.'
+      +(MANDO? 'Dale a «Nuevo acompañamiento» y escríbelo aquí mismo.'
              : 'Cuando tu supervisor haga el acompañamiento, las observaciones aparecen aquí.')
-      +'</div></div>';
+      +'</div></div>');
+    activarCristal(c); revelar(c);
     return;
   }
-  var h='<div class="rev" style="margin-bottom:14px"><span class="etq fr">'+d.aud.length
+  var h=barra+form
+    +'<div class="rev" style="margin-bottom:14px"><span class="etq fr">'+d.aud.length
     +(d.aud.length===1? ' acompañamiento':' acompañamientos')+'</span></div>';
   d.aud.forEach(function(a){
     var con=a.obs.filter(function(o){ return o.texto; }).length;
@@ -2632,6 +2789,9 @@ function pintarAuditorias(d){
           +'onclick="copiarEnlace(this.dataset.u,this)" data-u="'+esc(a.link)
           +'">⧉ Copiar enlace</button>' : '')
       +'<span class="n">'+con+' de '+a.obs.length+' criterios con observación</span>'
+      +((MANDO && a.lid)
+         ? '<button class="bt" onclick="editarLAL(\''+esc(a.lid)+'\')">Editar</button>'
+          +'<button class="bt" onclick="borrarLAL(\''+esc(a.lid)+'\')">Borrar</button>' : '')
       +'</div><div class="aud-b">';
     a.obs.forEach(function(o){
       h+='<div class="aud-i"><div class="aud-k">'+esc(o.criterio)+'</div>'
@@ -2985,7 +3145,22 @@ function semanaDe(filas){
    encabezados, el Total— se descartan solas, y cada pegado agrega sus
    columnas a lo que ya haya cargado.
    ══════════════════════════════════════════════════════════════════════ */
-var PEG = { filas:[], cols:[], ancho:0, firma:'' };
+var PEG = { filas:[], cols:[], ancho:0, firma:'', modo:'ind' };
+
+/* Qué puede ser una columna, según lo que se esté pegando */
+var TIPOS_IND = [['no','— ignorar —'],['nombre','Nombre del agente'],['cedula','Cédula'],
+                 ['ind','Indicador…']];
+var TIPOS_PEND = [['no','— ignorar —'],['nombre','Nombre del agente'],['cedula','Cédula'],
+  ['idLlamada','ID de la interacción'],['link','Enlace'],['cola','Cola'],
+  ['macroproceso','Macroproceso'],['proceso','Proceso'],
+  ['subproceso1','Subproceso 1'],['subproceso2','Subproceso 2'],
+  ['observaciones','Observaciones']];
+function tiposCol(){ return PEG.modo==='pend' ? TIPOS_PEND : TIPOS_IND; }
+function verModo(m){
+  PEG.modo=m;
+  if(PEG.filas.length){ PEG.cols=adivinarColumnas(); pintarPegar(); }
+  else pintarPegar();
+}
 
 /* Al copiar, el BI separa con tabulaciones. Si la selección se hizo
    arrastrando el mouse, a veces llegan dos o más espacios en su lugar. */
@@ -3037,6 +3212,20 @@ function adivinarColumnas(){
   }
   if(nNom>0) cols[mejorNom].tipo='nombre';
   if(nCed>0 && mejorCed!==mejorNom) cols[mejorCed].tipo='cedula';
+  if(PEG.modo==='pend'){
+    /* El enlace se reconoce solo; el id, por su pinta de identificador */
+    for(var k=0;k<PEG.ancho;k++){
+      if(cols[k].tipo!=='no') continue;
+      var urls=0, ids=0;
+      PEG.filas.forEach(function(f){
+        var t=String(f[k]||'');
+        if(/^https?:\/\//i.test(t)) urls++;
+        else if(/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(t) || /^[0-9a-f-]{16,}$/i.test(t)) ids++;
+      });
+      if(urls>PEG.filas.length/2) cols[k].tipo='link';
+      else if(ids>PEG.filas.length/2) cols[k].tipo='idLlamada';
+    }
+  }
   /* El encabezado sirve de nombre propuesto para los indicadores */
   var cab=PEG.filas[0]||[];
   for(var j=0;j<PEG.ancho;j++){
@@ -3060,7 +3249,7 @@ function analizarPegado(){
     return r;
   });
   PEG.cols=adivinarColumnas();
-  PEG.firma=(PEG.filas[0]||[]).join('|').slice(0,180);
+  PEG.firma=PEG.modo+'::'+(PEG.filas[0]||[]).join('|').slice(0,180);
   /* Si ya mapeó este mismo informe antes, se reusa lo que dijo */
   try{
     var g2=JSON.parse(localStorage.getItem('mando-mapeos')||'{}')[PEG.firma];
@@ -3068,7 +3257,9 @@ function analizarPegado(){
   }catch(e){}
   pintarPegar();
 }
-function reiniciarPegado(){ PEG={filas:[],cols:[],ancho:0,firma:''}; pintarPegar(); }
+function reiniciarPegado(){
+  PEG={filas:[],cols:[],ancho:0,firma:'',modo:PEG.modo}; pintarPegar();
+}
 
 function tocarCol(i, campo, valor, repintar){
   PEG.cols[i][campo]=valor;
@@ -3086,19 +3277,35 @@ function agenteDeFila(f){
 }
 function contarPegado(){
   var ok=PEG.filas.filter(agenteDeFila).length;
-  var inds=PEG.cols.filter(function(c){ return c.tipo==='ind' && c.nombre.trim(); }).length;
   var el=document.getElementById('peg-cuenta');
-  if(el) el.textContent=ok+' de '+PEG.filas.length+' filas reconocidas · '
-    +inds+' indicador(es) por traer';
+  var listo, cola;
+  if(PEG.modo==='pend'){
+    cola=PEG.cols.filter(function(c){ return c.tipo!=='no' && c.tipo!=='nombre'
+      && c.tipo!=='cedula'; }).length;
+    listo = ok>0 && cola>0;
+    if(el) el.textContent=ok+' de '+PEG.filas.length+' filas reconocidas · '
+      +cola+' columna(s) por traer';
+  } else {
+    cola=PEG.cols.filter(function(c){ return c.tipo==='ind' && c.nombre.trim(); }).length;
+    listo = ok>0 && cola>0;
+    if(el) el.textContent=ok+' de '+PEG.filas.length+' filas reconocidas · '
+      +cola+' indicador(es) por traer';
+  }
   var b=document.getElementById('peg-ok');
-  if(b) b.disabled = !(ok && inds);
+  if(b) b.disabled=!listo;
 }
 
 function pintarPegar(){
   var c=document.getElementById('c-pegar');
+  var selModo='<span class="der">'
+    +[['ind','Indicadores'],['pend','Pendientes por tipificar']].map(function(m){
+        return '<button class="bt'+(PEG.modo===m[0]?' cian':'')+'" '
+          +'onclick="verModo(\''+m[0]+'\')">'+m[1]+'</button>'; }).join('')
+    +'</span>';
   if(!PEG.filas.length){
     c.innerHTML='<div class="panelo gl blur rev"><div class="ph">'
-      +'<span class="tt">Copia la tabla en el BI y pégala aquí</span></div>'
+      +'<span class="tt">Copia la tabla en el BI y pégala aquí</span>'
+      +'<span class="ss">¿Qué estás pegando?</span>'+selModo+'</div>'
       +'<div class="pc pad">'
       +'<textarea id="peg-txt" placeholder="Selecciona la tabla en el BI, Ctrl+C, y Ctrl+V aquí.\n'
       +'Puedes pegar con los títulos y con la fila de Total: lo que no sea un agente de tu '
@@ -3127,8 +3334,7 @@ function pintarPegar(){
     +'</span></div><div class="pc"><table class="map"><thead><tr>';
   PEG.cols.forEach(function(col,i){
     h+='<th><select onchange="tocarCol('+i+',\'tipo\',this.value,true)">'
-      +[['no','— ignorar —'],['nombre','Nombre del agente'],['cedula','Cédula'],
-        ['ind','Indicador…']].map(function(o){
+      +tiposCol().map(function(o){
           return '<option value="'+o[0]+'"'+(col.tipo===o[0]?' selected':'')+'>'
             +o[1]+'</option>'; }).join('')
       +'</select>';
@@ -3187,6 +3393,7 @@ function recalcularFaltantes(){
 }
 
 function aplicarPegado(){
+  if(PEG.modo==='pend') return aplicarPendientes();
   var iN=-1, iC=-1, inds=[];
   PEG.cols.forEach(function(c,i){
     if(c.tipo==='nombre') iN=i;
@@ -3236,6 +3443,38 @@ function aplicarPegado(){
   if(!ARCH_RES) ARCH_RES='Pegado del BI';
   aviso('✔ '+traidos+' agente(s) · '+inds.length+' indicador(es)'
         +(nuevos? ' · '+nuevos+' nuevo(s) en el tablero' : ''));
+  reiniciarPegado();
+  irA('equipo');
+}
+
+/* La cola pegada reemplaza la de los agentes que vengan en ella y deja
+   en paz la de los demás: así se puede traer de a un skill por vez. */
+function aplicarPendientes(){
+  var campos={};
+  PEG.cols.forEach(function(c,i){
+    if(c.tipo!=='no' && c.tipo!=='nombre' && c.tipo!=='cedula') campos[c.tipo]=i;
+  });
+  if(!Object.keys(campos).length){
+    aviso('Marca al menos una columna además del nombre.', true); return;
+  }
+  var nuevos=[], tocados={};
+  PEG.filas.forEach(function(f){
+    var ag=agenteDeFila(f);
+    if(!ag) return;
+    tocados[norm(ag.nombre)]=1;
+    var r={ agente:ag.nombre, idLlamada:'', link:'', cola:'', macroproceso:'',
+            proceso:'', subproceso1:'', subproceso2:'', observaciones:'' };
+    Object.keys(campos).forEach(function(k){ r[k]=String(f[campos[k]]||'').trim(); });
+    nuevos.push(r);
+  });
+  if(!nuevos.length){ aviso('Ninguna fila corresponde a alguien de tu nómina.', true); return; }
+  PEND = PEND.filter(function(p){ return !tocados[norm(p.agente)]; }).concat(nuevos);
+  try{
+    var m=JSON.parse(localStorage.getItem('mando-mapeos')||'{}');
+    m[PEG.firma]=PEG.cols;
+    localStorage.setItem('mando-mapeos', JSON.stringify(m));
+  }catch(e){}
+  aviso('✔ '+nuevos.length+' pendiente(s) de '+Object.keys(tocados).length+' agente(s)');
   reiniciarPegado();
   irA('equipo');
 }
@@ -3421,6 +3660,8 @@ if(PAQUETE){
     +'Tu <b>usuario</b> y tu <b>contraseña</b> son el mismo número de cédula, sin puntos '
     +'ni espacios.';
 }
+
+if(!PAQUETE) recuperarLAL();
 
 if(SOBRIO) document.body.classList.add('sobrio');
 VIS.init();

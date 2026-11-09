@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>Centro de Mando · Monitoreo Transaccional · Banco Agrario</title>
+<title>Centro de Monitoreo Transaccional · Banco Agrario</title>
 
 <!-- ══════════════════════════════════════════════════════════════════════
      Lector de Excel. Es lo único que viene de internet y solo lo necesita
@@ -25,11 +25,13 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   /* Profundidad */
-  --void:#03040C; --abyss:#070A18; --deep:#0C1232; --deep2:#131A45;
+  --void:#03050B; --abyss:#060910; --deep:#0A1120; --deep2:#10192B;
   /* Luz */
   --cyan:#22D3EE; --cyan-hi:#7DE9F8; --cyan-dim:#0E7490;
-  --violet:#8B5CF6; --violet-hi:#C4B5FD; --violet-dim:#4C1D95;
-  --mag:#C026D3;
+  /* En este tablero el segundo color no es decorativo: es el ámbar con el
+     que se marca lo que hay que mirar. */
+  --amber:#F59E0B; --amber-hi:#FCD34D; --amber-dim:#78350F;
+  --mag:#EF4444;
   /* Estados */
   --ok:#34D399; --ok-dim:#065F46; --warn:#FBBF24; --bad:#FB7185; --bad-dim:#7F1D3A;
   /* Tinta */
@@ -64,7 +66,7 @@ a{color:var(--cyan)}
 #velo-fondo{position:fixed;inset:0;z-index:1;pointer-events:none;
   background:
     radial-gradient(1200px 700px at 50% -10%,rgba(34,211,238,.10),transparent 60%),
-    radial-gradient(900px 600px at 85% 110%,rgba(139,92,246,.12),transparent 60%),
+    radial-gradient(900px 600px at 85% 110%,rgba(245,158,11,.12),transparent 60%),
     radial-gradient(100% 100% at 50% 50%,transparent 42%,rgba(3,4,12,.72) 100%)}
 /* Rejilla de horizonte: da suelo a la escena sin costar GPU */
 #rejilla{position:fixed;inset:auto 0 0 0;height:38vh;z-index:1;pointer-events:none;opacity:.5;
@@ -82,7 +84,7 @@ a{color:var(--cyan)}
 #barrido.on{animation:barre .78s cubic-bezier(.22,.61,.36,1)}
 #barrido::before{content:'';position:absolute;top:0;bottom:0;width:38vw;
   background:linear-gradient(100deg,transparent,rgba(34,211,238,.13) 42%,
-    rgba(196,181,253,.20) 52%,transparent);
+    rgba(252,211,77,.20) 52%,transparent);
   filter:blur(6px);transform:skewX(-14deg)}
 @keyframes barre{
   0%{opacity:0}
@@ -114,7 +116,7 @@ a{color:var(--cyan)}
 .hud{font-size:9.5px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:var(--ink-3)}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 h1{font-size:27px;font-weight:300;letter-spacing:-.02em;line-height:1.15}
-h1 b{font-weight:700;background:linear-gradient(94deg,var(--cyan-hi),var(--violet-hi));
+h1 b{font-weight:700;background:linear-gradient(94deg,var(--cyan-hi),var(--amber-hi));
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 h2{font-size:15px;font-weight:600;letter-spacing:-.01em}
 .sub{font-size:12.5px;color:var(--ink-3);margin-top:7px;line-height:1.55;max-width:760px}
@@ -137,7 +139,7 @@ h2{font-size:15px;font-weight:600;letter-spacing:-.01em}
 .acc-mark{position:relative;width:76px;height:76px;margin:0 auto 20px}
 .acc-mark canvas{position:absolute;inset:0;width:100%;height:100%}
 .acc-box h2{text-align:center;font-size:19px;font-weight:300;letter-spacing:.01em}
-.acc-box h2 b{font-weight:700;background:linear-gradient(94deg,var(--cyan-hi),var(--violet-hi));
+.acc-box h2 b{font-weight:700;background:linear-gradient(94deg,var(--cyan-hi),var(--amber-hi));
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .acc-box .org{text-align:center;margin:7px 0 26px;font-size:10px;letter-spacing:.22em;
   text-transform:uppercase;color:var(--ink-4);font-weight:700}
@@ -161,7 +163,7 @@ h2{font-size:15px;font-weight:600;letter-spacing:-.01em}
 
 .btn-entrar{width:100%;margin-top:8px;padding:14px;border-radius:12px;font-size:13px;font-weight:800;
   letter-spacing:.09em;text-transform:uppercase;color:#031018;position:relative;overflow:hidden;
-  background:linear-gradient(100deg,var(--cyan),#38BDF8 45%,var(--violet));
+  background:linear-gradient(100deg,var(--cyan),#38BDF8 45%,var(--amber));
   box-shadow:0 14px 34px -14px rgba(34,211,238,.6),inset 0 1px 0 rgba(255,255,255,.4);
   transition:transform .18s cubic-bezier(.34,1.56,.64,1),box-shadow .25s}
 .btn-entrar:hover{transform:translateY(-2px) scale(1.012);
@@ -197,14 +199,14 @@ nav{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;fl
 .pes:hover{color:var(--ink);background:rgba(125,233,248,.07)}
 .pes.act{color:var(--ink)}
 .pes.act::after{content:'';position:absolute;left:14px;right:14px;bottom:2px;height:2px;
-  border-radius:2px;background:linear-gradient(90deg,var(--cyan),var(--violet));
+  border-radius:2px;background:linear-gradient(90deg,var(--cyan),var(--amber));
   box-shadow:0 0 12px rgba(34,211,238,.8)}
 .nav-der{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .chip{display:flex;align-items:center;gap:10px;padding:6px 13px 6px 7px;border-radius:30px;
   border:1px solid var(--edge);background:var(--gl)}
 .chip .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
   font-size:11.5px;font-weight:800;color:#041018;
-  background:linear-gradient(135deg,var(--cyan),var(--violet));
+  background:linear-gradient(135deg,var(--cyan),var(--amber));
   box-shadow:0 0 16px rgba(34,211,238,.4)}
 .chip .q{font-size:11.5px;font-weight:700;line-height:1.3;max-width:230px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
@@ -222,8 +224,8 @@ nav{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;fl
 .bt.cian{border-color:rgba(34,211,238,.4);color:var(--cyan-hi);
   background:linear-gradient(180deg,rgba(34,211,238,.17),rgba(34,211,238,.05))}
 .bt.cian:hover{box-shadow:0 10px 26px -12px rgba(34,211,238,.7)}
-.bt.viol{border-color:rgba(139,92,246,.42);color:var(--violet-hi);
-  background:linear-gradient(180deg,rgba(139,92,246,.18),rgba(139,92,246,.05))}
+.bt.viol{border-color:rgba(245,158,11,.42);color:var(--amber-hi);
+  background:linear-gradient(180deg,rgba(245,158,11,.18),rgba(245,158,11,.05))}
 .bt:disabled{opacity:.4;cursor:not-allowed;transform:none}
 
 /* ══ LIENZO ════════════════════════════════════════════════════════════ */
@@ -255,7 +257,7 @@ main{position:relative;z-index:10;padding:30px 24px 72px;max-width:1720px;margin
 .tj.bad .mini i{background:linear-gradient(90deg,var(--bad),#FDA4AF)}
 .tj.neutro .v{color:var(--ink)}
 .tj.neutro .est{background:var(--ink-4)}
-.tj.neutro .mini i{background:linear-gradient(90deg,var(--cyan),var(--violet))}
+.tj.neutro .mini i{background:linear-gradient(90deg,var(--cyan),var(--amber))}
 .ins{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
   padding:3px 9px;border-radius:20px;margin-top:12px}
 .ins.ok{background:rgba(52,211,153,.14);color:#6EE7B7;border:1px solid rgba(52,211,153,.3)}
@@ -274,7 +276,7 @@ main{position:relative;z-index:10;padding:30px 24px 72px;max-width:1720px;margin
   justify-content:center;transform:translateZ(42px);pointer-events:none;text-align:center}
 .medidor .cifra{font-family:var(--mono);font-size:42px;font-weight:600;letter-spacing:-.05em;
   line-height:1;font-variant-numeric:tabular-nums;
-  text-shadow:0 0 40px rgba(34,211,238,.55),0 0 90px rgba(139,92,246,.3)}
+  text-shadow:0 0 40px rgba(34,211,238,.55),0 0 90px rgba(245,158,11,.3)}
 .medidor .cifra small{font-size:17px;opacity:.5;margin-left:1px}
 .medidor .rot{font-size:8px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
   color:var(--ink-3);margin-top:7px;line-height:1.4}
@@ -291,7 +293,7 @@ main{position:relative;z-index:10;padding:30px 24px 72px;max-width:1720px;margin
 .panelo{border-radius:18px;margin-bottom:20px}
 .ph{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;
   border-bottom:1px solid var(--edge);
-  background:linear-gradient(100deg,rgba(34,211,238,.07),rgba(139,92,246,.07))}
+  background:linear-gradient(100deg,rgba(34,211,238,.07),rgba(245,158,11,.07))}
 .ph .tt{font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}
 .ph .ss{font-size:11px;color:var(--ink-3);font-weight:600}
 .ph .der{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
@@ -331,7 +333,7 @@ table.dt .mn{font-family:var(--mono);font-size:11px;color:var(--ink-3);font-vari
 /* ══ FOCO EN UN AGENTE ═════════════════════════════════════════════════ */
 .foco{display:none;align-items:center;gap:13px;flex-wrap:wrap;padding:12px 18px;border-radius:14px;
   margin-bottom:20px;border:1px solid var(--edge);
-  background:linear-gradient(100deg,rgba(34,211,238,.1),rgba(139,92,246,.08))}
+  background:linear-gradient(100deg,rgba(34,211,238,.1),rgba(245,158,11,.08))}
 .foco .q{font-size:12.5px;color:var(--ink-2)}
 .foco .q b{color:var(--ink);font-weight:700}
 .foco select{padding:7px 11px;border-radius:9px;font-size:12px;font-weight:600;
@@ -347,12 +349,12 @@ table.dt .mn{font-family:var(--mono);font-size:11px;color:var(--ink-3);font-vari
   border-radius:9px;padding:7px 14px;font-size:11.5px;font-weight:700;transition:all .2s}
 .eqbar button:hover{color:var(--ink);border-color:var(--edge-hi);background:var(--gl-2)}
 .eqbar button.act{color:#041018;border-color:transparent;
-  background:linear-gradient(100deg,var(--cyan),var(--violet));
+  background:linear-gradient(100deg,var(--cyan),var(--amber));
   box-shadow:0 10px 24px -14px rgba(34,211,238,.8)}
 
 /* Aclaración al pie de una vista */
 .nota{font-size:12px;color:var(--ink-2);line-height:1.75;padding:15px 19px;border-radius:14px;
-  border:1px solid var(--edge);border-left:3px solid var(--violet);background:var(--gl);
+  border:1px solid var(--edge);border-left:3px solid var(--amber);background:var(--gl);
   margin-bottom:20px}
 .nota b{color:var(--ink)}
 
@@ -362,7 +364,7 @@ table.dt .mn{font-family:var(--mono);font-size:11px;color:var(--ink-3);font-vari
   border:1px solid var(--edge);background:var(--gl);transition:all .2s}
 .sp button:hover{color:var(--ink);border-color:var(--edge-hi)}
 .sp button.act{color:#041018;border-color:transparent;
-  background:linear-gradient(100deg,var(--cyan),var(--violet));
+  background:linear-gradient(100deg,var(--cyan),var(--amber));
   box-shadow:0 10px 24px -12px rgba(34,211,238,.7)}
 .ssec{display:none}.ssec.act{display:block}
 
@@ -387,7 +389,7 @@ table.dt .mn{font-family:var(--mono);font-size:11px;color:var(--ink-3);font-vari
 .dia{padding:10px 16px;border-radius:13px;text-align:center;min-width:96px;
   border:1px solid var(--edge);background:var(--gl);transition:all .2s}
 .dia:hover{border-color:var(--edge-hi);transform:translateY(-2px)}
-.dia.act{border-color:transparent;background:linear-gradient(140deg,var(--cyan),var(--violet));
+.dia.act{border-color:transparent;background:linear-gradient(140deg,var(--cyan),var(--amber));
   box-shadow:0 14px 30px -14px rgba(34,211,238,.7)}
 .dia b{display:block;font-size:12.5px;font-weight:700;text-transform:capitalize}
 .dia span{display:block;font-size:10px;color:var(--ink-3);margin-top:2px}
@@ -413,7 +415,7 @@ table.mapa td{text-align:center;padding:0;height:33px;border-radius:5px;font-fam
 table.mapa td.c{cursor:pointer;transition:transform .13s,box-shadow .13s}
 table.mapa td.c:hover{transform:scale(1.16);box-shadow:0 0 0 1px var(--cyan),0 0 18px rgba(34,211,238,.6);
   position:relative;z-index:4}
-table.mapa tr.tot td{background:linear-gradient(180deg,rgba(34,211,238,.2),rgba(139,92,246,.2))!important;
+table.mapa tr.tot td{background:linear-gradient(180deg,rgba(34,211,238,.2),rgba(245,158,11,.2))!important;
   color:var(--ink);height:31px}
 .leg{display:flex;align-items:center;gap:9px;padding:11px 20px;font-size:10.5px;color:var(--ink-3);
   border-top:1px solid var(--edge);flex-wrap:wrap}
@@ -422,7 +424,7 @@ table.mapa tr.tot td{background:linear-gradient(180deg,rgba(34,211,238,.2),rgba(
 .jor{position:relative;height:20px;border-radius:5px;min-width:330px;
   background:rgba(255,255,255,.055);overflow:hidden}
 .jor .t{position:absolute;top:0;height:100%;border-radius:5px;
-  background:linear-gradient(100deg,rgba(34,211,238,.85),rgba(139,92,246,.85));
+  background:linear-gradient(100deg,rgba(34,211,238,.85),rgba(245,158,11,.85));
   box-shadow:0 0 16px rgba(34,211,238,.45)}
 .jor .p{position:absolute;top:0;height:100%;background:repeating-linear-gradient(45deg,
   rgba(251,191,36,.75),rgba(251,191,36,.75) 2px,rgba(7,10,24,.85) 2px,rgba(7,10,24,.85) 5px)}
@@ -476,7 +478,7 @@ table.map select:focus,table.map input:focus{border-color:rgba(34,211,238,.5)}
   border-bottom-left-radius:4px}
 .msg.age .burb{background:linear-gradient(170deg,rgba(14,124,102,.5),rgba(14,124,102,.3));
   border:1px solid rgba(52,211,153,.3);border-bottom-right-radius:4px}
-.msg.bot .burb{background:rgba(139,92,246,.13);border:1px solid rgba(139,92,246,.26);
+.msg.bot .burb{background:rgba(245,158,11,.13);border:1px solid rgba(245,158,11,.26);
   border-bottom-right-radius:4px;color:var(--ink-2)}
 .burb .q{display:block;font-size:9.5px;font-weight:800;letter-spacing:.09em;
   text-transform:uppercase;opacity:.65;margin-bottom:4px}
@@ -500,7 +502,7 @@ table.map select:focus,table.map input:focus{border-color:rgba(34,211,238,.5)}
   box-shadow:-30px 0 70px -20px rgba(0,0,0,.9)}
 #lado.on{transform:none}
 .lc{padding:19px 22px;border-bottom:1px solid var(--edge);
-  background:linear-gradient(100deg,rgba(34,211,238,.1),rgba(139,92,246,.1))}
+  background:linear-gradient(100deg,rgba(34,211,238,.1),rgba(245,158,11,.1))}
 .lc h3{font-size:16px;font-weight:600}
 .lc p{font-size:11.5px;color:var(--ink-3);margin-top:4px}
 .lc .x{float:right;font-size:22px;line-height:.8;color:var(--ink-3);transition:color .2s,transform .2s}
@@ -547,6 +549,16 @@ body.sobrio #cielo{display:none}
 body.sobrio #rejilla{opacity:.22}
 body.sobrio .gl.blur{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(10,16,36,.92)}
 body.sobrio #barrido{display:none}
+
+/* Una línea que baja despacio por toda la pantalla: no informa nada, pero
+   es lo que hace que el tablero se sienta una sala de monitoreo. */
+#escaneo{position:fixed;left:0;right:0;top:0;height:2px;z-index:96;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(34,211,238,.35) 18%,
+    rgba(252,211,77,.45) 50%,rgba(34,211,238,.35) 82%,transparent);
+  box-shadow:0 0 22px rgba(34,211,238,.35);
+  animation:escanea 9s linear infinite;opacity:.6}
+@keyframes escanea{0%{transform:translateY(-4px)}100%{transform:translateY(100vh)}}
+body.sobrio #escaneo{display:none}
 body.sobrio #ruido{display:none}
 body.sobrio nav{background:rgba(7,10,24,.97);backdrop-filter:none;-webkit-backdrop-filter:none}
 body.sobrio::before{content:'';position:fixed;inset:0;z-index:0;
@@ -562,7 +574,7 @@ body.sobrio::before{content:'';position:fixed;inset:0;z-index:0;
 #bot-btn{position:fixed;right:22px;bottom:22px;z-index:158;width:68px;height:68px;
   display:none;border-radius:50%;border:1px solid var(--edge-hi);padding:0;
   background:radial-gradient(120% 120% at 32% 22%,rgba(34,211,238,.34),
-    rgba(139,92,246,.30) 58%,rgba(7,10,24,.96));
+    rgba(245,158,11,.30) 58%,rgba(7,10,24,.96));
   box-shadow:0 18px 42px -16px rgba(0,0,0,.92);
   transition:transform .32s cubic-bezier(.16,1,.3,1),box-shadow .3s;
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
@@ -593,7 +605,7 @@ body.sobrio #bot-btn .ojos,body.sobrio #bot-btn .ante{animation:none}
 #bot.ab{display:flex}
 #bot.on{opacity:1;transform:none}
 #bot .bc{padding:15px 18px;border-bottom:1px solid var(--edge);display:flex;gap:12px;
-  align-items:center;background:linear-gradient(100deg,rgba(34,211,238,.11),rgba(139,92,246,.11))}
+  align-items:center;background:linear-gradient(100deg,rgba(34,211,238,.11),rgba(245,158,11,.11))}
 #bot .bc svg{width:34px;height:34px;flex:0 0 auto}
 #bot .bc .t{flex:1;min-width:0}
 #bot .bc .t b{font-size:13.5px;display:block}
@@ -631,30 +643,30 @@ body.sobrio #bot-log .bmg{animation:none}
   color:var(--ink);transition:border-color .2s}
 #bot-in:focus{outline:none;border-color:var(--cyan)}
 #bot-env{flex:0 0 auto;width:42px;height:42px;border-radius:13px;border:1px solid rgba(34,211,238,.34);
-  background:linear-gradient(140deg,rgba(34,211,238,.24),rgba(139,92,246,.2));font-size:16px;
+  background:linear-gradient(140deg,rgba(34,211,238,.24),rgba(245,158,11,.2));font-size:16px;
   transition:transform .2s,box-shadow .2s}
 #bot-env:hover{transform:translateY(-2px);box-shadow:0 10px 22px -10px rgba(34,211,238,.6)}
 #bot .ens{border-top:1px solid var(--edge);padding:14px 16px;display:none;
-  background:rgba(139,92,246,.07);max-height:60%;overflow-y:auto}
+  background:rgba(245,158,11,.07);max-height:60%;overflow-y:auto}
 #bot .ens.on{display:block}
-#bot .ens h4{font-size:12px;margin-bottom:10px;color:var(--violet-hi)}
+#bot .ens h4{font-size:12px;margin-bottom:10px;color:var(--amber-hi)}
 #bot .ens label{display:block;font-size:10.5px;color:var(--ink-3);margin:9px 0 4px;
   text-transform:uppercase;letter-spacing:.07em}
 #bot .ens input,#bot .ens textarea,#bot .ens select{width:100%;font-size:12px;padding:9px 11px;
   border-radius:10px;border:1px solid var(--edge);background:rgba(3,4,12,.5);color:var(--ink)}
 #bot .ens textarea{resize:vertical;min-height:74px;line-height:1.6}
 #bot .ens input:focus,#bot .ens textarea:focus,#bot .ens select:focus{outline:none;
-  border-color:var(--violet)}
+  border-color:var(--amber)}
 #bot .ens .fila{display:flex;gap:9px}
 #bot .ens .fila>div{flex:1;min-width:0}
 #bot .ens .acc{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}
 #bot .ens .acc button{font-size:11.5px;font-weight:600;padding:9px 15px;border-radius:11px;
   border:1px solid var(--edge);background:var(--gl);transition:border-color .2s,background .2s}
 #bot .ens .acc button:hover{border-color:var(--edge-hi);background:var(--gl-2)}
-#bot .ens .acc .pr{border-color:rgba(139,92,246,.45);
-  background:linear-gradient(140deg,rgba(139,92,246,.26),rgba(34,211,238,.16))}
+#bot .ens .acc .pr{border-color:rgba(245,158,11,.45);
+  background:linear-gradient(140deg,rgba(245,158,11,.26),rgba(34,211,238,.16))}
 #bot .ens .ya{font-size:10.5px;color:var(--ink-4);margin-top:11px;line-height:1.7}
-#bot .ens .ya span{color:var(--violet-hi);cursor:pointer}
+#bot .ens .ya span{color:var(--amber-hi);cursor:pointer}
 #bot .ens .ya span:hover{text-decoration:underline}
 @media (max-width:620px){
   #bot{right:8px;left:8px;bottom:8px;width:auto;height:min(78vh,620px)}
@@ -664,7 +676,8 @@ body.sobrio #bot-log .bmg{animation:none}
 }
 
 @media print{
-  #cielo,#rejilla,#velo-fondo,#ruido,nav,#lado,#velo,#barrido,#bot,#bot-btn{display:none}
+  #cielo,#rejilla,#velo-fondo,#ruido,nav,#lado,#velo,#barrido,#escaneo,
+  #bot,#bot-btn{display:none}
   body{background:#fff;color:#111}
   .vista{display:block!important}
   .gl{border-color:#ccc;background:#fff;box-shadow:none}
@@ -679,6 +692,7 @@ body.sobrio #bot-log .bmg{animation:none}
 <div id="rejilla"></div>
 <canvas id="ruido"></canvas>
 <div id="barrido"></div>
+<div id="escaneo"></div>
 
 <!-- ══════════════════════════════════════════════════════════════════════
      Aquí el generador inserta los datos del periodo. Si la marca sigue
@@ -690,8 +704,8 @@ body.sobrio #bot-log .bmg{animation:none}
 <div id="acceso">
   <div class="acc-box gl blur">
     <div class="acc-mark"><canvas id="mk-acc" width="168" height="168"></canvas></div>
-    <h2>Centro de <b>Mando</b></h2>
-    <div class="org">Monitoreo Transaccional · Banco Agrario</div>
+    <h2>Centro de <b>Monitoreo</b></h2>
+    <div class="org">FEEDZAI · SMART VISTA · FRAML · Banco Agrario</div>
 
     <div class="acc-err" id="acc-err"></div>
 
@@ -720,7 +734,7 @@ body.sobrio #bot-log .bmg{animation:none}
   <nav>
     <div class="marca">
       <canvas id="mk-nav" width="76" height="76"></canvas>
-      <div class="t">Centro de Mando<small id="marca-sub">Monitoreo Transaccional</small></div>
+      <div class="t">Centro de Monitoreo<small id="marca-sub">Transaccional</small></div>
     </div>
 
     <div class="pestanas" id="pestanas"></div>
@@ -729,8 +743,8 @@ body.sobrio #bot-log .bmg{animation:none}
       <button class="bt" id="bt-sobrio" onclick="alternarSobrio()"
               title="Apaga los efectos si el equipo va lento">⚡ Efectos</button>
       <button class="bt" id="bt-cargar" onclick="document.getElementById('fx').click()"
-              title="La productividad del mes o la malla de turnos">
-        ⬆ Cargar archivo</button>
+              title="El Excel de productividad del mes">
+        ⬆ Cargar el Excel</button>
       <input type="file" id="fx" accept=".xlsx,.xlsm,.xls,.ods" multiple style="display:none"
              onchange="recibirArchivos(this.files)">
       <button class="bt viol" id="bt-paquete" onclick="irA('paquete')">⬇ Generar portal</button>
@@ -766,14 +780,7 @@ body.sobrio #bot-log .bmg{animation:none}
       </div>
       <div class="foco rev" id="foco"></div>
       <div id="c-medidor"></div>
-      <div class="sp rev" id="sp-detalle">
-        <button class="act" onclick="irSub('ind',this)">Indicadores</button>
-        <button onclick="irSub('pend',this)">Casos pendientes</button>
-        <button onclick="irSub('aud',this)">Lado a lado</button>
-      </div>
       <div class="ssec act" id="ss-ind"><div id="c-ind"></div></div>
-      <div class="ssec" id="ss-pend"><div id="c-pend"></div></div>
-      <div class="ssec" id="ss-aud"><div id="c-aud"></div></div>
     </div>
 
     <!-- Turnos -->
@@ -827,7 +834,7 @@ body.sobrio #bot-log .bmg{animation:none}
      ════════════════════════════════════════════════════════════════════ -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <linearGradient id="g-rb" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#7DE9F8"/><stop offset="1" stop-color="#C4B5FD"/>
+    <stop offset="0" stop-color="#7DE9F8"/><stop offset="1" stop-color="#FCD34D"/>
   </linearGradient>
   <symbol id="robot" viewBox="0 0 48 48">
     <g class="ante">
@@ -841,7 +848,7 @@ body.sobrio #bot-log .bmg{animation:none}
       <circle cx="17.5" cy="22" r="3.1" fill="#7DE9F8"/>
       <circle cx="30.5" cy="22" r="3.1" fill="#7DE9F8"/>
     </g>
-    <path d="M18 29.5c2 2.2 8 2.2 10 0" stroke="#C4B5FD" stroke-width="2.1" fill="none"
+    <path d="M18 29.5c2 2.2 8 2.2 10 0" stroke="#FCD34D" stroke-width="2.1" fill="none"
           stroke-linecap="round"/>
     <line x1="4" y1="20" x2="4" y2="26" stroke="url(#g-rb)" stroke-width="2.2"
           stroke-linecap="round"/>
@@ -926,29 +933,26 @@ body.sobrio #bot-log .bmg{animation:none}
    igual al del Excel, porque por ahí se cruzan los datos.
    ══════════════════════════════════════════════════════════════════════ */
 const AGENTES = [
-  // ── MONITOREO TRANSACCIONAL ──
-  { ced:'6079952',     nombre:'AGUILAR GUERRERO FELIX ALBERTO',         canal:'Monitoreo' },
-  { ced:'1014291349',  nombre:'BOLIVAR JARAMILLO CRISTIAN SANTIAGO',    canal:'Monitoreo' },
-  { ced:'1062078571',  nombre:'CALIZ YONDA INGRID YULIETH',             canal:'Monitoreo' },
-  { ced:'1018480929',  nombre:'CASTIBLANCO VICENTES JOHN DEYVY',        canal:'Monitoreo' },
-  { ced:'1002297526',  nombre:'CELIS SALAS YADIRA',                     canal:'Monitoreo' },
-  { ced:'1007408013',  nombre:'CLAVIJO GARAY ANDERSON LEONARDO',        canal:'Monitoreo' },
-  { ced:'1024502402',  nombre:'CONTRERAS GONZALEZ JULIETH',             canal:'Monitoreo' },
-  { ced:'1069728622',  nombre:'CUENCA ROMERO DANIELA',                  canal:'Monitoreo' },
-  { ced:'1007677081',  nombre:'DIAZ LUNA SUSAN ANGELICA',               canal:'Monitoreo' },
-  { ced:'1031168560',  nombre:'GARCIA CAÑON CARLAYN JHOANA',            canal:'Monitoreo' },
-  { ced:'1012333413',  nombre:'GORDILLO TORRES DAYAN KATHERINNE',       canal:'Monitoreo' },
-  { ced:'1013659634',  nombre:'LABRADOR ROBLES JIMMY ALEJANDRO',        canal:'Monitoreo' },
-  { ced:'1015429676',  nombre:'MESA QUIROGA MAYERLI YOANA',             canal:'Monitoreo' },
-  { ced:'1003660950',  nombre:'NEIRA HUERTAS ALEJANDRO',                canal:'Monitoreo' },
-  { ced:'1003235912',  nombre:'OROZCO ACUÑA RICHARD JOSE',              canal:'Monitoreo' },
-  { ced:'1002378830',  nombre:'RUIZ BETANCUR MARIA TERESA',             canal:'Monitoreo' },
-  { ced:'1109848001',  nombre:'SAENZ GARCIA JESSICA KATERINE',          canal:'Monitoreo' },
-  { ced:'1022365378',  nombre:'SALAZAR HERRERA SANDRA SUSANA',          canal:'Monitoreo' },
-  { ced:'1095799850',  nombre:'SOTO FREITE ESTEFANY PAOLA',             canal:'Monitoreo' },
-  { ced:'1013658280',  nombre:'VALENCIA DUQUE DIANA MARCELA',           canal:'Monitoreo' },
-  { ced:'1000125624',  nombre:'VARGAS ARISMENDY DAVID ESTEBAN',         canal:'Monitoreo' },
-  { ced:'1032495578',  nombre:'VILLOTA BLANDON VALENTINA',              canal:'Monitoreo' },
+  // ── MONITOREO TRANSACCIONAL · equipo de Alex ──
+  { ced:'1002378830',  nombre:'MARIA TERESA RUIZ BETANCUR',          canal:'Monitoreo' },
+  { ced:'1015429676',  nombre:'MAYERLI YOANA MESA QUIROGA',          canal:'Monitoreo' },
+  { ced:'1007677081',  nombre:'SUSAN ANGELICA DIAZ LUNA',            canal:'Monitoreo' },
+  { ced:'1018480929',  nombre:'JONN DEYVY CASTIBLANCO VICENTES',     canal:'Monitoreo' },
+  { ced:'6079952',     nombre:'FELIX ALBERTO AGUILAR GUERRERO',      canal:'Monitoreo' },
+  { ced:'1014291349',  nombre:'CRISTIAN SANTIAGO BOLIVAR JARAMILLO', canal:'Monitoreo' },
+  { ced:'1003235912',  nombre:'RICHARD JOSE OROZCO ACUÑA',           canal:'Monitoreo' },
+  { ced:'1109848001',  nombre:'JESSICA KATERINE SAENZ GARCIA',       canal:'Monitoreo' },
+  { ced:'1032495578',  nombre:'VALENTINA VILLOTA BLANDON',           canal:'Monitoreo' },
+  { ced:'1031168560',  nombre:'GARCIA CAÑON CARLAYN JHOANA',         canal:'Monitoreo' },
+  { ced:'1013658280',  nombre:'VALENCIA DUQUE DIANA MARCELA',        canal:'Monitoreo' },
+  { ced:'1003660950',  nombre:'NEIRA HUERTAS ALEJANDRO',             canal:'Monitoreo' },
+  { ced:'1024502402',  nombre:'CONTRERAS GONZALEZ JULIETH',          canal:'Monitoreo' },
+  { ced:'1095799850',  nombre:'SOTO FREITE ESTEFANY PAOLA',          canal:'Monitoreo' },
+  { ced:'1002297526',  nombre:'YADIRA CELIS SALA',                   canal:'Monitoreo' },
+  { ced:'1013659634',  nombre:'JYMMY ALEJANDRO LABRADOR',            canal:'Monitoreo' },
+  { ced:'1012333413',  nombre:'DAYAN KATHERINNE GORDILLO TORRES',    canal:'Monitoreo' },
+  { ced:'1069728622',  nombre:'CUENCA ROMERO DANIELA',               canal:'Monitoreo' },
+  { ced:'1000125624',  nombre:'DAVID ESTEBAN VARGAS ARISMENDY',      canal:'Monitoreo' },
 ];
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1032,7 +1036,7 @@ var PERIODO='';                     // lo que diga el paquete generado
 
 var SKILL={ 'INB':'Inbound','OUT':'Outbound','CHAT':'Chat','RRSS':'RRSS','EMAIL':'Email',
   'PQR':'PQR','BACKOFFICE':'Backoffice','MONITOREO TRANSACCIONAL':'Monitoreo Transaccional' };
-var CSKILL={ 'INB':'#8B5CF6','OUT':'#22D3EE','CHAT':'#C4B5FD','RRSS':'#F472B6','EMAIL':'#FBBF24',
+var CSKILL={ 'INB':'#F59E0B','OUT':'#22D3EE','CHAT':'#FCD34D','RRSS':'#F472B6','EMAIL':'#FBBF24',
   'PQR':'#34D399','BACKOFFICE':'#94A3B8','MONITOREO TRANSACCIONAL':'#60A5FA' };
 /* TUR es la única novedad que significa que el agente viene a trabajar */
 var NOVEDAD={ 'TUR':['En turno','ok'],'DES':['Descanso','gr'],'VAC':['Vacaciones','wn'],
@@ -1122,8 +1126,8 @@ void main(){
   float n2=fbm(np*3.2+n1*1.25+4.0);
 
   vec3 col=vec3(0.011,0.015,0.042);
-  col+=vec3(0.045,0.125,0.40)*pow(n1,2.1)*0.95;        // azul profundo
-  col+=vec3(0.27,0.085,0.55)*pow(n2,2.7)*0.80;         // violeta
+  col+=vec3(0.035,0.115,0.33)*pow(n1,2.1)*0.95;        // azul profundo
+  col+=vec3(0.40,0.21,0.03)*pow(n2,2.9)*0.42;          // ámbar, al fondo
   col+=vec3(0.0,0.42,0.56)*pow(max(0.0,n1-n2),3.0)*0.85; // filamentos cian
 
   /* Ondas de energía: salen del centro bajo en cada cambio de estado */
@@ -1285,46 +1289,71 @@ function pintarRuido(){
 function marca(id, escala){
   var cv=document.getElementById(id); if(!cv) return;
   var ctx=cv.getContext('2d'); if(!ctx) return;
-  var S=cv.width, c=S/2, R=S*0.33, gira=0, vivo=!(SOBRIO||QUIETO);
+  var S=cv.width, c=S/2, R=S*0.34, t=0, vivo=!(SOBRIO||QUIETO);
+
+  /* El perfil del escudo. Este equipo no atiende clientes: vigila
+     transacciones, y la marca lo dice sin tener que escribirlo. */
+  function escudo(g, r){
+    g.beginPath();
+    g.moveTo(0,-r);
+    g.lineTo(r*0.82,-r*0.60);
+    g.lineTo(r*0.82, r*0.10);
+    g.quadraticCurveTo(r*0.78, r*0.74, 0, r*1.02);
+    g.quadraticCurveTo(-r*0.78, r*0.74, -r*0.82, r*0.10);
+    g.lineTo(-r*0.82,-r*0.60);
+    g.closePath();
+  }
+
   function cuadro(){
     ctx.clearRect(0,0,S,S);
-    /* Resplandor */
+    var lat=(Math.sin(t*1.6)+1)/2;                 // el latido del escudo
+
     var g=ctx.createRadialGradient(c,c,0,c,c,S*0.5);
-    g.addColorStop(0,'rgba(34,211,238,.28)'); g.addColorStop(1,'transparent');
+    g.addColorStop(0,'rgba(34,211,238,'+(0.20+0.10*lat).toFixed(3)+')');
+    g.addColorStop(1,'transparent');
     ctx.fillStyle=g; ctx.fillRect(0,0,S,S);
-    /* Hexágono exterior */
-    ctx.save(); ctx.translate(c,c); ctx.rotate(gira);
-    ctx.strokeStyle='rgba(125,233,248,.85)'; ctx.lineWidth=S*0.022;
+
+    ctx.save(); ctx.translate(c,c);
+
+    /* El barrido va por dentro del escudo: de arriba abajo, sin parar */
+    ctx.save();
+    escudo(ctx,R); ctx.clip();
+    var y=(((t*0.42)%2)-1)*R*1.1;
+    var bg=ctx.createLinearGradient(0,y-R*0.42,0,y+R*0.06);
+    bg.addColorStop(0,'rgba(34,211,238,0)');
+    bg.addColorStop(1,'rgba(34,211,238,.30)');
+    ctx.fillStyle=bg; ctx.fillRect(-R,y-R*0.42,R*2,R*0.48);
+    ctx.fillStyle='rgba(252,211,77,.85)'; ctx.fillRect(-R,y,R*2,S*0.012);
+    ctx.restore();
+
+    /* Escudo exterior */
+    ctx.strokeStyle='rgba(125,233,248,.9)'; ctx.lineWidth=S*0.022;
     ctx.shadowColor='rgba(34,211,238,.9)'; ctx.shadowBlur=S*0.09;
-    ctx.beginPath();
-    for(var i=0;i<6;i++){ var a=i/6*6.2832; ctx[i?'lineTo':'moveTo'](Math.cos(a)*R,Math.sin(a)*R); }
-    ctx.closePath(); ctx.stroke();
-    /* Hexágono interior en contragiro */
-    ctx.rotate(-gira*2.6);
-    ctx.strokeStyle='rgba(196,181,253,.75)'; ctx.lineWidth=S*0.015;
-    ctx.shadowColor='rgba(139,92,246,.9)';
-    ctx.beginPath();
-    for(var j=0;j<6;j++){ var b=j/6*6.2832+0.52;
-      ctx[j?'lineTo':'moveTo'](Math.cos(b)*R*0.56,Math.sin(b)*R*0.56); }
-    ctx.closePath(); ctx.stroke();
+    escudo(ctx,R); ctx.stroke();
+
+    /* Escudo interior, en ámbar y a contratiempo */
+    ctx.strokeStyle='rgba(252,211,77,'+(0.45+0.35*lat).toFixed(3)+')';
+    ctx.lineWidth=S*0.013; ctx.shadowColor='rgba(245,158,11,.9)';
+    escudo(ctx,R*0.62); ctx.stroke();
+
     /* Núcleo */
-    ctx.rotate(gira*3.6);
     ctx.fillStyle='rgba(236,247,255,.95)'; ctx.shadowBlur=S*0.14;
     ctx.shadowColor='rgba(125,233,248,1)';
-    ctx.beginPath(); ctx.arc(0,0,S*0.055,0,6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(0,-R*0.04,S*0.045+S*0.012*lat,0,6.2832); ctx.fill();
     ctx.restore();
-    /* Satélites en órbita elíptica: dan la sensación de volumen */
+
+    /* Los tres puntos que dan la vuelta: las transacciones que pasan */
     for(var k=0;k<3;k++){
-      var a2=gira*1.7+k*2.0944;
-      var x=c+Math.cos(a2)*R*1.24, y=c+Math.sin(a2)*R*0.44;
+      var a2=t*0.9+k*2.0944;
+      var x=c+Math.cos(a2)*R*1.26, y2=c+Math.sin(a2)*R*0.46;
       var cerca=(Math.sin(a2)+1)/2;
-      ctx.globalAlpha=0.35+0.65*cerca;
-      ctx.fillStyle=k%2?'#C4B5FD':'#7DE9F8';
+      ctx.globalAlpha=0.30+0.70*cerca;
+      ctx.fillStyle=k%2?'#FCD34D':'#7DE9F8';
       ctx.shadowColor=ctx.fillStyle; ctx.shadowBlur=S*0.10;
-      ctx.beginPath(); ctx.arc(x,y,S*(0.016+0.014*cerca),0,6.2832); ctx.fill();
+      ctx.beginPath(); ctx.arc(x,y2,S*(0.015+0.013*cerca),0,6.2832); ctx.fill();
     }
     ctx.globalAlpha=1; ctx.shadowBlur=0;
-    if(vivo){ gira+=0.0045; requestAnimationFrame(cuadro); }
+    if(vivo){ t+=0.016; requestAnimationFrame(cuadro); }
   }
   cuadro();
 }
@@ -1431,13 +1460,13 @@ Medidor.prototype.parar=function(){ if(this.raf) cancelAnimationFrame(this.raf);
 Medidor.prototype.dibujar=function(){
   var ctx=this.ctx, S=this.S, c=S/2, R=S*0.375, g=this.gira, v=this.v;
   var A=this.tono==='ok' ? ['#34D399','#A7F3D0'] :
-        this.tono==='bad'? ['#FB7185','#FECDD3'] : ['#22D3EE','#C4B5FD'];
+        this.tono==='bad'? ['#FB7185','#FECDD3'] : ['#22D3EE','#FCD34D'];
   ctx.clearRect(0,0,S,S);
 
   /* Resplandor de fondo */
   var bg=ctx.createRadialGradient(c,c,0,c,c,S*0.5);
   bg.addColorStop(0,'rgba(34,211,238,.13)');
-  bg.addColorStop(0.55,'rgba(139,92,246,.07)');
+  bg.addColorStop(0.55,'rgba(245,158,11,.07)');
   bg.addColorStop(1,'transparent');
   ctx.fillStyle=bg; ctx.fillRect(0,0,S,S);
 
@@ -1486,7 +1515,7 @@ Medidor.prototype.dibujar=function(){
   /* Anillo interior punteado en contragiro */
   ctx.save(); ctx.translate(c,c); ctx.rotate(-g*1.5);
   ctx.setLineDash([S*0.012,S*0.028]);
-  ctx.strokeStyle='rgba(196,181,253,.34)'; ctx.lineWidth=S*0.006;
+  ctx.strokeStyle='rgba(252,211,77,.34)'; ctx.lineWidth=S*0.006;
   ctx.beginPath(); ctx.arc(0,0,R*0.77,0,6.2832); ctx.stroke();
   ctx.setLineDash([]); ctx.restore();
 
@@ -2131,9 +2160,8 @@ function salir(){
 function pintarPestanas(){
   var lista = MANDO
     ? [['mando','Mando'],['equipo','Mi equipo'],['detalle','Agente'],
-       ['pegar','Pegar del BI'],['turnos','Turnos'],['paquete','Portal de agentes']]
+       ['pegar','Pegar del BI'],['paquete','Portal de agentes']]
     : [['detalle','Mis resultados']];
-  if(!MANDO && misTurnos().length) lista.push(['turnos','Mi semana']);
   document.getElementById('pestanas').innerHTML = lista.map(function(x,i){
     return '<button class="pes'+(i===0?' act':'')+'" data-v="'+x[0]+'" '
       +'onclick="irA(\''+x[0]+'\',this)">'+esc(x[1])+'</button>';
@@ -2222,18 +2250,15 @@ function recibirArchivos(files){
         /* Lo único que sigue llegando por archivo es la malla, que viene
            de WFM. Los resultados se pegan del BI y los acompañamientos se
            escriben aquí mismo. */
-        if(esMalla(wb)){
-          MALLA=leerMalla(wb); ARCH_MAL=file.name;
-          leidos.push('Malla: '+MALLA.length+' registros');
-        } else if(esProductividad(wb)){
+        if(esProductividad(wb)){
           var n=leerProductividad(wb); ARCH_RES=file.name;
           leidos.push('Productividad: '+n+' agentes');
           if(SIN_CASAR.length)
             aviso('Ojo: '+SIN_CASAR.length+' nombre(s) del archivo no están en la nómina: '
                   +SIN_CASAR.join(' · '), true);
         } else {
-          aviso('No reconozco ese archivo. Espero el de productividad del mes '
-                +'(FEEDZAI · SMART VISTA · FRAML) o la malla de turnos.', true);
+          aviso('No reconozco ese archivo. Espero el de productividad del mes: '
+                +'una fila por agente y una columna por aplicativo.', true);
         }
       }catch(err){
         aviso('No se pudo leer «'+file.name+'»: '+err.message, true);
@@ -2309,7 +2334,6 @@ function pintarVista(v){
   if(v==='mando')        pintarMando();
   else if(v==='equipo')  pintarEquipo();
   else if(v==='detalle') pintarDetalle();
-  else if(v==='turnos')  pintarTurnos();
   else if(v==='paquete') pintarPaquete();
   else if(v==='pegar')   pintarPegar();
   activarCristal();
@@ -2330,7 +2354,6 @@ function resumen(){
 
 /* ══ Zona de carga ═══════════════════════════════════════════════════ */
 function zonaCarga(){
-  var r=!!IND.length||!!PEND.length||!!AUD.length, m=!!MALLA.length;
   return '<div class="suelta gl blur" id="suelta">'
     +'<div class="ic">◈</div>'
     +'<h3>Arma el periodo</h3>'
@@ -2343,21 +2366,16 @@ function zonaCarga(){
     +'<div class="pasos">'
     +'<div class="paso'+(IND.length?' listo':'')+'">'
       +'<div class="k">'+(IND.length?'✔ LISTO':'01')+'</div>'
-      +'<h4>Gestiones del mes</h4><p>'+(IND.length
-        ? IND.length+' agentes'
-        : 'El Excel de productividad: una fila por agente, una columna por aplicativo. '
-          +'Las novedades del mes entran con él.')+'</p></div>'
-    +'<div class="paso'+(PEND.length?' listo':'')+'">'
-      +'<div class="k">'+(PEND.length?'✔ LISTO':'02')+'</div>'
-      +'<h4>Pendientes y lado a lado</h4><p>'+(PEND.length
-        ? PEND.length+' pendientes · '+AUD.length+' lado a lado'
-        : 'La cola también se pega del BI. Los acompañamientos se escriben en la ficha '
-          +'de cada agente.')+'</p></div>'
-    +'<div class="paso'+(m?' listo':'')+'"><div class="k">'+(m?'✔ LISTO':'03')+'</div>'
-      +'<h4>Malla de turnos</h4><p>'+(m
-        ? esc(ARCH_MAL)+'<br>'+MALLA.length+' registros · '+fechasMalla().length+' días'
-        : 'Opcional, y esta sí por archivo: sirve para la cobertura hora a hora y para que '
-          +'cada agente vea su jornada.')+'</p></div>'
+      +'<h4>El Excel del mes</h4><p>'+(IND.length
+        ? IND.length+' agentes · '+esc(ARCH_RES)
+        : 'Una fila por agente y una columna por aplicativo. Las novedades del mes '
+          +'—incapacidad, vacaciones, licencia— entran con él.')+'</p></div>'
+    +'<div class="paso"><div class="k">02</div>'
+      +'<h4>O pegado del BI</h4><p>Si el dato te llega por pantalla, cópialo y pégalo: '
+      +'el tablero lo cruza con la nómina igual que el Excel.</p></div>'
+    +'<div class="paso"><div class="k">03</div>'
+      +'<h4>Las metas</h4><p>Se escriben en el tablero, una por aplicativo. Mientras no '
+      +'haya oficial se usa el promedio del equipo, marcado como provisional.</p></div>'
     +'</div></div>';
 }
 
@@ -2384,9 +2402,9 @@ function pintarMando(){
     +'<div class="medidor gl blur tilt rev">'
       +'<div class="lienzo"><canvas id="dial-mando"></canvas>'
         +'<div class="centro"><div class="cifra" id="cifra-mando">0<small>%</small></div>'
-        +'<div class="rot">Indicadores en meta</div>'
+        +'<div class="rot">Aplicativos en meta</div>'
         +'<div class="det">'+medidos.length+' agentes · '+ci.med+' de '+ci.dec
-          +' indicadores</div></div></div>'
+          +' aplicativos</div></div></div>'
       +'<div class="refl"><canvas id="dial-mando-r"></canvas></div>'
     +'</div>'
     +'<div class="rejilla rev" style="grid-template-columns:repeat(2,1fr);align-content:stretch">'
@@ -2394,9 +2412,9 @@ function pintarMando(){
       +tarjeta('Gestiones del mes', totalGestiones().toLocaleString('es-CO'), 'neutro',
                medidos.length? Math.round(totalGestiones()/medidos.length)
                  .toLocaleString('es-CO')+' por agente' : '')
-      +tarjeta('Bajo el 80%', bajo, bajo?'bad':'ok', 'de sus indicadores en meta')
-      +tarjeta('Sin lado a lado', sinAud, sinAud?'neutro':'ok',
-               AUD.length+' acompañamientos cargados')
+      +tarjeta('Bajo el 80%', bajo, bajo?'bad':'ok', 'de sus aplicativos en meta')
+      +tarjeta('Cumplen todo', medidos.filter(function(x){ return x.frac===1; }).length,
+               'ok', 'en los '+ci.med+' aplicativos')
     +'</div></div>';
 
   /* Quién está con novedad este mes: su cifra se lee distinto. */
@@ -2444,7 +2462,7 @@ function pintarMando(){
   if(barras.length){
     h+='<div class="panelo gl blur rev"><div class="ph">'
       +'<span class="tt">Dónde está fallando el equipo</span>'
-      +'<span class="ss">Agentes en meta por indicador · de peor a mejor</span></div>'
+      +'<span class="ss">Agentes en meta por aplicativo · de peor a mejor</span></div>'
       +'<div class="pc pad">'+svgBarras(barras)+'</div></div>';
   }
 
@@ -2466,8 +2484,8 @@ function pintarMando(){
       +'<span class="tt">Atender primero</span>'
       +'<span class="ss">De menos a más gestiones en meta</span></div>'
       +'<div class="pc"><table class="dt"><thead><tr>'
-      +'<th>Agente</th><th>Canal</th><th class="cen">Pendientes</th>'
-      +'<th>Indicadores en meta</th><th class="cen">Lado a lado</th><th></th>'
+      +'<th>Agente</th><th>Canal</th>'
+      +'<th>Gestiones en meta</th><th></th>'
       +'</tr></thead><tbody>';
     urgentes.forEach(function(x){ h+=filaAgente(x); });
     h+='</tbody></table></div></div>';
@@ -2496,18 +2514,13 @@ function filaAgente(x){
   var f=x.frac;
   return '<tr><td class="nm">'+esc(x.ag.nombre)+etqNovedad(x.ag)+'</td>'
     +'<td><span class="etq fr">'+esc(x.ag.canal)+'</span></td>'
-    +'<td class="cen">'+(x.pend
-        ? '<span class="etq bad">'+x.pend+'</span>'
-        : '<span class="etq ok">0</span>')+'</td>'
     +'<td>'+(f==null
         ? '<span class="etq gr">Sin medición</span>'
         : '<div class="prop"><div class="p"><i style="width:'+(f*100).toFixed(1)+'%;background:'
           +(f>=0.9?'linear-gradient(90deg,#34D399,#A7F3D0)'
-             :f>=0.75?'linear-gradient(90deg,#22D3EE,#C4B5FD)'
+             :f>=0.75?'linear-gradient(90deg,#22D3EE,#FCD34D)'
                      :'linear-gradient(90deg,#FB7185,#FECDD3)')+'"></i></div>'
           +'<div class="q">'+x.ok+' de '+x.tot+' · '+pct(f)+'</div></div>')+'</td>'
-    +'<td class="cen">'+(x.aud? '<span class="etq ok">'+x.aud+'</span>'
-                              : '<span class="etq gr">—</span>')+'</td>'
     +'<td><button class="bt cian" onclick="verAgente(\''+esc(x.ag.ced)+'\')">Ver →</button></td>'
     +'</tr>';
 }
@@ -2533,10 +2546,10 @@ function contar(el, hasta, dec){
 function defsSVG(){
   return '<defs>'
     +'<linearGradient id="gcv" x1="0" y1="0" x2="1" y2="0">'
-      +'<stop offset="0" stop-color="#22D3EE"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient>'
+      +'<stop offset="0" stop-color="#22D3EE"/><stop offset="1" stop-color="#F59E0B"/></linearGradient>'
     +'<linearGradient id="gar" x1="0" y1="0" x2="0" y2="1">'
       +'<stop offset="0" stop-color="#22D3EE" stop-opacity=".40"/>'
-      +'<stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/></linearGradient>'
+      +'<stop offset="1" stop-color="#F59E0B" stop-opacity="0"/></linearGradient>'
     +'<filter id="luz" x="-50%" y="-50%" width="200%" height="200%">'
       +'<feGaussianBlur stdDeviation="4.5" result="b"/>'
       +'<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
@@ -2642,7 +2655,7 @@ function pintarEquipo(){
 
   var h='<div class="rev" style="margin-bottom:16px"><div class="eqbar">'
     +'<span>Ordenar por</span>'
-    +[['peor','Cumplimiento'],['cola','Pendientes'],['nombre','Nombre'],['canal','Canal']]
+    +[['peor','Cumplimiento'],['nombre','Nombre'],['canal','Canal']]
       .map(function(x){ return '<button class="'+(ORDEN===x[0]?'act':'')
         +'" onclick="ordenar(\''+x[0]+'\')">'+x[1]+'</button>'; }).join('')
     +'</div></div>'
@@ -2650,8 +2663,8 @@ function pintarEquipo(){
     +'<span class="tt">Nómina</span><span class="ss">Monitoreo Transaccional</span>'
     +'<span class="der"><button class="bt" onclick="window.print()">⎙ Imprimir</button></span>'
     +'</div><div class="pc"><table class="dt"><thead><tr>'
-    +'<th>Agente</th><th>Canal</th><th class="cen">Pendientes</th>'
-    +'<th>Indicadores en meta</th><th class="cen">Lado a lado</th><th></th>'
+    +'<th>Agente</th><th>Canal</th>'
+    +'<th>Gestiones en meta</th><th></th>'
     +'</tr></thead><tbody>';
   r.forEach(function(x){ h+=filaAgente(x); });
   h+='</tbody></table></div></div>';
@@ -2706,38 +2719,20 @@ function pintarDetalle(){
     sub.textContent = MANDO ? 'Pega los resultados del BI para empezar.'
                             : 'Tu supervisor aún no ha cargado los resultados en este archivo.';
     med.innerHTML='';
-    ['ind','pend'].forEach(function(k){
-      document.getElementById('c-'+k).innerHTML = MANDO
-        ? zonaCarga()
-        : '<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
-          +'<b>Todavía no hay datos en este archivo.</b><br>'
-          +'Pídele a tu supervisor el portal del periodo.</div></div>';
-    });
-    /* El lado a lado no depende de los resultados: se puede empezar en frío,
-       y al leer el chat exportado el propio archivo dice de quién es. */
-    if(MANDO){
-      pintarAuditorias({ aud:[] });
-      activarSoltar(document.getElementById('suelta'));
-    } else {
-      document.getElementById('c-aud').innerHTML=
-        '<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
+    document.getElementById('c-ind').innerHTML = MANDO
+      ? zonaCarga()
+      : '<div class="panelo gl blur"><div class="vacio"><div class="ic">◌</div>'
         +'<b>Todavía no hay datos en este archivo.</b><br>'
         +'Pídele a tu supervisor el portal del periodo.</div></div>';
-    }
+    if(MANDO) activarSoltar(document.getElementById('suelta'));
     return;
   }
   if(MANDO && !quien){
     sub.textContent='Escoge un agente arriba, o lee un chat exportado y se escoge solo.';
     med.innerHTML='';
-    ['ind','pend'].forEach(function(k){
-      document.getElementById('c-'+k).innerHTML='<div class="panelo gl blur"><div class="vacio">'
-        +'<div class="ic">◈</div><b>Ningún agente seleccionado.</b><br>'
-        +'Escoge a alguien arriba para ver sus indicadores y su cola de tipificación.'
-        +'</div></div>';
-    });
-    /* El lado a lado sí se puede empezar sin escoger: al leer el chat
-       exportado, el propio archivo dice de quién es. */
-    pintarAuditorias({ aud:[] });
+    document.getElementById('c-ind').innerHTML='<div class="panelo gl blur"><div class="vacio">'
+      +'<div class="ic">◈</div><b>Ningún agente seleccionado.</b><br>'
+      +'Escoge a alguien arriba para ver sus gestiones del mes.</div></div>';
     return;
   }
 
@@ -2745,7 +2740,7 @@ function pintarDetalle(){
   var tot=d.ind? d.ind.inds.length:0;
   var ok =d.ind? d.ind.inds.filter(function(i){ return i.estado==='ok'; }).length:0;
   var frac=tot? ok/tot : 0;
-  sub.textContent = (d.ind? 'Resultados de '+d.ind.hoja.replace(/_/g,' ') : 'Sin indicadores en el archivo')
+  sub.textContent = (d.ind? 'Resultados de '+d.ind.hoja.replace(/_/g,' ') : 'Sin gestiones en el archivo')
     + (PERIODO? ' · '+PERIODO : '') + ' · C.C. '+quien.ced;
 
   med.innerHTML='<div class="mando">'
@@ -2753,22 +2748,25 @@ function pintarDetalle(){
       +'<div class="lienzo"><canvas id="dial-foco"></canvas>'
         +'<div class="centro"><div class="cifra" id="cifra-foco">'
           +(tot? '0<small>%</small>' : '—')+'</div>'
-        +'<div class="rot">'+(tot? 'Indicadores en meta' : 'Sin diligenciar')+'</div>'
+        +'<div class="rot">'+(tot? 'Aplicativos en meta' : 'Sin cargar')+'</div>'
         +'<div class="det">'+(tot? ok+' de '+tot : 'aún no hay datos')+'</div></div></div>'
       +'<div class="refl"><canvas id="dial-foco-r"></canvas></div>'
     +'</div>'
     +'<div class="rejilla rev" style="grid-template-columns:repeat(2,1fr);align-content:stretch">'
-      +tarjeta('En meta', ok, ok?'ok':'neutro', 'de '+tot+' indicadores')
+      +tarjeta('En meta', ok, ok?'ok':'neutro', 'de '+tot+' aplicativos')
       +tarjeta('Fuera de meta', tot-ok, (tot-ok)?'bad':'ok', 'por mejorar')
-      +tarjeta('Casos pendientes', d.pend.length, d.pend.length?'bad':'ok',
-               d.pend.length?'interacciones en cola':'al día')
-      +tarjeta('Lado a lado', d.aud.length, 'neutro',
-               d.aud.length?'acompañamientos':'sin acompañamientos')
+      +tarjeta('Gestiones del mes', (function(){
+          var t=d.ind? d.ind.inds.filter(function(i){
+            return /TOTAL|GESTION/.test(norm(i.nombre)); }) : [];
+          var u=t.length? t : (d.ind? d.ind.inds : []);
+          var s=0; u.forEach(function(i){ if(i.res!=null) s+=i.res; });
+          return s.toLocaleString('es-CO');
+        })(), 'neutro', 'en los aplicativos')
+      +tarjeta('Novedad', novedadDe(quien)? '1':'—', novedadDe(quien)?'neutro':'ok',
+               novedadDe(quien)? novedadDe(quien).toLowerCase() : 'mes completo')
     +'</div></div>';
 
   pintarIndicadores(d);
-  pintarPendientes(d, quien);
-  pintarAuditorias(d);
 
   activarCristal(med);
   animarTrazos(document.getElementById('v-detalle'));
@@ -3418,7 +3416,7 @@ function vistaMapa(){
   for(var i=0;i<24;i++) h+='<th>'+String(i).padStart(2,'0')+'</th>';
   h+='</tr></thead><tbody>';
   cob.skills.forEach(function(s){
-    h+='<tr><td class="sk"><span class="sk" style="background:'+(CSKILL[s]||'#8B5CF6')+'">'
+    h+='<tr><td class="sk"><span class="sk" style="background:'+(CSKILL[s]||'#F59E0B')+'">'
       +esc(SKILL[s]||s)+'</span></td>';
     for(var j=0;j<24;j++){
       var n=cob.grid[s][j];
@@ -3452,7 +3450,7 @@ function verFranja(sk, h){
 }
 function tarjetaLado(f){
   return '<div class="lag"><b>'+esc(f.nom)+'</b>'
-    +'<div class="m"><span class="sk" style="background:'+(CSKILL[f.sk]||'#8B5CF6')+'">'
+    +'<div class="m"><span class="sk" style="background:'+(CSKILL[f.sk]||'#F59E0B')+'">'
       +esc(SKILL[f.sk]||f.sk)+'</span> &nbsp;<b>'+hhmm(f.ini)+' – '+hhmm(f.fin)+'</b> · '
       +f.hrs+' h</div>'
     +'<div class="m">C.C. '+esc(f.doc)+'</div>'
@@ -3499,7 +3497,7 @@ function vistaLista(){
     var nv=NOVEDAD[f.nov]||[f.nov,'gr'];
     h+='<tr><td class="nm">'+esc(f.nom)+'</td>'
       +'<td class="mn">'+esc(f.doc)+'</td>'
-      +'<td><span class="sk" style="background:'+(CSKILL[f.sk]||'#8B5CF6')+'">'
+      +'<td><span class="sk" style="background:'+(CSKILL[f.sk]||'#F59E0B')+'">'
         +esc(SKILL[f.sk]||f.sk)+'</span></td>'
       +'<td style="font-size:11px;color:var(--ink-3)">'+esc(f.sup)+'</td>'
       +'<td><span class="etq '+nv[1]+'">'+nv[0]+'</span></td>'
@@ -3536,7 +3534,7 @@ function vistaSemana(){
   });
   h+='<th style="min-width:70px">Total</th></tr></thead><tbody>';
   sks.forEach(function(s){
-    h+='<tr><td class="sk"><span class="sk" style="background:'+(CSKILL[s]||'#8B5CF6')+'">'
+    h+='<tr><td class="sk"><span class="sk" style="background:'+(CSKILL[s]||'#F59E0B')+'">'
       +esc(SKILL[s]||s)+'</span></td>';
     cel[s].forEach(function(n,i){
       h+='<td class="c" style="'+tono(n,max)+'" onclick="verDiaSkill(\''+fs[i]+'\',\''
@@ -3581,7 +3579,7 @@ function semanaDe(filas){
       h+='<div class="num" style="font-size:22px;font-weight:600;margin-bottom:4px">'
         +hhmm(f.ini)+' – '+hhmm(f.fin)+'</div>'
         +'<div style="font-size:11.5px;color:var(--ink-3);margin-bottom:13px">'
-        +f.hrs+' horas · <span class="sk" style="background:'+(CSKILL[f.sk]||'#8B5CF6')+'">'
+        +f.hrs+' horas · <span class="sk" style="background:'+(CSKILL[f.sk]||'#F59E0B')+'">'
         +esc(SKILL[f.sk]||f.sk)+'</span></div>'
         +jornada(f)
         +((f.ps||[]).length
@@ -3758,7 +3756,7 @@ function contarPegado(){
 function pintarPegar(){
   var c=document.getElementById('c-pegar');
   var selModo='<span class="der">'
-    +[['ind','Indicadores'],['pend','Casos pendientes']].map(function(m){
+    +[['ind','Gestiones por aplicativo']].map(function(m){
         return '<button class="bt'+(PEG.modo===m[0]?' cian':'')+'" '
           +'onclick="verModo(\''+m[0]+'\')">'+m[1]+'</button>'; }).join('')
     +'</span>';
@@ -3957,16 +3955,11 @@ function pintarPaquete(){
   var mios=function(arr, campo){
     return arr.filter(function(x){ return cons.indexOf(norm(x[campo]))>=0; }).length;
   };
-  var docs=AGENTES.map(function(a){ return ced(a.ced); });
-  var mallaMia=MALLA.filter(function(m){ return docs.indexOf(m.doc)>=0; });
-
   c.innerHTML='<div class="mando rev" style="grid-template-columns:1fr">'
     +'<div class="rejilla">'
       +tarjeta('Agentes', AGENTES.length, 'neutro', 'entran con su cédula')
-      +tarjeta('Indicadores', mios(IND,'nombre'), 'neutro', 'agentes con medición')
-      +tarjeta('Pendientes', mios(PEND,'agente'), 'neutro', 'interacciones por tipificar')
-      +tarjeta('Lado a lado', mios(AUD,'agente'), 'neutro', 'acompañamientos')
-      +tarjeta('Malla', mallaMia.length, 'neutro', mallaMia.length? 'registros de tu equipo':'sin cargar')
+      +tarjeta('Con gestiones', mios(IND,'nombre'), 'neutro', 'vienen en el archivo')
+      +tarjeta('Novedades', Object.keys(NOVED).length, 'neutro', 'del mes')
       +tarjeta('Asistente', KB.length, 'neutro', KB.length? 'respuestas que ya sabe':'aún sin enseñarle')
     +'</div></div>'
 
@@ -3976,16 +3969,6 @@ function pintarPaquete(){
         +'<label for="periodo">Nombre del periodo — lo verán los agentes</label>'
         +'<input id="periodo" type="text" value="'+esc(PERIODO||periodoSugerido())+'" '
         +'placeholder="Octubre 2026">'
-      +'</div>'
-      +'<div style="display:flex;flex-direction:column;gap:11px;margin-top:6px">'
-      +opcion('inc-malla', 'Incluir la malla de turnos',
-         mallaMia.length? 'Cada agente verá solo su propia jornada de la semana ('
-           +mallaMia.length+' registros de los tuyos; los de los demás supervisores no se '
-           +'incluyen).' : 'No hay malla cargada.', !!mallaMia.length, !mallaMia.length)
-      +opcion('inc-aud', 'Incluir los lado a lado',
-         'Las observaciones de cada acompañamiento, tal como las escribiste.', true, false)
-      +opcion('inc-pend', 'Incluir los casos pendientes',
-         'La cola de cada agente, con el enlace a la interacción.', true, false)
       +'</div>'
       +'<button class="bt viol" style="margin-top:22px;padding:13px 24px;font-size:13px" '
         +'onclick="generarPortal()">⬇ Generar y descargar el portal</button>'
@@ -4035,10 +4018,6 @@ function generarPortal(){
     aviso('No se pudo leer la plantilla del archivo. Vuelve a abrir el HTML y reintenta.', true);
     return;
   }
-  var marca=document.getElementById('inc-malla');
-  var conMalla=marca && marca.checked;
-  var conAud=document.getElementById('inc-aud').checked;
-  var conPend=document.getElementById('inc-pend').checked;
   PERIODO=(document.getElementById('periodo').value||'').trim() || periodoSugerido();
 
   /* Solo se empaqueta la gente de la nómina: lo de otros equipos se queda afuera */
@@ -4051,11 +4030,9 @@ function generarPortal(){
     periodo:PERIODO,
     generado:new Date().toISOString().slice(0,10),
     archivo:ARCH_RES,
-    archivoMalla:conMalla? ARCH_MAL : '',
+    archivoMalla:'',
     ind : IND.filter(function(x){ return docs.indexOf(x.ced)>=0 || mio(x.nombre); }),
-    pend: conPend? PEND.filter(function(x){ return mio(x.agente); }) : [],
-    aud : conAud ? AUD.filter(function(x){ return mio(x.agente); })  : [],
-    malla: conMalla? MALLA.filter(function(m){ return docs.indexOf(m.doc)>=0; }) : [],
+    pend: [], aud: [], malla: [],
     /* Lo que el asistente ya sabe: guiones, rutas de tipificación, lo que
        se le haya enseñado. Va completo, que para eso es. */
     kb  : KB,
@@ -4215,7 +4192,10 @@ function leerProductividad(wb){
           continue;                                       // la siguiente fila, no el final
         }
         visto[clave]=1;
-        if(!ag && SIN_CASAR.indexOf(nm)<0) SIN_CASAR.push(nm);
+        if(!ag){                       // está en el archivo pero no en la nómina
+          if(SIN_CASAR.indexOf(nm)<0) SIN_CASAR.push(nm);
+          continue;
+        }
         if(nov) NOVED[clave]=nov;
 
         filas.push({
@@ -4368,13 +4348,9 @@ var abierto=false, saludado=false, ensenando=false, editando=null;
 
 function el(id){ return document.getElementById(id); }
 function sujeto(){ return MANDO ? FOCO : YO; }
-function corto(n){
-  var p=String(n||'').trim().split(/\s+/);
-  return p.length>2 ? p.slice(0,2).join(' ') : (n||'');
-}
+function corto(n){ return String(n||'').trim(); }
 function pila(n){
-  var p=String(n||'').trim().split(/\s+/);
-  var x=p.length>2 ? p[2] : p[0];
+  var x=String(n||'').trim().split(/\s+/)[0];
   return x ? x.charAt(0)+x.slice(1).toLowerCase() : '';
 }
 function lk(txt, js){
@@ -4410,7 +4386,7 @@ function resultados(ag){
       +(MANDO? ' Se pegan del BI en la pestaña <b>Pegar del BI</b>. '+lk('Ir a pegar',"BOT.ir('pegar')") : '');
   var mal=f.inds.filter(function(i){ return i.estado!=='ok'; });
   var h='<b>'+esc(corto(ag.nombre))+'</b> — '+f.inds.length
-    +(f.inds.length===1? ' indicador medido, ':' indicadores medidos, ')
+    +(f.inds.length===1? ' aplicativo medido, ':' aplicativos medidos, ')
     +'<span class="ok">'+(f.inds.length-mal.length)+' en verde</span>'
     +(mal.length? ' y <span class="bad">'+mal.length+' en rojo</span>':'')+'.<ul>';
   f.inds.forEach(function(i){
@@ -4682,14 +4658,12 @@ function noLoSe(q){
 function ayuda(){
   var ag=sujeto();
   var h='Pregúntame con tus palabras. Contesto con lo que está cargado en este archivo:<ul>'
-    +'<li><i>¿cómo voy?</i> — tus indicadores contra la meta</li>'
+    +'<li><i>¿cómo voy?</i> — tus gestiones contra la meta</li>'
     +'<li><i>¿cómo voy en FEEDZAI?</i> — un aplicativo puntual</li>'
     +'<li><i>¿quién tiene novedad este mes?</i></li>'
-    +'<li><i>¿tengo pendientes?</i> — lo que falta por tipificar</li>'
-    +'<li><i>¿qué me dijeron en el lado a lado?</i></li>'
-    +'<li><i>¿a qué hora entro mañana?</i> · <i>¿cuándo descanso?</i></li>';
-  if(MANDO) h+='<li><i>¿cómo va el equipo?</i> · <i>¿quién está en rojo en TMO?</i> · '
-    +'<i>¿cómo va Cortés?</i></li>';
+    +'<li><i>¿cuántas gestiones llevo?</i></li>';
+  if(MANDO) h+='<li><i>¿cómo va el equipo?</i> · <i>¿quién está en rojo en FRAML?</i> · '
+    +'<i>¿cómo va Orozco?</i></li>';
   h+='</ul>';
   if(KB.length) h+='Y '+KB.length+' respuesta(s) de guiones y tipificación que me enseñaron.';
   else if(MANDO) h+='De guiones todavía no sé nada: eso se me enseña una vez y queda dentro del '
@@ -4724,14 +4698,6 @@ function responder(q){
         +esc(novedadDe(a).toLowerCase())+'</span></li>'; }).join('')+'</ul>';
   }
 
-  if(/PENDIENT|SIN TIPIFICAR|POR TIPIFICAR/.test(n))
-    return pendientes(yo, /EQUIPO|TODOS|TODO EL/.test(n));
-
-  if(/LADO A LADO|ACOMPANAMIENT|AUDITORI|ME CALIFIC|CALIFICARON|OBSERVACION/.test(n))
-    return ladoALado(yo);
-
-  if(/TURNO|HORARIO|DESCANS|ALMUERZ|PAUSA|ENTRO|SALGO|MI SEMANA|MANANA|HOY\b|LIBRE/.test(n))
-    return turnos(q, yo);
 
   if(MANDO && /EQUIPO|TODOS|NOMINA|ROJO|PEOR|RANKING|CUMPLIMIENTO GENERAL/.test(n) && !ag)
     return equipo(q);
@@ -4781,8 +4747,8 @@ function chips(){
        ['Novedades del mes','¿Quién tiene novedad este mes?'],
        ['✎ Enseñarle algo','']]
     : [['¿Cómo voy?','¿Cómo voy?'],['¿Cómo voy en FEEDZAI?','¿Cómo voy en FEEDZAI?'],
-       ['Mi lado a lado','¿Qué me dijeron en el lado a lado?'],
-       ['¿A qué hora entro mañana?','¿A qué hora entro mañana?']];
+       ['¿Cómo voy en SMART VISTA?','¿Cómo voy en SMART VISTA?'],
+       ['¿Tengo novedad este mes?','¿Tengo novedad este mes?']];
   el('bot-chips').innerHTML=c.map(function(x){
     return x[1]
       ? '<button onclick="BOT.pregunta(\''+jsq(x[1])+'\')">'+esc(x[0])+'</button>'
@@ -4795,16 +4761,12 @@ function chips(){
 function firma(){
   var p=[];
   if(MANDO){
-    if(IND.length)  p.push(IND.length+' con indicadores');
-    if(PEND.length) p.push(PEND.length+' pendientes');
-    if(AUD.length)  p.push(AUD.length+' lado a lado');
-    if(MALLA.length)p.push('malla cargada');
+    if(IND.length) p.push(IND.length+' con gestiones');
+    if(ARCH_RES)   p.push('periodo cargado');
   }else{
     var d=YO? datosDe(YO) : null;
-    if(d && d.ind)         p.push('tus indicadores');
-    if(d && d.pend.length) p.push(d.pend.length+(d.pend.length===1?' pendiente':' pendientes'));
-    if(d && d.aud.length)  p.push(d.aud.length+' lado a lado');
-    if(d && d.malla.length)p.push('tu semana');
+    if(d && d.ind) p.push('tus gestiones del mes');
+    if(novedadDe(YO)) p.push(novedadDe(YO).toLowerCase());
   }
   if(KB.length) p.push(KB.length+(KB.length===1?' respuesta enseñada':' respuestas enseñadas'));
   el('bot-sub').textContent = p.length? p.join(' · ') : 'Todavía no hay nada cargado';
@@ -4869,8 +4831,6 @@ return {
   /* Atajos que el propio asistente ofrece */
   ir:function(v){ BOT.cerrar(); irA(v); },
   ver:function(c){ BOT.cerrar(); verAgente(c); },
-  pend:function(){ BOT.cerrar(); irA('detalle'); irSub('pend'); },
-  lal:function(){ BOT.cerrar(); irA('detalle'); irSub('aud'); },
 
   /* ── Conocimiento ─────────────────────────────────────────────────── */
   enseniar:function(v){

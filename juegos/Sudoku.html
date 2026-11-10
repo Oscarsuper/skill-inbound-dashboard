@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Sudoku</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   SUDOKU
+   Un solo archivo. Los tableros no vienen de una lista: se generan aquí
+   mismo y se comprueba que cada uno tenga una sola solución, que es lo
+   que separa un sudoku de verdad de un cuadro de números.
+   ══════════════════════════════════════════════════════════════════════ */
+:root{
+  --fondo:#070A14; --fondo-2:#0C1222;
+  --azul:#5B8DEF; --cian:#49E8FF; --violeta:#A78BFA; --oro:#FFCE6A;
+  --bien:#34D399; --mal:#FB7185;
+  --tinta:#EDF3FF; --tinta-2:#9FB2D4; --tinta-3:#64769A; --tinta-4:#3C4A68;
+  --celda:rgba(255,255,255,.035);
+  --borde:rgba(130,170,255,.16);
+  --linea:rgba(150,190,255,.14); --linea-f:rgba(160,200,255,.42);
+  --mono:'JetBrains Mono','Cascadia Mono',ui-monospace,'SF Mono',Consolas,monospace;
+  --sans:'Segoe UI Variable Display','Segoe UI',Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:var(--sans);color:var(--tinta);user-select:none;display:flex;flex-direction:column;
+  background:radial-gradient(120% 95% at 50% -5%, #16224A 0%, var(--fondo-2) 42%, var(--fondo) 100%);
+  touch-action:manipulation;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:40;
+  background:radial-gradient(120% 80% at 50% 45%, transparent 55%, rgba(0,0,0,.55) 100%);
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+
+/* ══ BARRA ════════════════════════════════════════════════════════════ */
+#barra{
+  flex:0 0 auto;display:flex;align-items:center;gap:11px;padding:10px 16px;flex-wrap:wrap;
+  background:linear-gradient(180deg,rgba(0,0,0,.38),transparent);
+  border-bottom:1px solid rgba(130,170,255,.09);position:relative;z-index:20
+}
+.logo{display:flex;align-items:center;gap:10px}
+.logo .em{
+  width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:800;
+  background:linear-gradient(145deg,rgba(91,141,239,.3),rgba(167,139,250,.12));
+  border:1px solid rgba(91,141,239,.45);color:#BBD3FF;font-size:15px;
+  box-shadow:0 0 18px -6px var(--azul)
+}
+.logo b{font-size:15px;font-weight:700;display:block;line-height:1.1}
+.logo small{font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--tinta-3)}
+.marc{display:flex;gap:7px}
+.mk{min-width:72px;padding:5px 11px;border-radius:10px;background:var(--celda);
+  border:1px solid var(--borde);text-align:center}
+.mk .k{font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--tinta-3)}
+.mk .v{font-family:var(--mono);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.mk.err .v{color:var(--mal)}
+.acc{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.bt{padding:8px 13px;border-radius:10px;font-size:12px;font-weight:600;
+  background:var(--celda);border:1px solid var(--borde);
+  transition:background .18s,border-color .18s,transform .12s,opacity .18s}
+.bt:hover{background:rgba(255,255,255,.1);border-color:rgba(130,170,255,.35)}
+.bt:active{transform:translateY(1px)}
+.bt:disabled{opacity:.35;cursor:default}
+.bt.pr{border-color:rgba(91,141,239,.5);color:#06101F;
+  background:linear-gradient(140deg,#9FC4FF,var(--azul));box-shadow:0 8px 20px -10px var(--azul)}
+.bt .ky{opacity:.45;font-size:10px;margin-left:5px;font-family:var(--mono)}
+@media(max-width:780px){ .bt .ky{display:none} .mk{min-width:58px;padding:4px 8px} }
+
+/* ══ TABLERO ══════════════════════════════════════════════════════════ */
+#campo{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:14px;padding:12px;position:relative;z-index:10}
+#tabla{
+  position:relative;display:grid;grid-template-columns:repeat(9,1fr);
+  border-radius:14px;overflow:hidden;background:rgba(10,16,32,.72);
+  border:2px solid var(--linea-f);
+  box-shadow:0 36px 80px -40px #000, inset 0 1px 0 rgba(255,255,255,.05),
+             0 0 60px -36px var(--azul)
+}
+.cel{
+  position:relative;display:grid;place-items:center;cursor:pointer;
+  border-right:1px solid var(--linea);border-bottom:1px solid var(--linea);
+  background:transparent;transition:background .14s,box-shadow .14s;
+  font-variant-numeric:tabular-nums
+}
+.cel:nth-child(9n){border-right:none}
+.cel:nth-child(n+73){border-bottom:none}
+.cel.dr{border-right:2px solid var(--linea-f)}
+.cel.db{border-bottom:2px solid var(--linea-f)}
+.cel .n{font-weight:600;line-height:1;pointer-events:none}
+.cel.fija .n{color:#E8F0FF;font-weight:700}
+.cel.mia .n{color:var(--cian)}
+.cel.mala .n{color:var(--mal)}
+.cel.par{background:rgba(120,160,255,.055)}
+.cel.igual{background:rgba(73,232,255,.1)}
+.cel.sel{background:rgba(91,141,239,.24);
+  box-shadow:inset 0 0 0 2px var(--azul), 0 0 24px -6px var(--azul);z-index:2}
+.cel.pista .n{animation:pistaN .9s ease-out 2}
+@keyframes pistaN{0%,100%{text-shadow:none}50%{text-shadow:0 0 16px var(--oro)}}
+.cel .nt{
+  position:absolute;inset:7%;display:grid;grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(3,1fr);pointer-events:none
+}
+.cel .nt span{display:grid;place-items:center;color:var(--tinta-3);font-weight:600;line-height:1}
+.cel .nt span.on{color:var(--violeta)}
+.cel.ok-flash{animation:okf .5s}
+@keyframes okf{0%{background:rgba(52,211,153,.55)}100%{background:transparent}}
+
+/* ══ TECLADO ══════════════════════════════════════════════════════════ */
+#pad{display:grid;grid-template-columns:repeat(9,1fr);gap:7px;width:100%}
+#pad.col2{grid-template-columns:repeat(5,1fr)}
+.num{
+  position:relative;aspect-ratio:1/1.15;border-radius:12px;display:grid;place-items:center;
+  background:var(--celda);border:1px solid var(--borde);font-weight:700;
+  transition:background .15s,border-color .15s,transform .1s,opacity .2s
+}
+.num:hover{background:rgba(255,255,255,.1);border-color:rgba(130,170,255,.4)}
+.num:active{transform:scale(.94)}
+.num.listo{opacity:.3}
+.num .q{position:absolute;bottom:5px;right:7px;font-size:9.5px;font-weight:700;
+  color:var(--tinta-3);font-family:var(--mono)}
+#pad.notas .num{border-color:rgba(167,139,250,.45);color:var(--violeta)}
+.fila2{display:flex;gap:7px;width:100%;justify-content:center;flex-wrap:wrap}
+.fila2 .bt{flex:1;min-width:84px;max-width:170px;justify-content:center;text-align:center}
+.bt.on{border-color:var(--violeta);background:rgba(167,139,250,.18);color:#DCCBFF}
+
+/* ══ CAPAS ════════════════════════════════════════════════════════════ */
+#velo{position:fixed;inset:0;display:none;place-items:center;padding:16px;z-index:60;
+  background:rgba(4,8,18,.76);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#velo.on{display:grid}
+.panel{
+  width:min(420px,100%);border-radius:20px;padding:26px 26px 22px;text-align:center;
+  background:linear-gradient(170deg,#101A38,#070B18);
+  border:1px solid rgba(91,141,239,.28);
+  box-shadow:0 40px 80px -30px #000, inset 0 1px 0 rgba(255,255,255,.07);
+  animation:sube .36s cubic-bezier(.2,1,.3,1) both
+}
+@keyframes sube{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+.panel h2{font-size:25px;font-weight:800;letter-spacing:-.02em;margin-bottom:5px}
+.panel h2 i{font-style:normal;background:linear-gradient(92deg,var(--cian),var(--violeta));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.panel p{font-size:12.5px;color:var(--tinta-2);line-height:1.7;margin-bottom:14px}
+.ops{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+.op{padding:9px 15px;border-radius:10px;font-size:12px;font-weight:600;
+  background:var(--celda);border:1px solid var(--borde);transition:all .18s}
+.op.sel{border-color:var(--azul);background:rgba(91,141,239,.18);color:#BBD3FF}
+.rej{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 16px}
+.rej .c{padding:10px 5px;border-radius:12px;background:var(--celda);border:1px solid var(--borde)}
+.rej .c .k{font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--tinta-3)}
+.rej .c .v{font-family:var(--mono);font-size:17px;font-weight:700;margin-top:2px}
+.sello{font-size:10.5px;color:var(--tinta-3);margin-top:10px;font-family:var(--mono);line-height:1.8}
+#aviso{position:fixed;left:50%;bottom:20px;transform:translate(-50%,12px);z-index:50;
+  padding:10px 18px;border-radius:11px;font-size:12px;font-weight:700;
+  background:rgba(10,16,34,.96);border:1px solid rgba(91,141,239,.4);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#aviso.on{opacity:1;transform:translate(-50%,0)}
+#conf{position:fixed;inset:0;z-index:55;pointer-events:none}
+@media (prefers-reduced-motion:reduce){ *{animation:none!important} }
+</style>
+</head>
+<body>
+
+<div id="barra">
+  <div class="logo"><div class="em">9</div><div><b>Sudoku</b><small id="dif-n">Medio</small></div></div>
+  <div class="marc">
+    <div class="mk"><div class="k">Tiempo</div><div class="v" id="m-t">0:00</div></div>
+    <div class="mk"><div class="k">Faltan</div><div class="v" id="m-f">0</div></div>
+    <div class="mk err"><div class="k">Errores</div><div class="v" id="m-e">0</div></div>
+  </div>
+  <div class="acc">
+    <button class="bt" id="b-und" onclick="K.deshacer()">↶ Deshacer<span class="ky">Z</span></button>
+    <button class="bt" id="b-pis" onclick="K.pista()">✦ Pista<span class="ky">H</span></button>
+    <button class="bt" onclick="K.menu()">⟳ Nuevo<span class="ky">N</span></button>
+  </div>
+</div>
+
+<div id="campo">
+  <div id="tabla"></div>
+  <div style="width:min(560px,100%);display:flex;flex-direction:column;gap:8px">
+    <div id="pad"></div>
+    <div class="fila2">
+      <button class="bt" id="b-not" onclick="K.notas()">✎ Notas<span class="ky">N</span></button>
+      <button class="bt" onclick="K.borrar()">⌫ Borrar</button>
+      <button class="bt" onclick="K.limpiar()">Limpiar notas</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="conf"></canvas>
+<div id="velo"><div class="panel" id="panel"></div></div>
+<div id="aviso"></div>
+
+<script>
+var K = (function(){
+
+/* ══════════════════════════════════════════════════════════════════════
+   EL MOTOR
+   Un tablero es un arreglo de 81 números. Las comprobaciones se hacen
+   con máscaras de bits: cada fila, columna y caja guarda en un entero
+   qué números ya tiene, y mirar si un número cabe es una sola operación.
+   ══════════════════════════════════════════════════════════════════════ */
+function caja(i){ return ((i/9|0)/3|0)*3 + ((i%9)/3|0); }
+var CAJA=[]; for(var i=0;i<81;i++) CAJA[i]=caja(i);
+
+function mezclar(a){
+  for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t; }
+  return a;
+}
+
+/* Rellena un tablero vacío con una solución al azar */
+function completo(){
+  var t=new Array(81).fill(0), f=new Array(9).fill(0), c=new Array(9).fill(0), b=new Array(9).fill(0);
+  function meter(i){
+    if(i===81) return true;
+    var fi=i/9|0, co=i%9, bx=CAJA[i];
+    var nums=mezclar([1,2,3,4,5,6,7,8,9]);
+    for(var k=0;k<9;k++){
+      var n=nums[k], m=1<<n;
+      if((f[fi]&m)||(c[co]&m)||(b[bx]&m)) continue;
+      t[i]=n; f[fi]|=m; c[co]|=m; b[bx]|=m;
+      if(meter(i+1)) return true;
+      t[i]=0; f[fi]&=~m; c[co]&=~m; b[bx]&=~m;
+    }
+    return false;
+  }
+  meter(0);
+  return t;
+}
+
+/* Cuenta soluciones, pero se detiene en «tope»: para saber si es única
+   basta con encontrar dos. Va por la casilla con menos opciones, que es
+   lo que hace que esto termine rápido. */
+function contar(t, tope){
+  var f=new Array(9).fill(0), c=new Array(9).fill(0), b=new Array(9).fill(0);
+  for(var i=0;i<81;i++) if(t[i]){
+    var m=1<<t[i]; f[i/9|0]|=m; c[i%9]|=m; b[CAJA[i]]|=m;
+  }
+  var n=0;
+  (function rec(){
+    if(n>=tope) return;
+    var mejor=-1, libres=0, opc=0;
+    for(var i=0;i<81;i++){
+      if(t[i]) continue;
+      var usado=f[i/9|0]|c[i%9]|b[CAJA[i]], cuantas=0, o=0;
+      for(var v=1;v<=9;v++) if(!(usado&(1<<v))){ cuantas++; o|=1<<v; }
+      if(cuantas===0) return;                 // callejón sin salida
+      if(mejor<0 || cuantas<libres){ mejor=i; libres=cuantas; opc=o; }
+      if(cuantas===1) break;
+    }
+    if(mejor<0){ n++; return; }               // tablero lleno
+    var fi=mejor/9|0, co=mejor%9, bx=CAJA[mejor];
+    for(var v2=1;v2<=9;v2++){
+      if(!(opc&(1<<v2))) continue;
+      var m2=1<<v2;
+      t[mejor]=v2; f[fi]|=m2; c[co]|=m2; b[bx]|=m2;
+      rec();
+      t[mejor]=0; f[fi]&=~m2; c[co]&=~m2; b[bx]&=~m2;
+      if(n>=tope) return;
+    }
+  })();
+  return n;
+}
+
+var NIVELES={
+  facil:   { nombre:'Fácil',   pistas:44 },
+  medio:   { nombre:'Medio',   pistas:34 },
+  dificil: { nombre:'Difícil', pistas:28 },
+  experto: { nombre:'Experto', pistas:24 }
+};
+
+/* Quita números de a pares simétricos mientras la solución siga siendo
+   una sola. La simetría no cambia la dificultad, pero el tablero queda
+   bonito, que es como se ven los de los periódicos. */
+function generar(nivel){
+  var sol=completo(), t=sol.slice();
+  var meta=NIVELES[nivel].pistas;
+  var orden=mezclar(Array.from({length:81},function(_,i){ return i; }));
+  var puestos=81;
+  for(var k=0;k<orden.length && puestos>meta;k++){
+    var i=orden[k], j=80-i;
+    if(!t[i]) continue;
+    var a=t[i], bb=t[j];
+    t[i]=0; var quitados=1;
+    if(j!==i && t[j]){ t[j]=0; quitados=2; }
+    if(contar(t.slice(), 2)!==1){
+      t[i]=a; if(quitados===2) t[j]=bb;      // se devuelve: ya no era único
+    } else puestos-=quitados;
+  }
+  return { tab:t, sol:sol, pistas:puestos };
+}
+
+/* ══ ESTADO ══════════════════════════════════════════════════════════ */
+var P=null, SEL=-1, NOTAS=false, CRON=null, HIST=[], REH=[];
+var NIVEL='medio';
+try{ var g=localStorage.getItem('sudoku-nivel'); if(g && NIVELES[g]) NIVEL=g; }catch(e){}
+
+function nuevo(nivel){
+  NIVEL=nivel||NIVEL;
+  try{ localStorage.setItem('sudoku-nivel', NIVEL); }catch(e){}
+  document.getElementById('dif-n').textContent=NIVELES[NIVEL].nombre;
+  aviso('Armando un tablero…');
+  /* Se deja respirar a la pantalla antes de ponerse a generar */
+  setTimeout(function(){
+    var t0=performance.now();
+    var g=generar(NIVEL);
+    P={ tab:g.tab.slice(), ini:g.tab.slice(), sol:g.sol, notas:new Array(81).fill(0),
+        errores:0, seg:0, listo:false, pistas:0 };
+    SEL=-1; HIST=[]; REH=[]; NOTAS=false;
+    document.getElementById('b-not').classList.remove('on');
+    document.getElementById('pad').classList.remove('notas');
+    pintar(); marcador(); botones();
+    paraCron(); CRON=setInterval(tic, 1000);
+    aviso(NIVELES[NIVEL].nombre+' · '+g.pistas+' números dados ('
+      +Math.round(performance.now()-t0)+' ms)');
+  }, 60);
+}
+
+/* ══ DIBUJO ══════════════════════════════════════════════════════════ */
+var tabla=document.getElementById('tabla');
+function construir(){
+  var h='';
+  for(var i=0;i<81;i++){
+    var co=i%9, fi=i/9|0;
+    var cl='cel'+((co===2||co===5)?' dr':'')+((fi===2||fi===5)?' db':'');
+    h+='<div class="'+cl+'" data-i="'+i+'"><span class="n"></span>'
+      +'<div class="nt">'+'<span></span>'.repeat(9)+'</div></div>';
+  }
+  tabla.innerHTML=h;
+  tabla.onclick=function(ev){
+    var c=ev.target.closest('.cel'); if(!c) return;
+    SEL=+c.dataset.i; pintar();
+  };
+}
+function medir(){
+  var campo=document.getElementById('campo');
+  var W=campo.clientWidth-24, H=campo.clientHeight-24;
+  /* El teclado de números se lleva su parte del alto */
+  var lado=Math.min(W, Math.max(180, H-(W<520? 160 : 128)), 700);
+  lado=Math.floor(lado/9)*9;
+  tabla.style.width=lado+'px'; tabla.style.height=lado+'px';
+  var c=lado/9;
+  tabla.style.fontSize=Math.round(c*0.56)+'px';
+  document.querySelectorAll('.cel .nt').forEach(function(e){
+    e.style.fontSize=Math.round(c*0.26)+'px'; });
+  document.getElementById('pad').classList.toggle('col2', lado<400);
+}
+
+function pintar(){
+  if(!P) return;
+  var vSel = SEL>=0 ? P.tab[SEL] : 0;
+  var malas=conflictos();
+  var cels=tabla.children;
+  for(var i=0;i<81;i++){
+    var c=cels[i], v=P.tab[i];
+    var n=c.firstChild, nt=c.lastChild;
+    c.className='cel'+((i%9===2||i%9===5)?' dr':'')+(((i/9|0)===2||(i/9|0)===5)?' db':'');
+    if(P.ini[i]) c.classList.add('fija'); else if(v) c.classList.add('mia');
+    if(malas[i]) c.classList.add('mala');
+    if(SEL>=0){
+      if(i===SEL) c.classList.add('sel');
+      else if((i%9)===(SEL%9) || (i/9|0)===(SEL/9|0) || CAJA[i]===CAJA[SEL]) c.classList.add('par');
+      if(vSel && v===vSel && i!==SEL) c.classList.add('igual');
+    }
+    n.textContent = v || '';
+    var ns=nt.children;
+    if(!v && P.notas[i]){
+      nt.style.display='grid';
+      for(var k=1;k<=9;k++){
+        var on=!!(P.notas[i]&(1<<k));
+        ns[k-1].textContent = on? k : '';
+        ns[k-1].className = on? 'on':'';
+      }
+    } else nt.style.display='none';
+  }
+}
+/* Qué números están repetidos en su fila, columna o caja */
+function conflictos(){
+  var mal=new Array(81).fill(false);
+  var ver=function(lista){
+    var visto={};
+    lista.forEach(function(i){
+      var v=P.tab[i]; if(!v) return;
+      if(visto[v]!==undefined){ mal[i]=true; mal[visto[v]]=true; }
+      else visto[v]=i;
+    });
+  };
+  for(var f=0;f<9;f++){
+    var fila=[], col=[], cj=[];
+    for(var k=0;k<9;k++){
+      fila.push(f*9+k); col.push(k*9+f);
+      cj.push(((f/3|0)*3+(k/3|0))*9 + (f%3)*3 + (k%3));
+    }
+    ver(fila); ver(col); ver(cj);
+  }
+  return mal;
+}
+
+/* ══ JUGAR ═══════════════════════════════════════════════════════════ */
+function foto(){
+  return { tab:P.tab.slice(), notas:P.notas.slice(), err:P.errores };
+}
+function guardar(){ HIST.push(foto()); if(HIST.length>300) HIST.shift(); REH=[]; botones(); }
+
+function poner(n){
+  if(!P || P.listo) return;
+  if(SEL<0){ aviso('Primero toca una casilla'); return; }
+  if(P.ini[SEL]){ aviso('Ese número venía puesto'); return; }
+  guardar();
+  if(NOTAS && n){
+    if(P.tab[SEL]) P.tab[SEL]=0;
+    P.notas[SEL] ^= (1<<n);
+  } else if(n===0){
+    P.tab[SEL]=0; P.notas[SEL]=0;
+  } else {
+    if(P.tab[SEL]===n){ P.tab[SEL]=0; }
+    else {
+      P.tab[SEL]=n; P.notas[SEL]=0;
+      if(n!==P.sol[SEL]){ P.errores++; }
+      else {
+        limpiarVecinas(SEL, n);
+        var c=tabla.children[SEL];
+        c.classList.add('ok-flash');
+        setTimeout(function(){ c.classList.remove('ok-flash'); }, 500);
+      }
+    }
+  }
+  pintar(); marcador(); botones(); revisarFin();
+}
+/* Al poner un número, se borra de las notas de su fila, columna y caja */
+function limpiarVecinas(i, n){
+  var m=~(1<<n);
+  for(var k=0;k<81;k++)
+    if((k%9)===(i%9) || (k/9|0)===(i/9|0) || CAJA[k]===CAJA[i]) P.notas[k]&=m;
+}
+function borrar(){ poner(0); }
+function notas(){
+  NOTAS=!NOTAS;
+  document.getElementById('b-not').classList.toggle('on', NOTAS);
+  document.getElementById('pad').classList.toggle('notas', NOTAS);
+}
+function limpiar(){
+  if(!P) return;
+  guardar(); P.notas=new Array(81).fill(0); pintar();
+  aviso('Notas borradas');
+}
+function deshacer(){
+  if(!HIST.length || !P || P.listo) return;
+  REH.push(foto());
+  var f=HIST.pop();
+  P.tab=f.tab; P.notas=f.notas; P.errores=f.err;
+  pintar(); marcador(); botones();
+}
+function rehacer(){
+  if(!REH.length || !P || P.listo) return;
+  HIST.push(foto());
+  var f=REH.pop();
+  P.tab=f.tab; P.notas=f.notas; P.errores=f.err;
+  pintar(); marcador(); botones();
+}
+function pista(){
+  if(!P || P.listo) return;
+  /* Se da la casilla escogida; si no hay, una vacía al azar */
+  var i=SEL;
+  if(i<0 || P.tab[i]===P.sol[i]){
+    var vac=[];
+    for(var k=0;k<81;k++) if(P.tab[k]!==P.sol[k]) vac.push(k);
+    if(!vac.length) return;
+    i=vac[Math.floor(Math.random()*vac.length)];
+  }
+  guardar();
+  P.tab[i]=P.sol[i]; P.notas[i]=0; P.pistas++;
+  limpiarVecinas(i, P.sol[i]);
+  SEL=i; pintar(); marcador(); botones();
+  var c=tabla.children[i];
+  c.classList.add('pista');
+  setTimeout(function(){ c.classList.remove('pista'); }, 1900);
+  revisarFin();
+}
+
+function faltan(){
+  var n=0; for(var i=0;i<81;i++) if(P.tab[i]!==P.sol[i]) n++;
+  return n;
+}
+function cuantos(n){
+  var c=0; for(var i=0;i<81;i++) if(P.tab[i]===n) c++;
+  return c;
+}
+function revisarFin(){
+  if(!P || P.listo) return;
+  for(var i=0;i<81;i++) if(P.tab[i]!==P.sol[i]) return;
+  P.listo=true; paraCron();
+  var r=leerRecords(), mejoró=false;
+  if(!r[NIVEL] || P.seg<r[NIVEL]){ r[NIVEL]=P.seg; guardarRecords(r); mejoró=true; }
+  var st=leerStats(); st[NIVEL]=(st[NIVEL]||0)+1; guardarStats(st);
+  ola();
+  setTimeout(function(){
+    confeti();
+    panel('<h2>'+(mejoró?'¡Tu <i>mejor tiempo</i>!':'Resuelto')+'</h2>'
+      +'<p>'+NIVELES[NIVEL].nombre+(P.pistas? ' · con '+P.pistas+' pista'+(P.pistas>1?'s':'') : ' · sin pistas')+'</p>'
+      +'<div class="rej">'
+        +'<div class="c"><div class="k">Tiempo</div><div class="v">'+reloj(P.seg)+'</div></div>'
+        +'<div class="c"><div class="k">Errores</div><div class="v">'+P.errores+'</div></div>'
+        +'<div class="c"><div class="k">Mejor</div><div class="v">'+reloj(r[NIVEL])+'</div></div>'
+      +'</div>'
+      +'<div class="ops">'
+        +'<button class="op sel" onclick="K.otro()">Otro igual</button>'
+        +'<button class="op" onclick="K.menu()">Cambiar nivel</button>'
+      +'</div>');
+  }, 1100);
+}
+/* La ola que recorre el tablero al terminar */
+function ola(){
+  for(var i=0;i<81;i++){
+    (function(i){
+      var d=((i%9)+(i/9|0))*55;
+      setTimeout(function(){
+        var c=tabla.children[i];
+        c.classList.add('ok-flash');
+        setTimeout(function(){ c.classList.remove('ok-flash'); }, 500);
+      }, d);
+    })(i);
+  }
+}
+function confeti(){
+  var cv=document.getElementById('conf'), g=cv.getContext('2d');
+  cv.width=innerWidth; cv.height=innerHeight;
+  var col=['#49E8FF','#A78BFA','#FFCE6A','#34D399','#5B8DEF'];
+  var p=[];
+  for(var i=0;i<140;i++) p.push({
+    x:Math.random()*cv.width, y:-20-Math.random()*cv.height*0.5,
+    vx:(Math.random()-.5)*2.4, vy:Math.random()*2.6+1.6,
+    r:Math.random()*5+3, g:Math.random()*6.28, vg:(Math.random()-.5)*.25,
+    c:col[Math.floor(Math.random()*col.length)]
+  });
+  var t0=performance.now();
+  (function cuadro(ahora){
+    g.clearRect(0,0,cv.width,cv.height);
+    p.forEach(function(q){
+      q.x+=q.vx; q.y+=q.vy; q.vy+=0.045; q.g+=q.vg;
+      g.save(); g.translate(q.x,q.y); g.rotate(q.g);
+      g.fillStyle=q.c; g.globalAlpha=0.9;
+      g.fillRect(-q.r/2,-q.r/2,q.r,q.r*1.6);
+      g.restore();
+    });
+    g.globalAlpha=1;
+    if(ahora-t0<4200) requestAnimationFrame(cuadro);
+    else g.clearRect(0,0,cv.width,cv.height);
+  })(t0);
+}
+
+/* ══ MARCADOR ════════════════════════════════════════════════════════ */
+function reloj(s){ return s==null? '—' : Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function tic(){ if(P && !P.listo){ P.seg++; document.getElementById('m-t').textContent=reloj(P.seg); } }
+function paraCron(){ clearInterval(CRON); CRON=null; }
+function marcador(){
+  if(!P) return;
+  document.getElementById('m-t').textContent=reloj(P.seg);
+  document.getElementById('m-f').textContent=faltan();
+  document.getElementById('m-e').textContent=P.errores;
+  pintarPad();
+}
+function pintarPad(){
+  var pad=document.getElementById('pad'), h='';
+  for(var n=1;n<=9;n++){
+    var q=cuantos(n);
+    h+='<button class="num'+(q>=9?' listo':'')+'" onclick="K.poner('+n+')">'+n
+      +'<span class="q">'+(9-q)+'</span></button>';
+  }
+  pad.innerHTML=h;
+}
+function botones(){
+  document.getElementById('b-und').disabled=!HIST.length || !P || P.listo;
+  document.getElementById('b-pis').disabled=!P || P.listo;
+}
+var avT=null;
+function aviso(t){
+  var a=document.getElementById('aviso');
+  a.textContent=t; a.classList.add('on');
+  clearTimeout(avT); avT=setTimeout(function(){ a.classList.remove('on'); }, 2300);
+}
+
+/* ══ RÉCORDS ═════════════════════════════════════════════════════════ */
+function leerRecords(){
+  try{ return JSON.parse(localStorage.getItem('sudoku-records')||'{}')||{}; }catch(e){ return {}; }
+}
+function guardarRecords(r){ try{ localStorage.setItem('sudoku-records', JSON.stringify(r)); }catch(e){} }
+function leerStats(){
+  try{ return JSON.parse(localStorage.getItem('sudoku-stats')||'{}')||{}; }catch(e){ return {}; }
+}
+function guardarStats(s){ try{ localStorage.setItem('sudoku-stats', JSON.stringify(s)); }catch(e){} }
+
+/* ══ PANELES ═════════════════════════════════════════════════════════ */
+function panel(html){
+  document.getElementById('panel').innerHTML=html;
+  document.getElementById('velo').classList.add('on');
+}
+function cerrar(){ document.getElementById('velo').classList.remove('on'); }
+function menu(){
+  var r=leerRecords(), st=leerStats();
+  panel('<h2>Sudoku</h2>'
+    +'<p>Toca una casilla y escribe. Con <b>Notas</b> apuntas los candidatos,<br>'
+    +'y el teclado te dice cuántos te faltan de cada número.</p>'
+    +'<div class="ops">'
+      + Object.keys(NIVELES).map(function(k){
+          return '<button class="op'+(k===NIVEL?' sel':'')+'" onclick="K.nivel(\''+k+'\')">'
+            +NIVELES[k].nombre+'</button>'; }).join('')
+    +'</div>'
+    +'<div class="rej">'
+      + Object.keys(NIVELES).slice(0,3).map(function(k){
+          return '<div class="c"><div class="k">'+NIVELES[k].nombre+'</div><div class="v">'
+            +(r[k]? reloj(r[k]):'—')+'</div></div>'; }).join('')
+    +'</div>'
+    +'<div class="ops"><button class="op sel" onclick="K.empezar()">Empezar</button>'
+      +(P? '<button class="op" onclick="K.cerrar()">Seguir el de ahora</button>':'')+'</div>'
+    +'<div class="sello">resueltos: '
+      + Object.keys(NIVELES).map(function(k){ return NIVELES[k].nombre+' '+(st[k]||0); }).join(' · ')
+      +'<br>1-9 escribe · 0 borra · Z deshacer · H pista</div>');
+}
+
+/* ══ TECLADO ═════════════════════════════════════════════════════════ */
+addEventListener('keydown', function(ev){
+  if(ev.ctrlKey||ev.metaKey) return;
+  var k=ev.key;
+  if(k>='1' && k<='9'){ ev.preventDefault(); poner(+k); return; }
+  if(k==='0' || k==='Backspace' || k==='Delete'){ ev.preventDefault(); borrar(); return; }
+  var mov={ArrowUp:-9,ArrowDown:9,ArrowLeft:-1,ArrowRight:1};
+  if(mov[k]!==undefined){
+    ev.preventDefault();
+    if(SEL<0) SEL=40;
+    else{
+      var n=SEL+mov[k];
+      if(k==='ArrowLeft' && SEL%9===0) n=SEL+8;
+      if(k==='ArrowRight' && SEL%9===8) n=SEL-8;
+      if(n<0) n+=81; if(n>80) n-=81;
+      SEL=n;
+    }
+    pintar(); return;
+  }
+  var l=k.toLowerCase();
+  if(l==='z'){ ev.preventDefault(); deshacer(); }
+  else if(l==='y'){ ev.preventDefault(); rehacer(); }
+  else if(l==='h'){ ev.preventDefault(); pista(); }
+  else if(l==='n'){ ev.preventDefault(); notas(); }
+  else if(l==='escape'){ cerrar(); }
+});
+addEventListener('resize', function(){ medir(); });
+
+return {
+  inicio:function(){
+    construir(); medir();
+    nuevo(NIVEL);
+    setTimeout(menu, 500);
+  },
+  poner:poner, borrar:borrar, notas:notas, limpiar:limpiar,
+  deshacer:deshacer, rehacer:rehacer, pista:pista, menu:menu, cerrar:cerrar,
+  nivel:function(k){ NIVEL=k; menu(); },
+  empezar:function(){ cerrar(); nuevo(NIVEL); },
+  otro:function(){ cerrar(); nuevo(NIVEL); },
+  /* para las pruebas */
+  _p:function(){ return P; }, _sel:function(i){ SEL=i; pintar(); },
+  _contar:contar, _generar:generar, _medir:medir
+};
+})();
+
+K.inicio();
+</script>
+</body>
+</html>

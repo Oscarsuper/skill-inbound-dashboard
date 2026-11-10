@@ -373,24 +373,33 @@ function dibujar(c){
 }
 
 /* ══ MEDIDAS ═════════════════════════════════════════════════════════ */
+var SEP=0.20;                    /* separación entre la fila de arriba y el tablero */
 function medir(){
   var W=mesa.clientWidth, H=mesa.clientHeight;
-  PX=Math.max(6, Math.min(26, W*0.016));
-  /* En pantallas angostas las columnas se juntan para que la carta crezca */
-  var sep = W<560 ? 0.055 : 0.13;
-  CW=Math.floor((W-2*PX)/(7+6*sep));
+  PX=Math.max(6, Math.min(22, W*0.012));
+  PY=Math.max(7, Math.min(16, H*0.02));
+
+  /* Lo que permite el ancho: siete columnas pegaditas */
+  var porAncho=(W-2*PX)/7.33;
+  /* Lo que permite el alto: la fila de arriba, una columna de 6 tapadas
+     y 2 destapadas, y la carta de abajo entera. Si la mano se alarga más
+     que eso, esa columna cierra su abanico sola; así la carta puede ser
+     lo más grande que quepa en vez de encogerse por un caso raro. */
+  var factor = 1 + SEP + 6*0.055 + 2*0.15 + 1;         // en altos de carta
+  var porAlto=((H-PY-4)/factor)/1.45;
+
+  CW=Math.floor(Math.max(44, Math.min(porAncho, porAlto)));
   CH=Math.round(CW*1.45);
   GX=(W-2*PX-7*CW)/6;
-  DOWN=Math.max(4, Math.round(CW*0.09));
-  UP=Math.max(15, Math.min(Math.round(CH*0.34), Math.round(CW*0.27)));
-  PY=Math.max(8, Math.min(18, H*0.022));
-  FY=PY+CH+Math.round(CH*0.30);
-  /* Si sobra mesa —un celular es alto y angosto— se baja todo un poco
-     para que no quede media pantalla vacía. */
+  DOWN=Math.max(4, Math.round(CH*0.055));
+  UP=Math.max(14, Math.round(CH*0.15));
+  FY=PY+CH+Math.round(CH*SEP);
+  /* Si aun así sobra mesa —un celular es alto y angosto— se baja todo
+     un poco para que no quede media pantalla vacía. */
   var contenido=FY+6*DOWN+5*UP+CH;
   if(H-contenido>70){
     PY+=Math.round((H-contenido)*0.30);
-    FY=PY+CH+Math.round(CH*0.30);
+    FY=PY+CH+Math.round(CH*SEP);
   }
   document.documentElement.style.setProperty('--cw', CW+'px');
   document.documentElement.style.setProperty('--ch', CH+'px');
@@ -464,10 +473,15 @@ function nuevaPartida(semilla, saca){
 function abanico(ci){
   var col=S.t[ci], nd=0, nu=0;
   for(var i=0;i<col.length-1;i++) col[i].up ? nu++ : nd++;
-  var falta=nd*DOWN+nu*UP, libre=mesa.clientHeight-FY-CH-8;
-  if(falta<=libre || falta<=0) return {d:DOWN, u:UP};
-  var k=libre/falta;
-  return {d:Math.max(3, DOWN*k), u:Math.max(9, UP*k)};
+  var libre=Math.max(0, mesa.clientHeight-FY-CH-6);
+  if(nd*DOWN+nu*UP<=libre) return {d:DOWN, u:UP};
+  /* Primero se cierran las tapadas: a esas no hay que agarrarlas, solo
+     verlas. Así las destapadas conservan su trozo el mayor tiempo. */
+  var d=Math.max(3, DOWN*0.38);
+  if(nd*d+nu*UP<=libre)
+    return { d:(nd? Math.min(DOWN, (libre-nu*UP)/nd) : DOWN), u:UP };
+  var u=nu? Math.max(0, libre-nd*d)/nu : UP;
+  return { d:d, u:u };
 }
 function alturaT(ci, ri){
   var col=S.t[ci], f=abanico(ci), y=0;
@@ -728,20 +742,28 @@ mesa.addEventListener('pointercancel', function(){ if(AR){ var a=AR; AR=null;
   a.base.forEach(function(b){ b.el.classList.remove('arrastre'); }); pintar(); } });
 
 function pilaCerca(x, y, cartas){
-  var c=cartas[0], mejor=null, dist=1e9;
-  var cx=x+CW/2, cy=y+CH/2;
-  var probar=function(id, px, py, ok){
+  var c=cartas[0], mejor=null, area=0, cerca=null, dist=1e9;
+  var probar=function(id, px, py, ph, ok){
     if(!ok) return;
-    var d=Math.hypot(cx-(px+CW/2), cy-(py+CH/2));
-    if(d<dist && d<CW*1.5){ dist=d; mejor=id; }
+    /* Cuánto se monta la carta sobre esta pila */
+    var ix=Math.max(0, Math.min(x+CW, px+CW)-Math.max(x, px));
+    var iy=Math.max(0, Math.min(y+CH, py+ph)-Math.max(y, py));
+    var a=ix*iy;
+    if(a>area){ area=a; mejor=id; }
+    /* Y por si la soltó al lado, sin tocar nada */
+    var d=Math.hypot((x+CW/2)-(px+CW/2), (y+CH/2)-(py+ph/2));
+    if(d<dist){ dist=d; cerca=id; }
   };
   for(var i=0;i<4;i++)
-    probar({t:'b',i:i}, colX(3+i), PY, cartas.length===1 && cabeEnBase(c,i));
+    probar({t:'b',i:i}, colX(3+i), PY, CH, cartas.length===1 && cabeEnBase(c,i));
   for(var j=0;j<7;j++){
-    var col=S.t[j], alto=col.length? FY+alturaT(j,col.length-1) : FY;
-    probar({t:'t',i:j}, colX(j), alto, cabeEnTab(c,j));
+    var col=S.t[j];
+    /* La columna entera cuenta como destino, con un margen por debajo:
+       soltar la carta un poco más abajo del montón también vale. */
+    var alto=(col.length? alturaT(j, col.length-1) : 0)+CH*1.5;
+    probar({t:'t',i:j}, colX(j), FY, alto, cabeEnTab(c,j));
   }
-  return mejor;
+  return area>0 ? mejor : (dist<CW*1.2 ? cerca : null);
 }
 function marcarDestino(x,y,cartas){
   var d=pilaCerca(x,y,cartas);

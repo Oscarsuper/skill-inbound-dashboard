@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Serpiente · Neón</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   SERPIENTE NEÓN
+   Un solo archivo. La serpiente no salta de casilla en casilla: se
+   desliza, porque la lógica va a un ritmo fijo y el dibujo interpola
+   entre dos pasos. De ahí sale la sensación de que fluye.
+   ══════════════════════════════════════════════════════════════════════ */
+:root{
+  --fondo:#05060E; --fondo-2:#0A0D1C;
+  --neon:#39FF9E; --neon-2:#00E0C6; --neon-dim:#0B6B4A;
+  --magenta:#FF3D9A; --violeta:#9B6BFF; --oro:#FFD166; --hielo:#5BD6FF;
+  --tinta:#EAF2FF; --tinta-2:#93A6C9; --tinta-3:#5A6B8C;
+  --vidrio:rgba(255,255,255,.055);
+  --borde:rgba(130,170,255,.16);
+  --mono:'JetBrains Mono','Cascadia Mono',ui-monospace,'SF Mono',Consolas,monospace;
+  --sans:'Segoe UI Variable Display','Segoe UI',Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:var(--sans);color:var(--tinta);user-select:none;
+  display:flex;flex-direction:column;
+  background:radial-gradient(130% 100% at 50% 0%, #121936 0%, var(--fondo-2) 45%, var(--fondo) 100%);
+  touch-action:none;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:40;
+  background:radial-gradient(120% 85% at 50% 45%, transparent 55%, rgba(0,0,0,.6) 100%);
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+
+/* ══ BARRA ════════════════════════════════════════════════════════════ */
+#barra{
+  flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap;
+  background:linear-gradient(180deg,rgba(0,0,0,.4),transparent);
+  border-bottom:1px solid rgba(130,170,255,.09);position:relative;z-index:20
+}
+.logo{display:flex;align-items:center;gap:10px}
+.logo .em{
+  width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(145deg,rgba(57,255,158,.22),rgba(0,224,198,.08));
+  border:1px solid rgba(57,255,158,.4);box-shadow:0 0 18px -4px var(--neon);
+  color:var(--neon);font-size:17px
+}
+.logo b{font-size:15px;font-weight:700;letter-spacing:-.01em;display:block;line-height:1.1}
+.logo small{font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--tinta-3)}
+.marc{display:flex;gap:7px;margin-left:4px}
+.mk{min-width:70px;padding:5px 11px;border-radius:10px;background:var(--vidrio);
+  border:1px solid var(--borde);text-align:center}
+.mk .k{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--tinta-3)}
+.mk .v{font-family:var(--mono);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.mk.on{border-color:rgba(57,255,158,.45);box-shadow:0 0 16px -6px var(--neon)}
+.mk.on .v{color:var(--neon)}
+.mk.cmb .v{color:var(--oro)}
+.acc{display:flex;gap:6px;margin-left:auto}
+.bt{padding:8px 13px;border-radius:10px;font-size:12px;font-weight:600;
+  background:var(--vidrio);border:1px solid var(--borde);
+  transition:background .18s,border-color .18s,transform .12s}
+.bt:hover{background:rgba(255,255,255,.12);border-color:rgba(130,170,255,.34)}
+.bt:active{transform:translateY(1px)}
+.bt.neon{border-color:rgba(57,255,158,.45);color:#04150D;
+  background:linear-gradient(140deg,var(--neon),var(--neon-2));
+  box-shadow:0 8px 22px -10px var(--neon)}
+.bt .ky{opacity:.45;font-size:10px;margin-left:5px;font-family:var(--mono)}
+@media(max-width:720px){ .bt .ky{display:none} .mk{min-width:58px;padding:4px 8px} }
+
+/* ══ CAMPO ════════════════════════════════════════════════════════════ */
+#campo{flex:1;min-height:0;position:relative;display:grid;place-items:center;padding:12px}
+#marco{
+  position:relative;border-radius:18px;overflow:hidden;
+  border:1px solid rgba(130,170,255,.2);
+  background:linear-gradient(170deg,rgba(12,18,38,.9),rgba(5,7,16,.95));
+  box-shadow:0 40px 90px -40px #000, inset 0 1px 0 rgba(255,255,255,.06),
+             0 0 70px -40px var(--neon-2)
+}
+#lienzo{display:block}
+#marco.sacude{animation:sac .32s}
+@keyframes sac{
+  0%,100%{transform:translate(0,0)}
+  20%{transform:translate(-7px,4px)}45%{transform:translate(6px,-5px)}
+  70%{transform:translate(-4px,-3px)}
+}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;
+  transition:opacity .45s}
+#flash.on{opacity:.75;transition:none}
+
+/* ══ CAPAS ════════════════════════════════════════════════════════════ */
+#velo{position:absolute;inset:0;display:none;place-items:center;padding:16px;z-index:30;
+  background:rgba(4,6,14,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#velo.on{display:grid}
+.panel{
+  width:min(400px,100%);border-radius:20px;padding:26px 26px 22px;text-align:center;
+  background:linear-gradient(170deg,#0D1430,#070A18);
+  border:1px solid rgba(57,255,158,.22);
+  box-shadow:0 40px 80px -30px #000, inset 0 1px 0 rgba(255,255,255,.07);
+  animation:sube .36s cubic-bezier(.2,1,.3,1) both
+}
+@keyframes sube{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+.panel h2{font-size:25px;font-weight:800;letter-spacing:-.02em;margin-bottom:5px}
+.panel h2 i{font-style:normal;
+  background:linear-gradient(92deg,var(--neon),var(--hielo));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.panel p{font-size:12.5px;color:var(--tinta-2);line-height:1.7;margin-bottom:16px}
+.rej{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 18px}
+.rej .c{padding:10px 5px;border-radius:12px;background:var(--vidrio);border:1px solid var(--borde)}
+.rej .c .k{font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--tinta-3)}
+.rej .c .v{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:2px}
+.ops{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.op{padding:8px 14px;border-radius:10px;font-size:11.5px;font-weight:600;
+  background:var(--vidrio);border:1px solid var(--borde);transition:all .18s}
+.op.sel{border-color:var(--neon);background:rgba(57,255,158,.14);color:var(--neon)}
+.sello{font-size:10.5px;color:var(--tinta-3);margin-top:12px;font-family:var(--mono);line-height:1.8}
+.tec{display:inline-block;min-width:20px;padding:1px 5px;border-radius:5px;margin:0 1px;
+  border:1px solid var(--borde);background:rgba(255,255,255,.05);font-size:10px}
+
+/* ══ MANDO TÁCTIL ═════════════════════════════════════════════════════ */
+#pad{display:none;position:relative;z-index:20;padding:6px 0 14px;justify-content:center}
+#pad .g{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,52px);gap:7px}
+#pad button{border-radius:13px;background:var(--vidrio);border:1px solid var(--borde);
+  font-size:19px;color:var(--tinta-2);display:grid;place-items:center}
+#pad button:active{background:rgba(57,255,158,.18);border-color:var(--neon);color:var(--neon)}
+#pad .ar{grid-column:2} #pad .iz{grid-column:1} #pad .ab{grid-column:2} #pad .de{grid-column:3}
+@media (hover:none) and (pointer:coarse){ #pad{display:flex} }
+
+#aviso{position:absolute;left:50%;top:14px;transform:translate(-50%,-10px);z-index:25;
+  padding:9px 17px;border-radius:11px;font-size:12px;font-weight:700;
+  background:rgba(8,14,30,.95);border:1px solid rgba(57,255,158,.35);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;white-space:nowrap}
+#aviso.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+
+<div id="barra">
+  <div class="logo"><div class="em">⬡</div><div><b>Serpiente</b><small>Neón</small></div></div>
+  <div class="marc">
+    <div class="mk on"><div class="k">Puntos</div><div class="v" id="m-p">0</div></div>
+    <div class="mk"><div class="k">Récord</div><div class="v" id="m-r">0</div></div>
+    <div class="mk"><div class="k">Largo</div><div class="v" id="m-l">3</div></div>
+    <div class="mk cmb"><div class="k">Cadena</div><div class="v" id="m-c">×1</div></div>
+  </div>
+  <div class="acc">
+    <button class="bt" id="b-pau" onclick="S.pausa()">⏸ Pausa<span class="ky">espacio</span></button>
+    <button class="bt neon" onclick="S.menu()">⟳ Nueva<span class="ky">R</span></button>
+    <button class="bt" id="b-snd" onclick="S.sonido()">🔊</button>
+  </div>
+</div>
+
+<div id="campo">
+  <div id="marco">
+    <canvas id="lienzo"></canvas>
+    <div id="flash"></div>
+    <div id="velo"><div class="panel" id="panel"></div></div>
+    <div id="aviso"></div>
+  </div>
+</div>
+
+<div id="pad"><div class="g">
+  <button class="ar" onpointerdown="S.dir(0,-1)">▲</button>
+  <button class="iz" onpointerdown="S.dir(-1,0)">◀</button>
+  <button class="ab" onpointerdown="S.dir(0,1)">▼</button>
+  <button class="de" onpointerdown="S.dir(1,0)">▶</button>
+</div></div>
+
+<script>
+var S = (function(){
+
+/* ══ LIENZO ══════════════════════════════════════════════════════════ */
+var cv=document.getElementById('lienzo'), g=cv.getContext('2d');
+var marco=document.getElementById('marco'), campo=document.getElementById('campo');
+var COLS=22, FILAS=15, C=28, DPR=1;
+
+function medir(){
+  var W=campo.clientWidth-24, H=campo.clientHeight-24;
+  /* En vertical el tablero gira: más alto que ancho */
+  if(W<H*0.92){ COLS=14; FILAS=20; } else { COLS=22; FILAS=15; }
+  C=Math.max(12, Math.floor(Math.min(W/COLS, H/FILAS)));
+  var w=C*COLS, h=C*FILAS;
+  DPR=Math.min(2, window.devicePixelRatio||1);
+  cv.width=Math.round(w*DPR); cv.height=Math.round(h*DPR);
+  cv.style.width=w+'px'; cv.style.height=h+'px';
+  g.setTransform(DPR,0,0,DPR,0,0);
+}
+
+/* ══ ESTADO ══════════════════════════════════════════════════════════ */
+var J=null, CORRIENDO=false, PAUSA=false, ULT=0, ACUM=0, RAF=null;
+var SONIDO=true, PAREDES=true, OBST=false, QUIETO=false;
+try{ QUIETO=matchMedia('(prefers-reduced-motion:reduce)').matches; }catch(e){}
+
+var COMIDAS=[
+  { t:'normal', color:'#FF3D9A', brillo:'#FF9CC8', pts:10,  peso:76 },
+  { t:'oro',    color:'#FFD166', brillo:'#FFF0C4', pts:50,  peso:12 },
+  { t:'hielo',  color:'#5BD6FF', brillo:'#D6F4FF', pts:20,  peso:8  },
+  { t:'rayo',   color:'#9B6BFF', brillo:'#DCCBFF', pts:30,  peso:4  }
+];
+
+function nueva(){
+  var cx=Math.floor(COLS/2), cy=Math.floor(FILAS/2);
+  J={
+    cuerpo:[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy}],
+    previo:null, dir:{x:1,y:0}, cola:[], crecer:0,
+    pts:0, largo:3, comidas:0, cadena:1, ultComida:0,
+    paso:150, vivo:true, muros:[], lento:0, invulnerable:0,
+    t:0, mejorCadena:1
+  };
+  J.previo=J.cuerpo.map(function(c){ return {x:c.x,y:c.y}; });
+  PART=[]; ONDAS=[]; TEXTOS=[];
+  ponerComida();
+  marcador();
+}
+
+/* ══ COMIDA Y MUROS ══════════════════════════════════════════════════ */
+var COMIDA=null;
+function libre(x,y){
+  if(x<0||y<0||x>=COLS||y>=FILAS) return false;
+  for(var i=0;i<J.cuerpo.length;i++) if(J.cuerpo[i].x===x&&J.cuerpo[i].y===y) return false;
+  for(var k=0;k<J.muros.length;k++) if(J.muros[k].x===x&&J.muros[k].y===y) return false;
+  return true;
+}
+function ponerComida(){
+  var libres=[];
+  for(var x=0;x<COLS;x++) for(var y=0;y<FILAS;y++) if(libre(x,y)) libres.push({x:x,y:y});
+  if(!libres.length){ ganar(); return; }
+  var p=libres[Math.floor(Math.random()*libres.length)];
+  /* El tipo sale por peso; lo bueno es raro */
+  var tot=COMIDAS.reduce(function(a,c){ return a+c.peso; },0), r=Math.random()*tot, acc=0, tipo=COMIDAS[0];
+  for(var i=0;i<COMIDAS.length;i++){ acc+=COMIDAS[i].peso; if(r<acc){ tipo=COMIDAS[i]; break; } }
+  COMIDA={ x:p.x, y:p.y, tipo:tipo, nace:J.t };
+}
+function ponerMuro(){
+  var libres=[];
+  for(var x=1;x<COLS-1;x++) for(var y=1;y<FILAS-1;y++){
+    if(!libre(x,y)) continue;
+    if(COMIDA && Math.abs(COMIDA.x-x)<2 && Math.abs(COMIDA.y-y)<2) continue;
+    var cab=J.cuerpo[0];
+    if(Math.abs(cab.x-x)<4 && Math.abs(cab.y-y)<4) continue;
+    libres.push({x:x,y:y});
+  }
+  if(libres.length) J.muros.push(libres[Math.floor(Math.random()*libres.length)]);
+}
+
+/* ══ SONIDO ══════════════════════════════════════════════════════════ */
+var AC=null;
+function tono(f, dur, tipo, vol, desliz){
+  if(!SONIDO) return;
+  try{
+    if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended') AC.resume();
+    var o=AC.createOscillator(), gn=AC.createGain();
+    o.type=tipo||'square'; o.frequency.setValueAtTime(f, AC.currentTime);
+    if(desliz) o.frequency.exponentialRampToValueAtTime(desliz, AC.currentTime+(dur||.1));
+    gn.gain.setValueAtTime(0, AC.currentTime);
+    gn.gain.linearRampToValueAtTime(vol||.05, AC.currentTime+.01);
+    gn.gain.exponentialRampToValueAtTime(.0001, AC.currentTime+(dur||.1));
+    o.connect(gn); gn.connect(AC.destination);
+    o.start(); o.stop(AC.currentTime+(dur||.1)+.02);
+  }catch(e){}
+}
+var sn={
+  come:function(n){ tono(420+Math.min(n,12)*45, .09, 'square', .05); },
+  oro :function(){ [660,880,1175].forEach(function(f,i){
+          setTimeout(function(){ tono(f,.12,'triangle',.06); }, i*70); }); },
+  giro:function(){ tono(180, .035, 'sine', .022); },
+  mal :function(){ tono(220, .5, 'sawtooth', .07, 55); },
+  nivel:function(){ tono(523,.1,'triangle',.05); setTimeout(function(){ tono(784,.16,'triangle',.05); },90); }
+};
+
+/* ══ PARTÍCULAS ══════════════════════════════════════════════════════ */
+var PART=[], ONDAS=[], TEXTOS=[];
+function chispas(x, y, color, n, fuerza){
+  if(QUIETO) return;
+  for(var i=0;i<n;i++){
+    var a=Math.random()*6.2832, v=(Math.random()*0.7+0.3)*(fuerza||1);
+    PART.push({ x:x, y:y, vx:Math.cos(a)*v, vy:Math.sin(a)*v,
+      vida:1, color:color, r:Math.random()*2.6+1.2 });
+  }
+}
+function onda(x,y,color){ ONDAS.push({x:x,y:y,r:0,vida:1,color:color}); }
+function texto(x,y,t,color){ TEXTOS.push({x:x,y:y,t:t,color:color,vida:1}); }
+
+/* ══ LÓGICA ══════════════════════════════════════════════════════════ */
+var COLA_DIR=[];
+function dir(dx, dy){
+  var ult = COLA_DIR.length ? COLA_DIR[COLA_DIR.length-1] : J && J.dir;
+  if(!ult) return;
+  if(ult.x===-dx && ult.y===-dy) return;          // no se puede devolver
+  if(ult.x===dx && ult.y===dy) return;
+  if(COLA_DIR.length<3){ COLA_DIR.push({x:dx,y:dy}); sn.giro(); }
+  if(!CORRIENDO && J && J.vivo && !PAUSA) arrancar();
+}
+
+function paso(){
+  if(COLA_DIR.length) J.dir=COLA_DIR.shift();
+  J.previo=J.cuerpo.map(function(c){ return {x:c.x,y:c.y}; });
+
+  var cab=J.cuerpo[0], nx=cab.x+J.dir.x, ny=cab.y+J.dir.y;
+
+  if(nx<0||ny<0||nx>=COLS||ny>=FILAS){
+    if(PAREDES) return morir(nx,ny);
+    nx=(nx+COLS)%COLS; ny=(ny+FILAS)%FILAS;
+  }
+  for(var k=0;k<J.muros.length;k++)
+    if(J.muros[k].x===nx && J.muros[k].y===ny) return morir(nx,ny);
+  /* La cola se mueve: chocar con la última casilla no cuenta */
+  var hasta=J.cuerpo.length-(J.crecer>0?0:1);
+  for(var i=0;i<hasta;i++)
+    if(J.cuerpo[i].x===nx && J.cuerpo[i].y===ny) return morir(nx,ny);
+
+  J.cuerpo.unshift({x:nx, y:ny});
+  if(J.crecer>0) J.crecer--; else J.cuerpo.pop();
+
+  if(COMIDA && COMIDA.x===nx && COMIDA.y===ny) comer();
+  J.largo=J.cuerpo.length;
+}
+
+function comer(){
+  var t=COMIDA.tipo, ahora=performance.now();
+  /* Cadena: si no te demoras, cada fruta vale más */
+  J.cadena = (ahora-J.ultComida < J.paso*9) ? Math.min(9, J.cadena+1) : 1;
+  J.ultComida=ahora;
+  if(J.cadena>J.mejorCadena) J.mejorCadena=J.cadena;
+  J.pts += t.pts*J.cadena;
+  J.comidas++;
+
+  var px=(COMIDA.x+.5)*C, py=(COMIDA.y+.5)*C;
+  onda(px,py,t.brillo);
+  chispas(px, py, t.color, 16, 1.6);
+  texto(px, py, '+'+(t.pts*J.cadena)+(J.cadena>1? ' ×'+J.cadena : ''),
+        J.cadena>1? '#FFD166' : t.brillo);
+
+  if(t.t==='oro'){ J.crecer+=3; sn.oro(); aviso('¡Oro! ×'+J.cadena); }
+  else if(t.t==='hielo'){ J.crecer+=1; J.lento=240; sn.oro(); aviso('Tiempo lento'); }
+  else if(t.t==='rayo'){
+    J.crecer+=1;
+    var quita=Math.min(4, J.cuerpo.length-3);
+    for(var q=0;q<quita;q++) J.cuerpo.pop();
+    sn.oro(); aviso('Más corta');
+  } else { J.crecer+=1; sn.come(J.comidas); }
+
+  /* Más larga, más rápida; y cada 5 frutas, un muro si está puesto */
+  var antes=nivel();
+  J.paso=Math.max(62, 150-J.cuerpo.length*2.2);
+  if(nivel()>antes){ sn.nivel(); aviso('Nivel '+nivel()); }
+  if(OBST && J.comidas%5===0) ponerMuro();
+
+  ponerComida();
+  marcador();
+}
+function nivel(){ return Math.min(9, 1+Math.floor(J.comidas/5)); }
+
+function morir(nx, ny){
+  J.vivo=false; CORRIENDO=false;
+  sn.mal();
+  var x=Math.max(0,Math.min(COLS-1,nx)), y=Math.max(0,Math.min(FILAS-1,ny));
+  chispas((x+.5)*C, (y+.5)*C, '#FF3D9A', 40, 2.6);
+  J.cuerpo.forEach(function(c,i){
+    setTimeout(function(){ chispas((c.x+.5)*C,(c.y+.5)*C,'#39FF9E',6,1.4); }, i*22);
+  });
+  if(!QUIETO){
+    marco.classList.add('sacude');
+    setTimeout(function(){ marco.classList.remove('sacude'); }, 340);
+    var f=document.getElementById('flash');
+    f.classList.add('on');
+    requestAnimationFrame(function(){ f.classList.remove('on'); });
+  }
+  var r=record();
+  var nuevo = J.pts>r;
+  if(nuevo) guardarRecord(J.pts);
+  guardarStats(J.pts, J.comidas);
+  setTimeout(function(){ finPanel(nuevo); }, 820);
+}
+function ganar(){
+  J.vivo=false; CORRIENDO=false;
+  if(J.pts>record()) guardarRecord(J.pts);
+  panel('<h2>Llenaste <i>el tablero</i></h2>'
+    +'<p>No queda una sola casilla libre. Eso no lo logra cualquiera.</p>'
+    +tarjetas()+'<div class="ops"><button class="op sel" onclick="S.otra()">Otra vez</button></div>');
+}
+
+/* ══ BUCLE ═══════════════════════════════════════════════════════════ */
+function arrancar(){
+  if(CORRIENDO || !J || !J.vivo) return;
+  CORRIENDO=true; PAUSA=false; ULT=performance.now(); ACUM=0;
+  document.getElementById('b-pau').textContent='⏸ Pausa';
+  if(!RAF) RAF=requestAnimationFrame(bucle);
+}
+function bucle(ahora){
+  RAF=requestAnimationFrame(bucle);
+  var dt=Math.min(64, ahora-ULT); ULT=ahora;
+  if(J){
+    J.t+=dt;
+    if(J.lento>0) J.lento-=dt;
+    if(CORRIENDO && !PAUSA && J.vivo){
+      var ritmo = J.lento>0 ? J.paso*1.55 : J.paso;
+      ACUM+=dt;
+      var vueltas=0;
+      while(ACUM>=ritmo && vueltas++<4){ ACUM-=ritmo; if(J.vivo) paso(); }
+      if(!J.vivo) ACUM=0;
+    }
+    pintar(CORRIENDO && !PAUSA && J.vivo ? Math.min(1, ACUM/(J.lento>0?J.paso*1.55:J.paso)) : 1);
+  }
+}
+
+/* ══ DIBUJO ══════════════════════════════════════════════════════════ */
+function lerp(a,b,t){ return a+(b-a)*t; }
+/* La posición suave de un anillo: entre donde estaba y donde está.
+   Si acaba de cruzar un borde sin paredes, no se interpola el salto. */
+function pos(i, alfa){
+  var c=J.cuerpo[i], p=J.previo[i] || c;
+  if(Math.abs(c.x-p.x)>1 || Math.abs(c.y-p.y)>1) return {x:c.x, y:c.y};
+  return { x:lerp(p.x,c.x,alfa), y:lerp(p.y,c.y,alfa) };
+}
+
+function pintar(alfa){
+  var W=COLS*C, H=FILAS*C;
+  g.clearRect(0,0,W,H);
+
+  /* Fondo con una luz que respira bajo la cabeza */
+  var cab=J.cuerpo.length? pos(0,alfa) : {x:0,y:0};
+  var lg=g.createRadialGradient((cab.x+.5)*C,(cab.y+.5)*C,0,(cab.x+.5)*C,(cab.y+.5)*C,C*9);
+  lg.addColorStop(0,'rgba(57,255,158,.09)'); lg.addColorStop(1,'transparent');
+  g.fillStyle='#070A16'; g.fillRect(0,0,W,H);
+  g.fillStyle=lg; g.fillRect(0,0,W,H);
+
+  /* Esquinas del tablero */
+  g.strokeStyle='rgba(57,255,158,.35)'; g.lineWidth=2.4; g.lineCap='round';
+  var L=C*0.9;
+  [[0,0,1,1],[W,0,-1,1],[0,H,1,-1],[W,H,-1,-1]].forEach(function(q){
+    g.beginPath();
+    g.moveTo(q[0]+q[2]*L, q[1]+q[3]*2);
+    g.lineTo(q[0]+q[2]*2, q[1]+q[3]*2);
+    g.lineTo(q[0]+q[2]*2, q[1]+q[3]*L);
+    g.stroke();
+  });
+
+  /* Rejilla */
+  g.strokeStyle='rgba(130,170,255,.055)'; g.lineWidth=1;
+  g.beginPath();
+  for(var x=1;x<COLS;x++){ g.moveTo(x*C+.5,0); g.lineTo(x*C+.5,H); }
+  for(var y=1;y<FILAS;y++){ g.moveTo(0,y*C+.5); g.lineTo(W,y*C+.5); }
+  g.stroke();
+
+  /* Muros */
+  J.muros.forEach(function(m){
+    var x=m.x*C, y=m.y*C;
+    g.fillStyle='rgba(155,107,255,.2)';
+    redondo(x+2,y+2,C-4,C-4,5); g.fill();
+    g.strokeStyle='rgba(155,107,255,.75)'; g.lineWidth=1.6;
+    redondo(x+2,y+2,C-4,C-4,5); g.stroke();
+  });
+
+  /* Ondas de la comida */
+  for(var o=ONDAS.length-1;o>=0;o--){
+    var w=ONDAS[o];
+    w.r+=C*0.09; w.vida-=0.035;
+    if(w.vida<=0){ ONDAS.splice(o,1); continue; }
+    g.beginPath(); g.arc(w.x,w.y,w.r,0,6.2832);
+    g.strokeStyle=w.color; g.globalAlpha=Math.max(0,w.vida)*.55; g.lineWidth=2.2;
+    g.stroke(); g.globalAlpha=1;
+  }
+
+  if(COMIDA) pintarComida();
+  if(J.cuerpo.length) pintarSerpiente(alfa);
+  pintarChispas();
+  pintarTextos();
+}
+
+function redondo(x,y,w,h,r){
+  g.beginPath();
+  g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();
+}
+
+function pintarComida(){
+  var t=COMIDA.tipo, x=(COMIDA.x+.5)*C, y=(COMIDA.y+.5)*C;
+  var pulso=0.5+0.5*Math.sin(J.t/170);
+  var r=C*0.30+C*0.05*pulso;
+  g.save();
+  g.shadowColor=t.color; g.shadowBlur=C*0.9*(0.6+0.4*pulso);
+  var gr=g.createRadialGradient(x-r*.3,y-r*.35,r*.1,x,y,r);
+  gr.addColorStop(0,t.brillo); gr.addColorStop(1,t.color);
+  g.fillStyle=gr;
+  g.beginPath(); g.arc(x,y,r,0,6.2832); g.fill();
+  g.restore();
+  /* Los especiales llevan su marca */
+  if(t.t!=='normal'){
+    g.fillStyle='rgba(10,12,24,.82)';
+    g.font='700 '+Math.round(C*.42)+'px var(--sans),sans-serif';
+    g.textAlign='center'; g.textBaseline='middle';
+    g.fillText(t.t==='oro'?'★':t.t==='hielo'?'❄':'⚡', x, y+C*.02);
+  }
+}
+
+function pintarSerpiente(alfa){
+  var n=J.cuerpo.length, pts=[];
+  for(var i=0;i<n;i++){
+    var p=pos(i,alfa);
+    pts.push({ x:(p.x+.5)*C, y:(p.y+.5)*C });
+  }
+  /* Resplandor */
+  if(!QUIETO){
+    g.save();
+    g.strokeStyle='rgba(57,255,158,.16)'; g.lineWidth=C*0.98;
+    g.lineJoin='round'; g.lineCap='round';
+    trazo(pts); g.stroke();
+    g.restore();
+  }
+  /* Cuerpo: cada tramo con su grosor y su color, de la cabeza a la cola */
+  g.lineJoin='round'; g.lineCap='round';
+  for(var k=0;k<n-1;k++){
+    var f=k/Math.max(1,n-1);
+    var saltó = Math.abs(pts[k].x-pts[k+1].x)>C*1.6 || Math.abs(pts[k].y-pts[k+1].y)>C*1.6;
+    if(saltó) continue;                       // acaba de cruzar el borde
+    var grosor=C*(0.78-0.33*f);
+    g.strokeStyle=mezcla([57,255,158],[0,150,190], f*0.9);
+    g.lineWidth=grosor;
+    g.beginPath(); g.moveTo(pts[k].x,pts[k].y); g.lineTo(pts[k+1].x,pts[k+1].y); g.stroke();
+  }
+  /* El brillo que le corre por encima, más fino hacia la cola */
+  g.strokeStyle='rgba(225,255,245,.22)';
+  for(var k2=0;k2<n-1;k2++){
+    if(Math.abs(pts[k2].x-pts[k2+1].x)>C*1.6 || Math.abs(pts[k2].y-pts[k2+1].y)>C*1.6) continue;
+    g.lineWidth=C*(0.26-0.16*(k2/Math.max(1,n-1)));
+    g.beginPath(); g.moveTo(pts[k2].x,pts[k2].y); g.lineTo(pts[k2+1].x,pts[k2+1].y); g.stroke();
+  }
+  /* Cabeza */
+  var h=pts[0], d=J.dir;
+  g.save();
+  g.shadowColor='#39FF9E'; g.shadowBlur=C*0.8;
+  g.fillStyle='#8FFFD0';
+  g.beginPath(); g.arc(h.x,h.y,C*0.42,0,6.2832); g.fill();
+  g.restore();
+  /* Ojos mirando a donde va */
+  var ex=d.x*C*0.14, ey=d.y*C*0.14;
+  var px=-d.y*C*0.16, py=d.x*C*0.16;
+  var guiño = (J.t%3400)<110 ? 0.25 : 1;
+  [[1,1],[-1,-1]].forEach(function(s,i){
+    var ox=h.x+ex+px*(i?1:-1), oy=h.y+ey+py*(i?1:-1);
+    g.fillStyle='#06180F';
+    g.beginPath(); g.ellipse(ox,oy,C*0.1,C*0.1*guiño,0,0,6.2832); g.fill();
+    if(guiño>.5){
+      g.fillStyle='#EAFFF5';
+      g.beginPath(); g.arc(ox+d.x*C*0.03-C*0.02, oy+d.y*C*0.03-C*0.02, C*0.034, 0, 6.2832); g.fill();
+    }
+  });
+}
+function trazo(pts){
+  g.beginPath();
+  var roto=false;
+  for(var i=0;i<pts.length;i++){
+    if(i && (Math.abs(pts[i].x-pts[i-1].x)>C*1.6 || Math.abs(pts[i].y-pts[i-1].y)>C*1.6)) roto=true;
+    if(i===0 || roto){ g.moveTo(pts[i].x,pts[i].y); roto=false; }
+    else g.lineTo(pts[i].x,pts[i].y);
+  }
+}
+function mezcla(a,b,t){
+  return 'rgb('+Math.round(lerp(a[0],b[0],t))+','+Math.round(lerp(a[1],b[1],t))
+    +','+Math.round(lerp(a[2],b[2],t))+')';
+}
+function pintarTextos(){
+  for(var i=TEXTOS.length-1;i>=0;i--){
+    var t=TEXTOS[i];
+    t.y-=C*0.012; t.vida-=0.016;
+    if(t.vida<=0){ TEXTOS.splice(i,1); continue; }
+    g.globalAlpha=Math.min(1, t.vida*1.6);
+    g.font='800 '+Math.round(C*0.42)+'px var(--sans),sans-serif';
+    g.textAlign='center'; g.textBaseline='middle';
+    g.lineWidth=Math.max(2, C*0.09); g.strokeStyle='rgba(4,8,16,.85)';
+    g.strokeText(t.t, t.x, t.y);
+    g.fillStyle=t.color; g.fillText(t.t, t.x, t.y);
+  }
+  g.globalAlpha=1;
+}
+function pintarChispas(){
+  for(var i=PART.length-1;i>=0;i--){
+    var p=PART[i];
+    p.x+=p.vx*C*0.12; p.y+=p.vy*C*0.12; p.vy+=0.06; p.vida-=0.028;
+    if(p.vida<=0){ PART.splice(i,1); continue; }
+    g.globalAlpha=Math.max(0,p.vida);
+    g.fillStyle=p.color;
+    g.beginPath(); g.arc(p.x,p.y,p.r*p.vida,0,6.2832); g.fill();
+  }
+  g.globalAlpha=1;
+}
+
+/* ══ MARCADOR ════════════════════════════════════════════════════════ */
+function marcador(){
+  document.getElementById('m-p').textContent=J.pts;
+  document.getElementById('m-r').textContent=record();
+  document.getElementById('m-l').textContent=J.cuerpo.length;
+  document.getElementById('m-c').textContent='×'+J.cadena;
+}
+var avT=null;
+function aviso(t){
+  var a=document.getElementById('aviso');
+  a.textContent=t; a.classList.add('on');
+  clearTimeout(avT); avT=setTimeout(function(){ a.classList.remove('on'); }, 1100);
+}
+
+/* ══ RÉCORD Y ESTADÍSTICAS ═══════════════════════════════════════════ */
+function record(){ try{ return +(localStorage.getItem('serpiente-record')||0); }catch(e){ return 0; } }
+function guardarRecord(p){ try{ localStorage.setItem('serpiente-record', p); }catch(e){} }
+function leerStats(){
+  var d={ partidas:0, frutas:0, total:0 };
+  try{
+    var v=JSON.parse(localStorage.getItem('serpiente-stats')||'null');
+    if(v) for(var k in d) if(v[k]!=null) d[k]=v[k];
+  }catch(e){}
+  return d;
+}
+function guardarStats(p, f){
+  var s=leerStats(); s.partidas++; s.frutas+=f; s.total+=p;
+  try{ localStorage.setItem('serpiente-stats', JSON.stringify(s)); }catch(e){}
+}
+
+/* ══ PANELES ═════════════════════════════════════════════════════════ */
+function panel(html){
+  document.getElementById('panel').innerHTML=html;
+  document.getElementById('velo').classList.add('on');
+}
+function cerrar(){ document.getElementById('velo').classList.remove('on'); }
+function tarjetas(){
+  return '<div class="rej">'
+    +'<div class="c"><div class="k">Puntos</div><div class="v">'+J.pts+'</div></div>'
+    +'<div class="c"><div class="k">Largo</div><div class="v">'+J.cuerpo.length+'</div></div>'
+    +'<div class="c"><div class="k">Mejor cadena</div><div class="v">×'+J.mejorCadena+'</div></div>'
+  +'</div>';
+}
+
+function menu(){
+  CORRIENDO=false;
+  var st=leerStats();
+  panel('<h2>Serpiente <i>Neón</i></h2>'
+    +'<p>Flechas o <b>WASD</b>. Desliza el dedo si estás en el celular.<br>'
+    +'Come rápido y la <b>cadena</b> multiplica cada fruta.</p>'
+    +'<div class="ops">'
+      +'<button class="op'+(PAREDES?' sel':'')+'" onclick="S.paredes(1)">Con paredes</button>'
+      +'<button class="op'+(PAREDES?'':' sel')+'" onclick="S.paredes(0)">Sin paredes</button>'
+      +'<button class="op'+(OBST?' sel':'')+'" onclick="S.obst()">Obstáculos</button>'
+    +'</div>'
+    +'<div class="rej">'
+      +'<div class="c"><div class="k">Récord</div><div class="v">'+record()+'</div></div>'
+      +'<div class="c"><div class="k">Partidas</div><div class="v">'+st.partidas+'</div></div>'
+      +'<div class="c"><div class="k">Frutas</div><div class="v">'+st.frutas+'</div></div>'
+    +'</div>'
+    +'<div class="ops"><button class="op sel" onclick="S.otra()">Jugar</button></div>'
+    +'<div class="sello">'
+      +'<span class="tec">★</span> oro, vale 5 veces &nbsp; '
+      +'<span class="tec">❄</span> frena el tiempo &nbsp; '
+      +'<span class="tec">⚡</span> te acorta<br>'
+      +'<span class="tec">espacio</span> pausa &nbsp; <span class="tec">R</span> nueva &nbsp; '
+      +'<span class="tec">M</span> silencio</div>');
+}
+function finPanel(nuevo){
+  panel('<h2>'+(nuevo?'¡Nuevo <i>récord</i>!':'Se acabó')+'</h2>'
+    +'<p>'+(nuevo? 'Le ganaste a tu mejor marca.'
+        : 'Récord actual: <b>'+record()+'</b>. Te faltaron '+(record()-J.pts)+'.')+'</p>'
+    +tarjetas()
+    +'<div class="ops">'
+      +'<button class="op sel" onclick="S.otra()">Otra vez</button>'
+      +'<button class="op" onclick="S.menu()">Opciones</button>'
+    +'</div>'
+    +'<div class="sello">'+J.comidas+' frutas · nivel '+nivel()+'</div>');
+}
+
+/* ══ ENTRADA ═════════════════════════════════════════════════════════ */
+var TECLAS={
+  arrowup:[0,-1], w:[0,-1], arrowdown:[0,1], s:[0,1],
+  arrowleft:[-1,0], a:[-1,0], arrowright:[1,0], d:[1,0]
+};
+addEventListener('keydown', function(ev){
+  var k=ev.key.toLowerCase();
+  if(TECLAS[k]){ ev.preventDefault(); dir(TECLAS[k][0], TECLAS[k][1]); return; }
+  if(k===' '){ ev.preventDefault(); pausa(); }
+  else if(k==='r'){ ev.preventDefault(); otra(); }
+  else if(k==='m'){ sonido(); }
+  else if(k==='escape'){ if(J&&J.vivo&&CORRIENDO) pausa(); }
+});
+/* Deslizar el dedo */
+var tq=null;
+marco.addEventListener('pointerdown', function(e){ tq={x:e.clientX,y:e.clientY}; });
+marco.addEventListener('pointerup', function(e){
+  if(!tq) return;
+  var dx=e.clientX-tq.x, dy=e.clientY-tq.y; tq=null;
+  if(Math.abs(dx)<18 && Math.abs(dy)<18){
+    if(J && J.vivo && !document.getElementById('velo').classList.contains('on')) pausa();
+    return;
+  }
+  if(Math.abs(dx)>Math.abs(dy)) dir(dx>0?1:-1, 0); else dir(0, dy>0?1:-1);
+});
+
+function pausa(){
+  if(!J || !J.vivo) return;
+  if(document.getElementById('velo').classList.contains('on')) return;
+  PAUSA=!PAUSA;
+  document.getElementById('b-pau').textContent = PAUSA? '▶ Seguir' : '⏸ Pausa';
+  if(PAUSA) aviso('En pausa'); else { ULT=performance.now(); aviso('Vamos'); }
+}
+function otra(){
+  cerrar(); medir(); nueva();
+  CORRIENDO=false; PAUSA=false;
+  if(!RAF) RAF=requestAnimationFrame(bucle);
+  pintar(1);
+  aviso('Mueve para arrancar');
+}
+function sonido(){
+  SONIDO=!SONIDO;
+  document.getElementById('b-snd').textContent = SONIDO? '🔊':'🔇';
+  if(SONIDO) sn.giro();
+}
+
+addEventListener('resize', function(){
+  var antes=COLS+'x'+FILAS;
+  medir();
+  if(!J) return;
+  if(antes!==COLS+'x'+FILAS){ nueva(); CORRIENDO=false; aviso('Tablero nuevo'); }
+  pintar(1);
+});
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden && J && J.vivo && CORRIENDO && !PAUSA) pausa();
+});
+
+return {
+  inicio:function(){
+    medir(); nueva(); pintar(1);
+    if(!RAF) RAF=requestAnimationFrame(bucle);
+    menu();
+  },
+  dir:dir, pausa:pausa, otra:otra, menu:menu, sonido:sonido,
+  paredes:function(v){ PAREDES=!!v; menu(); },
+  obst:function(){ OBST=!OBST; menu(); },
+  /* para las pruebas */
+  _j:function(){ return J; }, _c:function(){ return COMIDA; },
+  _paso:function(){ paso(); },
+  _congelar:function(){ CORRIENDO=false; PAUSA=false; COLA_DIR.length=0; },
+  _pintarYa:function(){ marcador(); pintar(1); }, _rejilla:function(){ return {c:COLS,f:FILAS}; },
+  _corre:function(){ return CORRIENDO && !PAUSA; }
+};
+})();
+
+S.inicio();
+</script>
+</body>
+</html>

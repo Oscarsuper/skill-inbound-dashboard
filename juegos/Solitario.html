@@ -761,8 +761,11 @@ mesa.addEventListener('pointerup', finArrastre);
 mesa.addEventListener('pointercancel', function(){ if(AR){ var a=AR; AR=null;
   a.base.forEach(function(b){ b.el.classList.remove('arrastre'); }); pintar(); } });
 
+/* Gana la pila sobre la que la carta queda más montada. Si no toca
+   ninguna válida, la carta se devuelve: soltarla en el aire no la manda
+   a la otra punta de la mesa. */
 function pilaCerca(x, y, cartas){
-  var c=cartas[0], mejor=null, area=0, cerca=null, dist=1e9;
+  var c=cartas[0], mejor=null, area=0;
   var probar=function(id, px, py, ph, ok){
     if(!ok) return;
     /* Cuánto se monta la carta sobre esta pila */
@@ -770,9 +773,6 @@ function pilaCerca(x, y, cartas){
     var iy=Math.max(0, Math.min(y+CH, py+ph)-Math.max(y, py));
     var a=ix*iy;
     if(a>area){ area=a; mejor=id; }
-    /* Y por si la soltó al lado, sin tocar nada */
-    var d=Math.hypot((x+CW/2)-(px+CW/2), (y+CH/2)-(py+ph/2));
-    if(d<dist){ dist=d; cerca=id; }
   };
   for(var i=0;i<4;i++)
     probar({t:'b',i:i}, colX(3+i), PY, CH, cartas.length===1 && cabeEnBase(c,i));
@@ -783,7 +783,7 @@ function pilaCerca(x, y, cartas){
     var alto=(col.length? alturaT(j, col.length-1) : 0)+CH*1.5;
     probar({t:'t',i:j}, colX(j), FY, alto, cabeEnTab(c,j));
   }
-  return area>0 ? mejor : (dist<CW*1.2 ? cerca : null);
+  return mejor;
 }
 function marcarDestino(x,y,cartas){
   var d=pilaCerca(x,y,cartas);

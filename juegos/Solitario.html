@@ -299,6 +299,14 @@ function motor(s){
 
 var J = (function(){
 
+/* FÁCIL: basta con que los colores se alternen, el número da igual, y en
+   una columna vacía entra cualquier carta.
+   CLÁSICO: además tiene que ir en orden, una menos que la de abajo, y en
+   la columna vacía solo entra un rey.                                  */
+var FACIL=true;
+try{ var g=localStorage.getItem('solitario-facil'); if(g!=null) FACIL=(g==='1'); }catch(e){}
+function guardarModo(){ try{ localStorage.setItem('solitario-facil', FACIL?'1':'0'); }catch(e){} }
+
 var mesa=document.getElementById('mesa');
 var E={};                      // id de carta → elemento
 var S=null;                    // el estado de la partida
@@ -533,11 +541,13 @@ function vivas(){
 }
 /* ¿De aquí hacia abajo hay una escalera descendente y alternada? */
 function corrida(col, i){
+  if(!col[i] || !col[i].up) return false;
   for(var k=i;k<col.length-1;k++){
     var a=col[k], b=col[k+1];
-    if(!b.up || a.v!==b.v+1 || rojo(a.p)===rojo(b.p)) return false;
+    if(!b.up || rojo(a.p)===rojo(b.p)) return false;
+    if(!FACIL && a.v!==b.v+1) return false;
   }
-  return col[i].up;
+  return true;
 }
 
 /* ══ REGLAS ══════════════════════════════════════════════════════════ */
@@ -548,6 +558,16 @@ function cabeEnBase(c, bi){
   return c.p===t.p && c.v===t.v+1;
 }
 function cabeEnTab(c, ti){
+  var col=S.t[ti];
+  if(!col.length) return FACIL ? true : c.v===13;
+  var t=col[col.length-1];
+  if(!t.up) return false;
+  return FACIL ? rojo(t.p)!==rojo(c.p)
+               : (t.v===c.v+1 && rojo(t.p)!==rojo(c.p));
+}
+/* El encaje de siempre. Aunque se juegue en fácil, es el que usan el clic
+   automático y la pista: así no te riegan la carta en cualquier parte. */
+function encaja(c, ti){
   var col=S.t[ti];
   if(!col.length) return c.v===13;
   var t=col[col.length-1];
@@ -658,7 +678,7 @@ function mejorDestino(c, soloBase){
   var cand=[];
   for(var j=0;j<7;j++){
     if(o && o.t==='t' && o.i===j) continue;
-    if(cabeEnTab(c,j)) cand.push(j);
+    if(encaja(c,j)) cand.push(j);
   }
   if(!cand.length) return null;
   cand.sort(function(a,b){ return (S.t[b].length?0:1)-(S.t[a].length?0:1); });
@@ -798,7 +818,7 @@ function buscarJugada(){
     var col2=S.t[i2];
     for(var k=0;k<col2.length;k++){
       if(!col2[k].up || !corrida(col2,k)) continue;
-      if(k===0 && col2[k].v===13) break;          // mover un K solo no sirve
+      if(k===0) break;                           // mudar la columna entera no sirve
       var d=mejorDestino(col2[k]);
       if(d && d.t==='t') return {c:col2[k], d:d};
       break;
@@ -1007,9 +1027,17 @@ function menu(){
   panel('<h2>Solitario <i>Klondike</i></h2>'
     +'<p>Arrastra, o toca una carta y ella sola busca su sitio.</p>'
     +'<div class="ops">'
+      +'<button class="op'+(FACIL?' sel':'')+'" onclick="J.modo(1)">Fácil</button>'
+      +'<button class="op'+(FACIL?'':' sel')+'" onclick="J.modo(0)">Clásico</button>'
       +'<button class="op'+(SACA===1?' sel':'')+'" onclick="J.saca(1)">Sacar de a 1</button>'
       +'<button class="op'+(SACA===3?' sel':'')+'" onclick="J.saca(3)">Sacar de a 3</button>'
     +'</div>'
+    +'<p style="margin:12px 0 0;font-size:11.5px">'+(FACIL
+      ? 'En <b>fácil</b> armas con cualquier rojo sobre cualquier negro —y al revés—, '
+        +'sin importar el número, y en una columna vacía entra la carta que sea.'
+      : 'En <b>clásico</b> cada carta va sobre una del otro color y un número más alta, '
+        +'y en la columna vacía solo entra un rey.')
+      +'<br>Las bases de arriba no cambian: del as al rey, cada palo por su lado.</p>'
     +'<div class="rej">'
       +'<div class="c"><div class="k">Ganadas</div><div class="v">'+st.gan+'</div></div>'
       +'<div class="c"><div class="k">De</div><div class="v">'+st.jug+'</div></div>'
@@ -1022,6 +1050,8 @@ function menu(){
     +'<div class="ops"><button class="op sel" onclick="J.otra()">Repartir</button>'
     +'<button class="op" onclick="J.cerrar()">Seguir jugando</button></div>'
     +'<div class="sello">Z deshacer · H pista · A terminar · N nueva · espacio roba</div>');
+  /* El menú se vuelve a dibujar al cambiar una opción, así que los botones
+     siempre muestran lo que de verdad está puesto. */
 }
 
 /* ══ TECLADO ═════════════════════════════════════════════════════════ */
@@ -1059,11 +1089,11 @@ return {
   },
   deshacer:deshacer, pista:pista, auto:auto, menu:menu, cerrar:cerrar,
   otra:otra, repetir:repetir,
-  saca:function(n){
-    SACA=n;
-    document.querySelectorAll('.ops .op').forEach(function(b){
-      if(/Sacar/.test(b.textContent)) b.classList.toggle('sel', b.textContent.indexOf(String(n))>=0);
-    });
+  saca:function(n){ SACA=n; menu(); },
+  modo:function(f){
+    FACIL=!!f; guardarModo();
+    if(S){ pintar(); botones(); }          // se aplica de una, sin repartir otra vez
+    menu();
   },
   sonido:function(){
     SONIDO=!SONIDO;

@@ -3504,6 +3504,1223 @@ K.inicio();
 </html>
 </script>
 
+<script type="text/plain" id="j-beisbol"><!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Béisbol · Estadio Nocturno</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   BÉISBOL
+   Un partido completo en un archivo. Se batea desde atrás del plato, con
+   la pelota que crece al venir, y cuando se conecta la cámara se va
+   arriba a ver dónde cae. También se lanza: uno escoge el pitcheo, lo
+   ubica y aguanta el pulso.
+   Nada de imágenes ni de sonidos grabados: el estadio, el crujido del
+   bate y la gente están hechos con código.
+   ══════════════════════════════════════════════════════════════════════ */
+:root{
+  --noche:#060913; --noche-2:#0B1324;
+  --grama:#1E7A3C; --grama-2:#176231; --tierra:#9A5F38; --tierra-2:#7E4B2B;
+  --cal:#F2F6FF; --luz:#FFF4D6;
+  --rojo:#E23D4C; --azul:#3D7BE2; --oro:#FFD166; --verde:#34D399;
+  --tinta:#EAF1FF; --tinta-2:#A4B6D6; --tinta-3:#64769A;
+  --vidrio:rgba(255,255,255,.06); --borde:rgba(150,185,255,.17);
+  --mono:'JetBrains Mono','Cascadia Mono',ui-monospace,'SF Mono',Consolas,monospace;
+  --sans:'Segoe UI Variable Display','Segoe UI',Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--sans);color:var(--tinta);user-select:none;background:var(--noche);
+  display:flex;flex-direction:column;touch-action:none}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+
+/* ══ MARCADOR ═════════════════════════════════════════════════════════ */
+#tope{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:8px 14px;flex-wrap:wrap;
+  background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.15));
+  border-bottom:1px solid rgba(150,185,255,.1);position:relative;z-index:20}
+.pizarra{display:flex;align-items:stretch;border-radius:11px;overflow:hidden;
+  border:1px solid var(--borde);background:rgba(4,8,18,.8)}
+.pizarra .eq{display:flex;flex-direction:column;justify-content:center;padding:5px 12px;min-width:104px}
+.pizarra .eq .n{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--tinta-3);
+  display:flex;align-items:center;gap:5px}
+.pizarra .eq .n i{width:7px;height:7px;border-radius:50%;background:var(--tinta-3);font-style:normal}
+.pizarra .eq.bat .n i{background:var(--oro);box-shadow:0 0 9px var(--oro)}
+.pizarra .eq .c{font-family:var(--mono);font-size:21px;font-weight:800;line-height:1.05}
+.pizarra .sep{width:1px;background:var(--borde)}
+.pizarra .ent{display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:5px 13px;background:rgba(255,255,255,.04)}
+.pizarra .ent .k{font-size:9px;letter-spacing:.14em;color:var(--tinta-3);text-transform:uppercase}
+.pizarra .ent .v{font-family:var(--mono);font-size:16px;font-weight:800}
+
+.cuenta{display:flex;gap:12px;align-items:center;padding:5px 13px;border-radius:11px;
+  border:1px solid var(--borde);background:var(--vidrio)}
+.cuenta .g{display:flex;flex-direction:column;gap:3px;align-items:center}
+.cuenta .g .k{font-size:8.5px;letter-spacing:.13em;color:var(--tinta-3);text-transform:uppercase}
+.cuenta .g .p{display:flex;gap:3px}
+.cuenta .g .p i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.17)}
+.cuenta .g.b .p i.on{background:var(--verde);box-shadow:0 0 8px var(--verde);border-color:var(--verde)}
+.cuenta .g.s .p i.on{background:var(--oro);box-shadow:0 0 8px var(--oro);border-color:var(--oro)}
+.cuenta .g.o .p i.on{background:var(--rojo);box-shadow:0 0 8px var(--rojo);border-color:var(--rojo)}
+
+#diamante{width:52px;height:52px;position:relative}
+#diamante .b{position:absolute;width:13px;height:13px;transform:rotate(45deg);
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);transition:all .3s}
+#diamante .b.on{background:var(--oro);border-color:var(--oro);box-shadow:0 0 12px var(--oro)}
+#diamante .b1{right:0;top:19px} #diamante .b2{left:19px;top:0} #diamante .b3{left:0;top:19px}
+#diamante .hp{position:absolute;left:19px;bottom:0;width:11px;height:11px;
+  background:rgba(255,255,255,.3);clip-path:polygon(0 0,100% 0,100% 55%,50% 100%,0 55%)}
+
+.acc{display:flex;gap:6px;margin-left:auto}
+.bt{padding:7px 12px;border-radius:9px;font-size:11.5px;font-weight:600;
+  background:var(--vidrio);border:1px solid var(--borde);transition:all .16s}
+.bt:hover{background:rgba(255,255,255,.12)}
+@media(max-width:860px){ .pizarra .eq{min-width:84px;padding:4px 9px} }
+
+/* ══ CAMPO ════════════════════════════════════════════════════════════ */
+#campo{flex:1;min-height:0;position:relative}
+#lienzo{display:block;width:100%;height:100%}
+#narra{
+  position:absolute;left:50%;top:14px;transform:translate(-50%,-14px);z-index:12;
+  padding:11px 24px;border-radius:13px;font-size:16px;font-weight:800;letter-spacing:-.01em;
+  background:rgba(5,10,22,.9);border:1px solid var(--borde);white-space:nowrap;
+  opacity:0;transition:opacity .3s,transform .3s;text-align:center;max-width:92vw;overflow:hidden}
+#narra.on{opacity:1;transform:translate(-50%,0)}
+#narra.grande{font-size:30px;padding:16px 34px;letter-spacing:-.02em;
+  border-color:var(--oro);color:var(--oro);box-shadow:0 0 50px -12px var(--oro);
+  animation:latir .5s ease-out}
+@keyframes latir{from{transform:translate(-50%,0) scale(.82)}to{transform:translate(-50%,0) scale(1)}}
+
+#guia{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:12;
+  padding:9px 18px;border-radius:11px;font-size:12.5px;font-weight:600;color:var(--tinta-2);
+  background:rgba(5,10,22,.82);border:1px solid var(--borde);white-space:nowrap}
+#guia b{color:var(--oro)}
+#pulso{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);z-index:12;
+  width:min(330px,80vw);height:17px;border-radius:9px;display:none;overflow:hidden;
+  border:1px solid var(--borde);background:rgba(4,8,18,.85)}
+#pulso.on{display:block}
+#pulso .zona{position:absolute;top:0;bottom:0;background:rgba(52,211,153,.3);
+  border-left:1px solid var(--verde);border-right:1px solid var(--verde)}
+#pulso .mar{position:absolute;top:-2px;bottom:-2px;width:3px;background:var(--cal);
+  box-shadow:0 0 10px var(--cal);border-radius:2px}
+
+/* ══ PANELES ══════════════════════════════════════════════════════════ */
+#velo{position:fixed;inset:0;display:none;place-items:center;padding:16px;z-index:40;
+  background:rgba(3,6,14,.8);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+#velo.on{display:grid}
+.panel{width:min(520px,100%);border-radius:20px;padding:26px;text-align:center;
+  background:linear-gradient(170deg,#0E1932,#070B16);border:1px solid rgba(255,209,102,.24);
+  box-shadow:0 40px 90px -34px #000, inset 0 1px 0 rgba(255,255,255,.07);
+  animation:sube .36s cubic-bezier(.2,1,.3,1) both;max-height:92vh;overflow:auto}
+@keyframes sube{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+.panel h2{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:5px}
+.panel h2 i{font-style:normal;color:var(--oro)}
+.panel p{font-size:12.5px;color:var(--tinta-2);line-height:1.75;margin-bottom:14px}
+.ops{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:12px 0}
+.op{padding:9px 15px;border-radius:10px;font-size:12px;font-weight:600;
+  background:var(--vidrio);border:1px solid var(--borde);transition:all .18s}
+.op.sel{border-color:var(--oro);background:rgba(255,209,102,.15);color:var(--oro)}
+.caja{border:1px solid var(--borde);border-radius:14px;overflow:hidden;margin:14px 0}
+.caja table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.caja th{background:rgba(255,255,255,.05);padding:7px 5px;font-size:9.5px;letter-spacing:.1em;
+  color:var(--tinta-3);font-weight:700;text-transform:uppercase}
+.caja td{padding:7px 5px;text-align:center;border-top:1px solid rgba(150,185,255,.1)}
+.caja td.eq{text-align:left;padding-left:12px;font-family:var(--sans);font-weight:700;font-size:12px}
+.caja td.tot{font-weight:800;color:var(--oro);background:rgba(255,255,255,.035)}
+.sello{font-size:10.5px;color:var(--tinta-3);font-family:var(--mono);line-height:1.9;margin-top:10px}
+.tec{display:inline-block;padding:1px 6px;border-radius:5px;border:1px solid var(--borde);
+  background:rgba(255,255,255,.05);font-size:10px;margin:0 1px}
+</style>
+</head>
+<body>
+
+<div id="tope">
+  <div class="pizarra">
+    <div class="eq" id="eq-v"><div class="n"><i></i><span id="n-v">Visitante</span></div>
+      <div class="c" id="c-v">0</div></div>
+    <div class="sep"></div>
+    <div class="eq" id="eq-l"><div class="n"><i></i><span id="n-l">Local</span></div>
+      <div class="c" id="c-l">0</div></div>
+    <div class="sep"></div>
+    <div class="ent"><div class="k">Entrada</div><div class="v" id="m-ent">▲1</div></div>
+  </div>
+
+  <div class="cuenta">
+    <div class="g b"><div class="k">Bolas</div><div class="p" id="p-b"></div></div>
+    <div class="g s"><div class="k">Strikes</div><div class="p" id="p-s"></div></div>
+    <div class="g o"><div class="k">Outs</div><div class="p" id="p-o"></div></div>
+  </div>
+
+  <div id="diamante">
+    <div class="b b1" id="d1"></div><div class="b b2" id="d2"></div>
+    <div class="b b3" id="d3"></div><div class="hp"></div>
+  </div>
+
+  <div class="acc">
+    <button class="bt" onclick="B.menu()">⟳ Nuevo</button>
+    <button class="bt" id="b-snd" onclick="B.sonido()">🔊</button>
+  </div>
+</div>
+
+<div id="campo">
+  <canvas id="lienzo"></canvas>
+  <div id="narra"></div>
+  <div id="pulso"><div class="zona"></div><div class="mar"></div></div>
+  <div id="guia"></div>
+</div>
+
+<div id="velo"><div class="panel" id="panel"></div></div>
+
+<script>
+var B = (function(){
+
+/* ══════════════════════════════════════════════════════════════════════
+   LIENZO Y PERSPECTIVA
+   El mundo se mide en metros: x a los lados, y hacia arriba, z hacia el
+   montículo. Para dibujar, todo se encoge según lo lejos que esté, que
+   es lo que hace que la pelota «venga» en vez de solo crecer.
+   ══════════════════════════════════════════════════════════════════════ */
+var cv=document.getElementById('lienzo'), g=cv.getContext('2d');
+var W=0, H=0, DPR=1, HOR=0, PLATO=0, ESC=1, CX=0;
+
+function medir(){
+  var c=document.getElementById('campo');
+  W=c.clientWidth; H=c.clientHeight;
+  DPR=Math.min(2, window.devicePixelRatio||1);
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+  g.setTransform(DPR,0,0,DPR,0,0);
+  CX=W/2; HOR=H*0.30; PLATO=H*0.86;
+  ESC=Math.min(W*0.19, H*0.31);      // píxeles por metro en el plato
+}
+/* Un punto del mundo a la pantalla */
+function proy(x,y,z){
+  var p=1/(1+z/6);          // a 18 m el lanzador se ve cuatro veces más chico
+  return { x:CX+x*ESC*p, y:HOR+(PLATO-HOR)*p-y*ESC*p, p:p };
+}
+
+/* ══ SONIDO ══════════════════════════════════════════════════════════ */
+var AC=null, SONIDO=true, RUIDO=null;
+function ac(){
+  if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(AC && AC.state==='suspended') AC.resume();
+  return AC;
+}
+function buffRuido(){
+  if(RUIDO) return RUIDO;
+  var a=ac(); if(!a) return null;
+  var n=a.sampleRate*2, b=a.createBuffer(1,n,a.sampleRate), d=b.getChannelData(0);
+  for(var i=0;i<n;i++) d[i]=Math.random()*2-1;
+  RUIDO=b; return b;
+}
+function tono(f,dur,tipo,vol,desliz){
+  if(!SONIDO) return; var a=ac(); if(!a) return;
+  var o=a.createOscillator(), gn=a.createGain();
+  o.type=tipo||'sine'; o.frequency.setValueAtTime(f,a.currentTime);
+  if(desliz) o.frequency.exponentialRampToValueAtTime(desliz,a.currentTime+dur);
+  gn.gain.setValueAtTime(0,a.currentTime);
+  gn.gain.linearRampToValueAtTime(vol||.07,a.currentTime+.008);
+  gn.gain.exponentialRampToValueAtTime(.0001,a.currentTime+dur);
+  o.connect(gn); gn.connect(a.destination); o.start(); o.stop(a.currentTime+dur+.02);
+}
+/* El crujido del bate: un golpe de ruido muy corto y muy filtrado */
+function crujido(fuerza){
+  if(!SONIDO) return; var a=ac(), b=buffRuido(); if(!a||!b) return;
+  var s=a.createBufferSource(); s.buffer=b;
+  var f=a.createBiquadFilter(); f.type='bandpass';
+  f.frequency.value=900+fuerza*2100; f.Q.value=1.4;
+  var gn=a.createGain();
+  gn.gain.setValueAtTime(0.0001,a.currentTime);
+  gn.gain.linearRampToValueAtTime(0.42*(0.5+fuerza*0.5),a.currentTime+0.004);
+  gn.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.14);
+  s.connect(f); f.connect(gn); gn.connect(a.destination);
+  s.start(); s.stop(a.currentTime+0.2);
+  tono(140+fuerza*90, .09, 'triangle', .1*(0.4+fuerza*0.6));
+}
+/* La gente: ruido rosa que sube y baja */
+function gentio(fuerza, dur){
+  if(!SONIDO) return; var a=ac(), b=buffRuido(); if(!a||!b) return;
+  var s=a.createBufferSource(); s.buffer=b; s.loop=true;
+  var f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=700+fuerza*900;
+  var f2=a.createBiquadFilter(); f2.type='highpass'; f2.frequency.value=180;
+  var gn=a.createGain(); gn.gain.setValueAtTime(0.0001,a.currentTime);
+  gn.gain.linearRampToValueAtTime(0.055*fuerza,a.currentTime+0.18);
+  gn.gain.setValueAtTime(0.055*fuerza,a.currentTime+dur*0.45);
+  gn.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+dur);
+  s.connect(f); f.connect(f2); f2.connect(gn); gn.connect(a.destination);
+  s.start(); s.stop(a.currentTime+dur+0.1);
+}
+function guante(){ tono(260,.07,'square',.05,120); }
+function organo(){
+  if(!SONIDO) return;
+  [392,523,659,784].forEach(function(f,i){
+    setTimeout(function(){ tono(f,.26,'triangle',.07); }, i*120); });
+}
+
+/* ══ EQUIPOS Y PARTIDO ═══════════════════════════════════════════════ */
+var NOMBRES=['Cóndores','Tiburones','Jaguares','Toros','Caimanes','Halcones','Lobos','Cafeteros'];
+var P=null, ENTRADAS=3;
+
+function nuevoPartido(ent){
+  ENTRADAS=ent||ENTRADAS;
+  var a=Math.floor(Math.random()*NOMBRES.length), b;
+  do{ b=Math.floor(Math.random()*NOMBRES.length); }while(b===a);
+  P={
+    vis:{ nom:NOMBRES[a], run:0, hits:0, hr:0, k:0 },     // tú bateas de visitante
+    loc:{ nom:NOMBRES[b], run:0, hits:0, hr:0, k:0 },
+    linea:[], ent:1, alta:true, outs:0, bolas:0, strikes:0,
+    bases:[false,false,false], fase:'listo', fin:false,
+    turnos:0, mejorBatazo:0
+  };
+  for(var i=0;i<ENTRADAS;i++) P.linea.push([null,null]);
+  document.getElementById('n-v').textContent=P.vis.nom;
+  document.getElementById('n-l').textContent=P.loc.nom;
+  hud();
+}
+function yoBateo(){ return P.alta; }          // visitante batea en la alta
+function atacante(){ return P.alta? P.vis : P.loc; }
+function defensor(){ return P.alta? P.loc : P.vis; }
+
+/* ══ HUD ═════════════════════════════════════════════════════════════ */
+function puntos(id,n,max){
+  var e=document.getElementById(id), h='';
+  for(var i=0;i<max;i++) h+='<i class="'+(i<n?'on':'')+'"></i>';
+  e.innerHTML=h;
+}
+function hud(){
+  document.getElementById('c-v').textContent=P.vis.run;
+  document.getElementById('c-l').textContent=P.loc.run;
+  document.getElementById('m-ent').textContent=(P.alta?'▲':'▼')+P.ent;
+  document.getElementById('eq-v').classList.toggle('bat', P.alta);
+  document.getElementById('eq-l').classList.toggle('bat', !P.alta);
+  puntos('p-b',P.bolas,3); puntos('p-s',P.strikes,2); puntos('p-o',P.outs,2);
+  for(var i=0;i<3;i++)
+    document.getElementById('d'+(i+1)).classList.toggle('on', !!P.bases[i]);
+}
+var narT=null;
+function narrar(t, grande){
+  var n=document.getElementById('narra');
+  n.textContent=t;
+  n.className='on'+(grande?' grande':'');
+  clearTimeout(narT);
+  narT=setTimeout(function(){ n.classList.remove('on'); }, grande?2600:1900);
+}
+function guia(t){ document.getElementById('guia').innerHTML=t; }
+
+/* ══ ESTADO DEL LANZAMIENTO ══════════════════════════════════════════ */
+var TIPOS=[
+  { id:'recta',  nom:'Recta',    vel:[140,152], curva:0.00, caida:0.00, col:'#FF6B6B' },
+  { id:'curva',  nom:'Curva',    vel:[118,128], curva:0.22, caida:0.55, col:'#5BD6FF' },
+  { id:'slider', nom:'Slider',   vel:[128,138], curva:0.46, caida:0.16, col:'#C4B5FD' },
+  { id:'cambio', nom:'Cambio',   vel:[112,122], curva:0.10, caida:0.30, col:'#FFD166' }
+];
+var L=null;                 // el lanzamiento en vuelo
+var BAT={ alto:0.95, swing:0, t0:0 };
+var VISTA='bateo';          // 'bateo' · 'campo'
+var BOLA=null;              // el batazo en el aire
+var FILDEO=null;
+var PULSO=null;             // la barra de pulso cuando uno lanza
+var EFECTOS=[], SACUDE=0, DESTELLO=0;
+
+function zonaAlta(){ return 1.05; }      // alto de la zona (m)
+function zonaBaja(){ return 0.50; }
+function zonaAncho(){ return 0.23; }     // medio ancho
+
+/* ══ LANZAR (la máquina lanza, tú bateas) ════════════════════════════ */
+function lanzarCPU(){
+  if(P.fin) return;
+  P.fase='vuelo';
+  var t=TIPOS[Math.floor(Math.random()*TIPOS.length)];
+  /* La máquina busca las esquinas; a veces se le va */
+  var falla=Math.random()<0.30;
+  var bx=(Math.random()<.5?-1:1)*(falla? 0.26+Math.random()*0.22 : 0.05+Math.random()*0.15);
+  var by=falla? (Math.random()<.5? 0.30+Math.random()*0.18 : 1.18+Math.random()*0.2)
+              : zonaBaja()+Math.random()*(zonaAlta()-zonaBaja());
+  disparar(t, bx, by, 0);
+}
+function disparar(tipo, bx, by, extra){
+  var v=tipo.vel[0]+Math.random()*(tipo.vel[1]-tipo.vel[0]);
+  var dur=(18.44/(v/3.6))*1000*1.28;       // algo más lento, para que se pueda batear
+  L={ tipo:tipo, vel:Math.round(v), bx:bx, by:by, t0:performance.now(), dur:dur,
+      lado:Math.random()<.5?-1:1, juzgado:false, extra:extra||0 };
+  BAT.swing=0;
+  tono(90,.05,'sine',.04);
+}
+/* Dónde está la pelota en un instante del vuelo */
+function posBola(u){
+  var t=L.tipo;
+  var z=18.44*(1-u);
+  /* Sale de la mano del lanzador y va al punto pedido, con su quiebre */
+  var x0=L.lado*0.35, y0=1.85;
+  var x=x0+(L.bx-x0)*u + t.curva*L.lado*Math.sin(u*Math.PI)*0.55;
+  var y=y0+(L.by-y0)*u - t.caida*(u*u)*0.75;
+  return { x:x, y:y, z:z };
+}
+
+/* ══ EL SWING ════════════════════════════════════════════════════════ */
+function batear(){
+  if(P.fase!=='vuelo' || !L || BAT.swing) return;
+  BAT.swing=performance.now();
+  BAT.t0=BAT.swing;
+  var u=(BAT.swing-L.t0)/L.dur;
+  resolverSwing(u);
+}
+function resolverSwing(u){
+  L.juzgado=true;                    // ya se decidió: el vuelo no vuelve a cantar
+  var err=(u-1)*L.dur;                       // ms: negativo = temprano
+  var b=posBola(Math.min(1,Math.max(0,u)));
+  var dy=Math.abs(b.y-BAT.alto);
+  var dx=Math.abs(b.x);
+
+  var aErr=Math.abs(err);
+  if(aErr>150 || dy>0.42){                   // ni le tocó
+    P.fase='listo';
+    tono(70,.08,'triangle',.04);
+    cantar(true);                            // swing: strike seguro
+    return;
+  }
+  /* Calidad: 1 es el centro del bate */
+  var qT=Math.max(0, 1-aErr/150);
+  var qY=Math.max(0, 1-dy/0.42);
+  var q=Math.pow(qT*0.62+qY*0.38, 1.25) * (1-Math.min(0.3, dx*0.5));
+  if(q<0.22){ P.fase='listo'; crujido(0.15); foul(); return; }
+  contacto(q, err, b);
+}
+
+/* ══ FÍSICA DEL BATAZO ═══════════════════════════════════════════════
+   De la calidad salen la velocidad de salida y el ángulo; de lo temprano
+   o tarde que se le pegue, hacia dónde va. Es la misma idea que usan los
+   datos de verdad: lo que decide un jonrón es velocidad más ángulo.     */
+/* De la calidad del contacto salen la velocidad y el ángulo; de lo
+   temprano o tarde que se le pegue, hacia dónde va. Es la misma idea de
+   los datos de verdad: lo que decide un batazo es velocidad más ángulo. */
+function calcBatazo(q, err, desnivel){
+  var salida=(55+q*103)/3.6;
+  var angulo=(10+q*22) - desnivel*55 + (Math.random()*10-5);
+  angulo=Math.max(-18, Math.min(70, angulo));
+  var dir=(-err/150)*42 + (Math.random()*10-5);
+  dir=Math.max(-52, Math.min(52, dir));
+  var rad=angulo*Math.PI/180;
+  var vy=salida*Math.sin(rad), vxz=salida*Math.cos(rad);
+  var t=(vy+Math.sqrt(vy*vy+2*9.81*1))/9.81;          // hasta que toca el suelo
+  /* El aire frena, y frena más mientras más alto sube: por eso un batazo
+     de 45° no llega más lejos que uno de 28°, aunque dure más en el aire. */
+  var k=0.78-0.26*Math.max(0,(angulo-28)/42);
+  return { salida:salida, angulo:angulo, dir:dir, t:t, dist:vxz*t*k };
+}
+/* Qué fue el batazo. Separado del resto para poder medirlo aparte. */
+/* Cuántas bases: el triple es lo que se va por el callejón y nadie
+   alcanza, por eso pide distancia, ángulo abierto y nadie cerca. */
+function bases(d, valla, dir, cerca){
+  var a=Math.abs(dir);
+  if(d>=valla*0.88 && cerca.dist>15 && a>12 && a<40) return 3;
+  return d>=valla*0.72 ? 2 : 1;
+}
+function clasificar(d, dir, ang, aire, salida){
+  if(Math.abs(dir)>45) return { t:'foul' };
+  var valla=valldist(dir);
+  if(d>=valla && ang>12) return { t:'jonron' };
+  var cerca=masCerca(d, dir);
+  /* Hasta dónde alcanza el más cercano: reacciona medio segundo y corre a
+     6,5 m/s, pero por mucho que vuele la pelota nadie cubre más de 16 m.
+     Ese tope es lo que hace que un batazo largo sea hit y no out. */
+  var alcance=Math.min(21, 2+Math.max(0, aire-0.45)*7.2);
+  if(ang>12 && cerca.dist<=alcance) return { t:'elevado', c:cerca };
+  /* Un globito corto lo agarra cualquiera, aunque dure poco en el aire */
+  if(ang>12 && d<45 && cerca.dist<13) return { t:'elevado', c:cerca };
+  if(ang<=12){
+    if(d<45){
+      /* Un rodado lento da tiempo de sobra para sacar el out en primera;
+         uno duro se cuela si nadie está cerca. */
+      var rango=(salida||40)<30 ? 13 : 8;
+      return cerca.dist<rango ? { t:'rodado', c:cerca } : { t:'hit', bases:1, c:cerca };
+    }
+    return { t:'hit', bases:bases(d,valla,dir,cerca), c:cerca };
+  }
+  return { t:'hit', bases:bases(d,valla,dir,cerca), c:cerca };
+}
+
+function contacto(q, err, b){
+  P.fase='batazo';
+  var r=calcBatazo(q, err, b.y-BAT.alto);
+  var salida=r.salida, angulo=r.angulo, dir=r.dir, t=r.t, dist=r.dist;
+
+  crujido(q);
+  guia('');                        // la vista de arriba no necesita estorbos
+  SACUDE=q*14;
+  BOLA={ dir:dir, dist:dist, t:t, salida:salida, angulo:angulo, q:q,
+         u:0, dur:Math.max(820, Math.min(2100, t*800)), t0:performance.now(), listo:false };
+  var pies=Math.round(dist*3.28084);
+  if(pies>P.mejorBatazo) P.mejorBatazo=pies;
+  setTimeout(function(){ VISTA='campo'; }, 120);
+  gentio(Math.min(1,q*1.2), 1.6);
+}
+
+/* Cuando la pelota cae, se decide qué pasó */
+function resolverBatazo(){
+  var r=clasificar(BOLA.dist, BOLA.dir, BOLA.angulo, BOLA.t, BOLA.salida);
+  if(r.t==='foul'){ foul(); volverBateo(); return; }
+  if(r.t==='jonron') return jonron();
+  if(r.t==='elevado') return elevado(r.c);
+  if(r.t==='rodado')  return rolata(r.c);
+  imparable(r.bases, r.c);
+}
+function valldist(dir){
+  var a=Math.abs(dir)/45;
+  return 115 - 20*a*a;                      // 115 m al centro, 95 a las esquinas
+}
+/* Los nueve, en su sitio de siempre (distancia en m y ángulo en grados) */
+var DEFENSA=[
+  { n:'lanzador',   d:18, a:0   }, { n:'receptor',   d:2,  a:0 },
+  { n:'primera',    d:26, a:38  }, { n:'segunda',    d:35, a:20 },
+  { n:'campocorto', d:35, a:-20 }, { n:'tercera',    d:26, a:-38 },
+  { n:'jardín izquierdo', d:78, a:-30 },
+  { n:'jardín central',   d:86, a:0   },
+  { n:'jardín derecho',   d:78, a:30  }
+];
+function masCerca(d, dir){
+  var bx=d*Math.sin(dir*Math.PI/180), bz=d*Math.cos(dir*Math.PI/180);
+  var mejor=null, md=1e9;
+  DEFENSA.forEach(function(f){
+    var fx=f.d*Math.sin(f.a*Math.PI/180), fz=f.d*Math.cos(f.a*Math.PI/180);
+    var dd=Math.hypot(bx-fx, bz-fz);
+    if(dd<md){ md=dd; mejor=f; }
+  });
+  return { f:mejor, dist:md };
+}
+
+/* ══ RESULTADOS ══════════════════════════════════════════════════════ */
+function esperar(ms, fn){ setTimeout(fn, ms); }
+var PEND=null;
+function siguiente(ms){
+  clearTimeout(PEND);
+  PEND=setTimeout(function(){ if(!P.fin && P.fase==='listo') pedirTurno(); }, ms);
+}
+function volverBateo(){
+  clearTimeout(PEND);
+  PEND=setTimeout(function(){
+    VISTA='bateo'; BOLA=null; L=null;
+    if(P.fin) return;
+    P.fase='listo'; pedirTurno();
+  }, 1200);
+}
+function jonron(){
+  var pies=Math.round(BOLA.dist*3.28084);
+  var ca=1+P.bases.filter(Boolean).length;
+  narrar(yoBateo()? '¡SE FUE! ¡JONRÓN de '+pies+' pies!'
+                  : 'Jonrón del rival, '+pies+' pies.', true);
+  DESTELLO=1; organo(); gentio(1, 3.2);
+  anotar(ca);
+  P.bases=[false,false,false];
+  atacante().hits++; atacante().hr++;
+  if(yoBateo()) esperar(400, function(){ confeti(); });
+  limpiarConteo(); hud();
+  volverBateo();
+}
+function elevado(c){
+  guante();
+  narrar('Elevado al '+c.f.n+'. Out.');
+  /* Con menos de dos outs, el de tercera puede anotar */
+  var sac=false;
+  if(P.outs<2 && P.bases[2] && BOLA.dist>60){ P.bases[2]=false; anotar(1); sac=true; }
+  out(sac? 'Pisa y anota, sacrificio.' : null);
+}
+function rolata(c){
+  guante();
+  var dobles = P.bases[0] && P.outs<2 && Math.random()<0.42;
+  if(dobles){
+    narrar('Rodado al '+c.f.n+'. ¡Doble matanza!');
+    P.bases[0]=false;
+    out(null, 2);
+  } else {
+    narrar('Rodado al '+c.f.n+'. Out en primera.');
+    if(P.bases[2]){ P.bases[2]=false; anotar(1); }
+    if(P.bases[1]){ P.bases[1]=false; P.bases[2]=true; }
+    out();
+  }
+}
+function imparable(bases, c){
+  atacante().hits++;
+  var nom=bases===3?'¡Triple':bases===2?'¡Doble':'¡Sencillo';
+  narrar(nom+' por el '+c.f.n+'!', bases>=2);
+  gentio(0.5+bases*0.2, 1.4);
+  avanzar(bases);
+  limpiarConteo(); hud();
+  volverBateo();
+}
+function foul(){
+  narrar('Foul');
+  if(P.strikes<2) P.strikes++;
+  hud();
+  P.fase='listo';
+  siguiente(900);
+}
+/* Cantar la bola o el strike cuando no hubo swing (o hubo y falló) */
+function cantar(huboSwing){
+  var b=posBola(1);
+  var strike = huboSwing || (Math.abs(b.x)<=zonaAncho() && b.y>=zonaBaja() && b.y<=zonaAlta());
+  if(strike){
+    P.strikes++;
+    if(P.strikes>=3){
+      narrar(huboSwing? '¡Ponchado tirándole!' : '¡Ponchado mirando!');
+      atacante().k++;
+      tono(200,.3,'sawtooth',.05,90);
+      out(); return;
+    }
+    narrar(huboSwing? 'Swing y falla. Strike '+P.strikes : 'Strike '+P.strikes+' cantado');
+  } else {
+    P.bolas++;
+    if(P.bolas>=4){ baseBolas(); return; }
+    narrar('Bola '+P.bolas);
+  }
+  hud();
+  P.fase='listo';
+  siguiente(820);
+}
+function baseBolas(){
+  narrar('Base por bolas');
+  /* Empuja solo a los forzados */
+  if(P.bases[0] && P.bases[1] && P.bases[2]) anotar(1);
+  else if(P.bases[0] && P.bases[1]) P.bases[2]=true;
+  else if(P.bases[0]) P.bases[1]=true;
+  P.bases[0]=true;
+  limpiarConteo(); hud();
+  P.fase='listo';
+  siguiente(1000);
+}
+function avanzar(bases){
+  var anot=0;
+  for(var i=2;i>=0;i--){
+    if(!P.bases[i]) continue;
+    P.bases[i]=false;
+    var nueva=i+bases;
+    if(nueva>=3) anot++; else P.bases[nueva]=true;
+  }
+  /* Un sencillo con alguien en segunda suele traer carrera */
+  if(bases===1 && anot===0 && P.bases[2] && Math.random()<0.4){}
+  P.bases[bases-1]=true;
+  if(anot) anotar(anot);
+}
+function anotar(n){
+  atacante().run+=n;
+  var i=P.ent-1;
+  if(i<P.linea.length){
+    var k=P.alta?0:1;
+    P.linea[i][k]=(P.linea[i][k]||0)+n;
+  }
+  gentio(0.8,1.6);
+  hud();
+}
+function limpiarConteo(){ P.bolas=0; P.strikes=0; }
+function out(extra, cuantos){
+  P.outs+=(cuantos||1);
+  if(extra) esperar(700, function(){ narrar(extra); });
+  limpiarConteo(); hud();
+  if(P.outs>=3){
+    clearTimeout(PEND);
+    esperar(1200, function(){ VISTA='bateo'; BOLA=null; L=null; });
+    esperar(1600, cambioEntrada);
+  } else {
+    P.fase='listo'; volverBateo();
+  }
+}
+
+/* ══ ENTRADAS ════════════════════════════════════════════════════════ */
+function cambioEntrada(){
+  P.outs=0; P.bases=[false,false,false]; limpiarConteo();
+  var i=P.ent-1;
+  if(i<P.linea.length){ var k=P.alta?0:1; if(P.linea[i][k]===null) P.linea[i][k]=0; }
+
+  if(P.alta){ P.alta=false; }
+  else { P.alta=true; P.ent++; }
+
+  /* ¿Se acabó? */
+  if(P.ent>ENTRADAS){ return finPartido(); }
+  /* Si el local va ganando y ya se jugó la baja de la última, se acaba */
+  if(P.ent===ENTRADAS && !P.alta && P.loc.run>P.vis.run) return finPartido();
+
+  hud();
+  VISTA='bateo'; BOLA=null; L=null; P.fase='listo';
+  narrar((P.alta?'Alta':'Baja')+' de la '+P.ent+'ª · '
+    +(yoBateo()? 'te toca batear' : 'a lanzar'), true);
+  siguiente(1700);
+}
+function finPartido(){
+  P.fin=true; P.fase='fin';
+  var gane=P.vis.run>P.loc.run, empate=P.vis.run===P.loc.run;
+  if(gane){ organo(); gentio(1,3.5); confeti(); }
+  esperar(900, function(){
+    panel('<h2>'+(empate?'<i>Empate</i>':gane?'¡<i>Ganaste</i>!':'Perdiste')+'</h2>'
+      +'<p>'+esc(P.vis.nom)+' '+P.vis.run+' — '+P.loc.run+' '+esc(P.loc.nom)+'</p>'
+      +tablaLinea()
+      +'<div class="ops">'
+        +'<button class="op sel" onclick="B.otro()">Otro partido</button>'
+        +'<button class="op" onclick="B.menu()">Cambiar entradas</button>'
+      +'</div>'
+      +'<div class="sello">tu mejor batazo: '+P.mejorBatazo+' pies · '
+      +P.vis.hits+' hits · '+P.vis.hr+' jonrones</div>');
+  });
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function tablaLinea(){
+  var h='<div class="caja"><table><thead><tr><th style="text-align:left;padding-left:12px">Equipo</th>';
+  for(var i=1;i<=ENTRADAS;i++) h+='<th>'+i+'</th>';
+  h+='<th>C</th><th>H</th></tr></thead><tbody>';
+  [[P.vis,0],[P.loc,1]].forEach(function(e){
+    h+='<tr><td class="eq">'+esc(e[0].nom)+'</td>';
+    for(var i=0;i<ENTRADAS;i++){
+      var v=P.linea[i][e[1]];
+      h+='<td>'+(v===null?'·':v)+'</td>';
+    }
+    h+='<td class="tot">'+e[0].run+'</td><td>'+e[0].hits+'</td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+
+/* ══ TU TURNO: BATEAR O LANZAR ═══════════════════════════════════════ */
+function pedirTurno(){
+  if(P.fin) return;
+  P.fase='listo';
+  if(yoBateo()){
+    guia('Mueve el <b>ratón</b> para subir o bajar el bate · '
+        +'<b>clic</b> o <b>espacio</b> para tirarle');
+    esperar(700, function(){ if(P.fase==='listo' && !P.fin) lanzarCPU(); });
+  } else {
+    pedirLanzamiento();
+  }
+}
+
+/* ── Cuando lanzas tú ─────────────────────────────────────────────── */
+var MIL=null;    // el lanzamiento que estás preparando
+function pedirLanzamiento(){
+  P.fase='escoge';
+  MIL={ tipo:TIPOS[0], x:0, y:0.78 };
+  guia('Escoge el pitcheo: <b>1</b> recta · <b>2</b> curva · <b>3</b> slider · '
+      +'<b>4</b> cambio &nbsp;·&nbsp; apunta con el ratón y haz <b>clic</b>');
+}
+function escoger(i){
+  if(P.fase!=='escoge') return;
+  MIL.tipo=TIPOS[i];
+  narrar(TIPOS[i].nom);
+  tono(420+i*60,.06,'square',.04);
+}
+function soltarPulso(){
+  if(P.fase!=='escoge') return;
+  P.fase='pulso';
+  PULSO={ t0:performance.now(), dur:1300, zona:0.5, ancho:0.11, listo:false };
+  var z=document.getElementById('pulso').querySelector('.zona');
+  var ini=(0.5-PULSO.ancho)*100, an=PULSO.ancho*2*100;
+  z.style.left=ini+'%'; z.style.width=an+'%';
+  document.getElementById('pulso').classList.add('on');
+  guia('<b>Clic</b> o <b>espacio</b> cuando la marca pase por el verde');
+}
+function cerrarPulso(){
+  if(P.fase!=='pulso' || !PULSO || PULSO.listo) return;
+  PULSO.listo=true;
+  var u=((performance.now()-PULSO.t0)%PULSO.dur)/PULSO.dur;
+  var pos=u<0.5? u*2 : (1-u)*2;                 // va y vuelve
+  var err=Math.abs(pos-0.5)/0.5;                // 0 perfecto, 1 pésimo
+  document.getElementById('pulso').classList.remove('on');
+  /* Entre más error, más se desvía del punto que pediste */
+  var desv=err*0.42;
+  var bx=MIL.x+(Math.random()*2-1)*desv;
+  var by=MIL.y+(Math.random()*2-1)*desv*0.9;
+  P.fase='vuelo';
+  disparar(MIL.tipo, bx, by, 0);
+  /* El bateador de la máquina decide */
+  var b=posBola(1);
+  var dentro=Math.abs(b.x)<=zonaAncho()*1.15 && b.y>=zonaBaja()-0.07 && b.y<=zonaAlta()+0.07;
+  var tira = dentro ? Math.random()<0.78 : Math.random()<0.26;
+  if(tira){
+    var mal=(Math.random()*2-1)*(0.10+err*0.16);     // su error de tiempo
+    var cuando=L.t0+L.dur*(1+mal);
+    setTimeout(function(){
+      if(P.fase!=='vuelo') return;
+      /* Su bate busca la bola, pero no la clava: si no, batearía perfecto
+         siempre y le daría jonrón a cualquier lanzamiento. */
+      BAT.alto=b.y+(Math.random()*2-1)*(0.10+err*0.24);
+      BAT.swing=performance.now();
+      resolverSwing((performance.now()-L.t0)/L.dur);
+    }, Math.max(60, cuando-performance.now()));
+  }
+}
+
+/* ══ EFECTOS ═════════════════════════════════════════════════════════ */
+function confeti(){
+  for(var i=0;i<70;i++) EFECTOS.push({
+    x:Math.random()*W, y:-20-Math.random()*H*0.4,
+    vx:(Math.random()-.5)*2.2, vy:Math.random()*2.4+1.4, r:Math.random()*5+3,
+    g:Math.random()*6.28, vg:(Math.random()-.5)*.26, vida:1,
+    c:['#FFD166','#E23D4C','#3D7BE2','#34D399','#F2F6FF'][Math.floor(Math.random()*5)]
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   DIBUJO
+   ══════════════════════════════════════════════════════════════════════ */
+var T=0;
+function fondoNoche(){
+  var sk=g.createLinearGradient(0,0,0,HOR+40);
+  sk.addColorStop(0,'#060B1A'); sk.addColorStop(1,'#15224A');
+  g.fillStyle=sk; g.fillRect(0,0,W,HOR+40);
+  /* Las torres de luz */
+  [0.13,0.37,0.63,0.87].forEach(function(fx,i){
+    var x=W*fx, y=HOR*0.30;
+    var r=g.createRadialGradient(x,y,0,x,y,W*0.19);
+    r.addColorStop(0,'rgba(255,244,214,.3)'); r.addColorStop(1,'transparent');
+    g.fillStyle=r; g.fillRect(x-W*0.2,y-W*0.2,W*0.4,W*0.4);
+    g.fillStyle='rgba(10,16,32,.95)';
+    g.fillRect(x-W*0.028, y-6, W*0.056, 13);
+    g.fillStyle='#FFF4D6';
+    for(var a=0;a<3;a++) for(var b2=0;b2<2;b2++)
+      g.fillRect(x-W*0.024+a*W*0.018, y-3+b2*6, W*0.012, 4);
+  });
+  /* Las gradas */
+  g.fillStyle='#0C1326';
+  g.beginPath();
+  g.moveTo(0,HOR+30); g.lineTo(0,HOR-H*0.11);
+  g.quadraticCurveTo(W*0.5,HOR-H*0.20,W,HOR-H*0.11);
+  g.lineTo(W,HOR+30); g.closePath(); g.fill();
+  /* La gente: puntitos que se mueven apenas */
+  for(var i=0;i<210;i++){
+    var u=(i*73.13%1000)/1000, v=(i*127.7%1000)/1000;
+    var gx=u*W, gy=HOR-H*0.105*v-H*0.012+Math.sin(T/420+i)*0.9;
+    g.fillStyle='rgba('+(150+((i*37)%80))+','+(160+((i*53)%70))+',200,'+(0.2+0.3*((i*17)%10)/10)+')';
+    g.fillRect(gx, gy, 2.4, 2.4);
+  }
+}
+function pintarBateo(){
+  fondoNoche();
+  /* El campo visto desde atrás del plato */
+  var gr=g.createLinearGradient(0,HOR,0,H);
+  gr.addColorStop(0,'#1A6B35'); gr.addColorStop(.45,'#22853F'); gr.addColorStop(1,'#15592B');
+  g.fillStyle=gr; g.fillRect(0,HOR,W,H-HOR);
+  /* Franjas de corte: se angostan con la distancia y dan profundidad */
+  for(var fz=4; fz<120; fz+=9){
+    var y0=proy(0,0,fz).y, y1=proy(0,0,fz+4.5).y;
+    g.fillStyle='rgba(255,255,255,.028)';
+    g.fillRect(0, y1, W, y0-y1);
+  }
+  /* El círculo de tierra del plato */
+  var ht=proy(0,0,1.9);
+  g.fillStyle='#8B5430';
+  g.beginPath(); g.ellipse(CX, ht.y, ESC*2.4*ht.p, ESC*0.95*ht.p, 0,0,6.28); g.fill();
+  /* El montículo, allá lejos */
+  var m=proy(0,0,18.44);
+  g.fillStyle='#9A5F38';
+  g.beginPath(); g.ellipse(m.x,m.y,ESC*2.9*m.p,ESC*1.0*m.p,0,0,6.28); g.fill();
+  g.fillStyle='rgba(255,255,255,.5)';
+  g.fillRect(m.x-ESC*0.3*m.p, m.y-ESC*0.06*m.p, ESC*0.6*m.p, ESC*0.08*m.p);
+  /* Las rayas de cal, que se juntan a lo lejos */
+  g.strokeStyle='rgba(242,246,255,.5)'; g.lineWidth=2;
+  [-1,1].forEach(function(s){
+    var p0=proy(s*0.9,0,1.2), p1=proy(s*40,0,40);
+    g.beginPath(); g.moveTo(p0.x,p0.y); g.lineTo(p1.x,p1.y); g.stroke();
+  });
+  /* Las cajas de bateo */
+  g.strokeStyle='rgba(242,246,255,.3)'; g.lineWidth=1.5;
+  [-1,1].forEach(function(s){
+    var q1=proy(s*0.45,0,1.5), q2=proy(s*1.35,0,1.5), q3=proy(s*1.35,0,0.1), q4=proy(s*0.45,0,0.1);
+    g.beginPath(); g.moveTo(q1.x,q1.y); g.lineTo(q2.x,q2.y);
+    g.lineTo(q3.x,q3.y); g.lineTo(q4.x,q4.y); g.closePath(); g.stroke();
+  });
+  /* El plato */
+  var hp=proy(0,0,0.25);
+  g.fillStyle='#F2F6FF';
+  g.beginPath();
+  g.moveTo(hp.x-ESC*0.22,hp.y-ESC*0.05); g.lineTo(hp.x+ESC*0.22,hp.y-ESC*0.05);
+  g.lineTo(hp.x+ESC*0.22,hp.y+ESC*0.03); g.lineTo(hp.x,hp.y+ESC*0.12);
+  g.lineTo(hp.x-ESC*0.22,hp.y+ESC*0.03); g.closePath(); g.fill();
+
+  dibujarLanzador(m);
+  dibujarBateador();
+  dibujarZona();
+  if(L && P.fase==='vuelo') dibujarBolaVuelo();
+  if(yoBateo()) dibujarBate(); else dibujarMira();
+}
+/* La silueta del bateador, pegada a la esquina de abajo y cortada por el
+   borde, como en la toma de la cámara central. No hace nada, pero sin
+   ella la vista flota en el aire. */
+function dibujarBateador(){
+  var s=H*0.30;                                    // su tamaño en pantalla
+  g.save();
+  g.translate(W*0.215, H+s*0.30);
+  g.fillStyle='rgba(6,11,24,.92)';
+  g.beginPath();
+  g.moveTo(-s*0.46, 0);
+  g.lineTo(-s*0.40,-s*0.82);
+  g.quadraticCurveTo(-s*0.26,-s*1.12, s*0.06,-s*1.06);
+  g.lineTo(s*0.20,-s*0.46);
+  g.lineTo(s*0.26, 0);
+  g.closePath(); g.fill();
+  g.beginPath(); g.arc(-s*0.14,-s*1.26,s*0.21,0,6.28); g.fill();   // casco
+  g.beginPath(); g.ellipse(-s*0.30,-s*1.235,s*0.27,s*0.15,-0.18,0,6.28); g.fill();
+  g.restore();
+}
+function dibujarLanzador(m){
+  var u = L? Math.min(1,(performance.now()-L.t0)/L.dur) : 0;
+  var brazo = L? Math.max(0, 1-u*4) : 0;
+  g.save();
+  g.translate(m.x, m.y);
+  var s=m.p*ESC;
+  g.fillStyle='#E8EDF8';
+  g.fillRect(-s*0.16, -s*1.55, s*0.32, s*0.85);        // torso
+  g.fillStyle='#1B2A4A';
+  g.fillRect(-s*0.16, -s*0.72, s*0.32, s*0.72);        // piernas
+  g.beginPath(); g.arc(0,-s*1.72,s*0.17,0,6.28);
+  g.fillStyle='#C9A07E'; g.fill();
+  g.fillStyle='#1B2A4A';
+  g.beginPath(); g.arc(0,-s*1.78,s*0.18,Math.PI,0); g.fill();
+  /* El brazo que acaba de soltar */
+  g.strokeStyle='#E8EDF8'; g.lineWidth=s*0.12; g.lineCap='round';
+  g.beginPath(); g.moveTo(0,-s*1.4);
+  g.lineTo(s*0.42*(1-brazo)+s*0.1, -s*1.45-s*0.5*brazo);
+  g.stroke();
+  g.restore();
+}
+function dibujarZona(){
+  var p0=proy(-zonaAncho(),zonaBaja(),0.4), p1=proy(zonaAncho(),zonaAlta(),0.4);
+  g.strokeStyle='rgba(242,246,255,.26)'; g.lineWidth=1.6;
+  g.setLineDash([5,5]);
+  g.strokeRect(p0.x, p1.y, p1.x-p0.x, p0.y-p1.y);
+  g.setLineDash([]);
+  /* Los tercios, que ayudan a calcular el alto */
+  g.strokeStyle='rgba(242,246,255,.1)';
+  for(var i=1;i<3;i++){
+    var y=p1.y+(p0.y-p1.y)*i/3;
+    g.beginPath(); g.moveTo(p0.x,y); g.lineTo(p1.x,y); g.stroke();
+  }
+}
+var ESTELA=[];
+function dibujarBolaVuelo(){
+  var u=Math.min(1.12,(performance.now()-L.t0)/L.dur);
+  var b=posBola(Math.min(1,u));
+  var s=proy(b.x,b.y,b.z);
+  ESTELA.push({x:s.x,y:s.y,r:s.p});
+  if(ESTELA.length>14) ESTELA.shift();
+  ESTELA.forEach(function(e,i){
+    var a=i/ESTELA.length;
+    g.fillStyle='rgba(255,255,255,'+(a*0.2)+')';
+    g.beginPath(); g.arc(e.x,e.y,ESC*0.037*e.r*a,0,6.28); g.fill();
+  });
+  g.save();
+  g.shadowColor=L.tipo.col; g.shadowBlur=14*s.p;
+  g.fillStyle='#FFFFFF';
+  g.beginPath(); g.arc(s.x,s.y,Math.max(2,ESC*0.037*s.p),0,6.28); g.fill();
+  g.restore();
+  /* Las costuras, que dejan ver el giro */
+  if(s.p>0.6){
+    g.strokeStyle='rgba(220,60,70,.85)'; g.lineWidth=Math.max(1,s.p*1.6);
+    var r=ESC*0.037*s.p;
+    g.beginPath(); g.arc(s.x-r*0.25,s.y,r*0.85,-0.9+T/90,0.9+T/90); g.stroke();
+  }
+  if(u>=1.12 && !L.juzgado){
+    L.juzgado=true;
+    if(yoBateo()){ P.fase='juzgando'; cantar(false); }
+    else { P.fase='juzgando'; cantarCPU(); }
+  }
+}
+/* Cuando lanzas tú y el bateador no le tiró */
+function cantarCPU(){
+  var b=posBola(1);
+  var strike=Math.abs(b.x)<=zonaAncho() && b.y>=zonaBaja() && b.y<=zonaAlta();
+  if(strike){
+    P.strikes++;
+    if(P.strikes>=3){ narrar('¡Lo ponchaste!'); defensorPonche(); return; }
+    narrar('Strike '+P.strikes+' cantado');
+  } else {
+    P.bolas++;
+    if(P.bolas>=4){ baseBolas(); return; }
+    narrar('Bola '+P.bolas);
+  }
+  hud(); P.fase='listo';
+  siguiente(820);
+}
+function defensorPonche(){ atacante().k++; tono(200,.3,'sawtooth',.05,90); out(); }
+
+function dibujarBate(){
+  var yb=proy(0,BAT.alto,0.4);
+  var ancho=ESC*0.30;
+  var golpe = BAT.swing? Math.min(1,(performance.now()-BAT.swing)/160) : 0;
+  g.save();
+  g.translate(CX, yb.y);
+  if(golpe>0) g.rotate(-0.9+golpe*1.8);
+  var gr=g.createLinearGradient(-ancho,0,ancho,0);
+  gr.addColorStop(0,'#6B4423'); gr.addColorStop(1,'#C9924F');
+  g.fillStyle=gr;
+  g.beginPath();
+  g.moveTo(-ancho*2.1,-ESC*0.022); g.lineTo(ancho*1.1,-ESC*0.042);
+  g.lineTo(ancho*1.1,ESC*0.042); g.lineTo(-ancho*2.1,ESC*0.022);
+  g.closePath(); g.fill();
+  g.restore();
+  /* La guía del alto del bate */
+  g.strokeStyle='rgba(255,209,102,'+(BAT.swing?0.15:0.4)+')';
+  g.lineWidth=1; g.setLineDash([3,6]);
+  g.beginPath(); g.moveTo(CX-ESC*0.8,yb.y); g.lineTo(CX+ESC*0.8,yb.y); g.stroke();
+  g.setLineDash([]);
+}
+function dibujarMira(){
+  if(!MIL) return;
+  var s=proy(MIL.x,MIL.y,0.4);
+  g.strokeStyle=MIL.tipo.col; g.lineWidth=2;
+  g.beginPath(); g.arc(s.x,s.y,ESC*0.10,0,6.28); g.stroke();
+  g.beginPath(); g.moveTo(s.x-ESC*0.15,s.y); g.lineTo(s.x+ESC*0.15,s.y);
+  g.moveTo(s.x,s.y-ESC*0.15); g.lineTo(s.x,s.y+ESC*0.15); g.stroke();
+  g.fillStyle=MIL.tipo.col; g.font='700 13px '+getComputedStyle(document.body).fontFamily;
+  g.textAlign='center';
+  g.fillText(MIL.tipo.nom, s.x, s.y-ESC*0.17);
+}
+
+/* ── La vista de arriba, cuando la pelota va por el aire ──────────── */
+function pintarCampo(){
+  var cg=g.createLinearGradient(0,0,0,H);
+  cg.addColorStop(0,'#081326'); cg.addColorStop(1,'#040812');
+  g.fillStyle=cg; g.fillRect(0,0,W,H);
+  var cx=W/2, cy=H*0.955, esc=Math.min(W*0.47, H*0.92)/120;  // píxeles por metro
+  var mx=function(d,a){ return cx+d*Math.sin(a*Math.PI/180)*esc; };
+  var my=function(d,a){ return cy-d*Math.cos(a*Math.PI/180)*esc; };
+
+  /* La grama y la valla */
+  g.fillStyle='#17622F';
+  g.beginPath(); g.moveTo(cx,cy);
+  for(var a=-45;a<=45;a+=3){ var d=valldist(a); g.lineTo(mx(d,a),my(d,a)); }
+  g.closePath(); g.fill();
+  /* Franjas de corte */
+  g.save(); g.clip();
+  for(var k=0;k<14;k++){
+    g.fillStyle = k%2? 'rgba(255,255,255,.028)':'rgba(0,0,0,.035)';
+    g.beginPath();
+    var d0=k*10, d1=d0+10;
+    g.moveTo(mx(d0,-45),my(d0,-45));
+    for(var a2=-45;a2<=45;a2+=4) g.lineTo(mx(d1,a2),my(d1,a2));
+    for(var a3=45;a3>=-45;a3-=4) g.lineTo(mx(d0,a3),my(d0,a3));
+    g.closePath(); g.fill();
+  }
+  g.restore();
+  /* El cuadro */
+  g.fillStyle='#8B5430';
+  g.beginPath(); g.moveTo(cx,cy);
+  for(var a4=-45;a4<=45;a4+=3) g.lineTo(mx(29,a4),my(29,a4));
+  g.closePath(); g.fill();
+  g.fillStyle='#17622F';
+  g.beginPath();
+  g.moveTo(mx(27.4*1.0,-45),my(27.4,-45));
+  g.arc(cx, cy-27.4*esc*0.0+0, 1, 0, 0.1);
+  g.closePath();
+  /* Las bases */
+  var bases=[[0,0],[27.4,45],[38.8,0],[27.4,-45]];
+  bases.forEach(function(b,i){
+    var x=mx(b[0],b[1]), y=my(b[0],b[1]);
+    g.fillStyle=i===0?'#F2F6FF':'#F2F6FF';
+    g.save(); g.translate(x,y); g.rotate(Math.PI/4);
+    g.fillRect(-4,-4,8,8); g.restore();
+    if(i>0 && P.bases[i-1]){
+      g.fillStyle='#FFD166';
+      g.beginPath(); g.arc(x,y-7,4.5,0,6.28); g.fill();
+    }
+  });
+  /* La valla */
+  g.strokeStyle='#F2F6FF'; g.lineWidth=2.4; g.globalAlpha=.75;
+  g.beginPath();
+  for(var a5=-45;a5<=45;a5+=2){
+    var d5=valldist(a5);
+    if(a5===-45) g.moveTo(mx(d5,a5),my(d5,a5)); else g.lineTo(mx(d5,a5),my(d5,a5));
+  }
+  g.stroke(); g.globalAlpha=1;
+  /* Las rayas de foul */
+  g.strokeStyle='rgba(242,246,255,.6)'; g.lineWidth=1.6;
+  [-45,45].forEach(function(a6){
+    g.beginPath(); g.moveTo(cx,cy); g.lineTo(mx(valldist(a6),a6),my(valldist(a6),a6)); g.stroke();
+  });
+
+  /* Los nueve */
+  var bolaD=BOLA? BOLA.dist*Math.min(1,BOLA.u*1.02) : 0;
+  DEFENSA.forEach(function(f){
+    var fx=mx(f.d,f.a), fy=my(f.d,f.a);
+    if(BOLA && BOLA.u>0.05){
+      /* Corren hacia donde va a caer */
+      var tx=mx(BOLA.dist,BOLA.dir), ty=my(BOLA.dist,BOLA.dir);
+      var dd=Math.hypot(tx-fx,ty-fy);
+      if(dd<esc*30){
+        var k2=Math.min(1,BOLA.u*0.9);
+        fx+=(tx-fx)*k2*0.75; fy+=(ty-fy)*k2*0.75;
+      }
+    }
+    g.fillStyle='#1B2A4A';
+    g.beginPath(); g.arc(fx,fy,5.6,0,6.28); g.fill();
+    g.fillStyle='#E8EDF8';
+    g.beginPath(); g.arc(fx,fy-4,3.1,0,6.28); g.fill();
+  });
+
+  /* La pelota y su sombra */
+  if(BOLA){
+    var u=BOLA.u;
+    var d=BOLA.dist*u;
+    var alto=Math.max(0, Math.sin(Math.PI*u)*BOLA.dist*Math.tan(BOLA.angulo*Math.PI/180)*0.5);
+    var bx=mx(d,BOLA.dir), by=my(d,BOLA.dir);
+    g.fillStyle='rgba(0,0,0,.3)';
+    g.beginPath(); g.ellipse(bx,by,4.5,2.4,0,0,6.28); g.fill();
+    var sy=by-alto*esc*0.55;
+    g.save(); g.shadowColor='#fff'; g.shadowBlur=10;
+    g.fillStyle='#FFFFFF';
+    g.beginPath(); g.arc(bx,sy,4.6,0,6.28); g.fill();
+    g.restore();
+    /* La traza */
+    g.strokeStyle='rgba(255,255,255,.25)'; g.lineWidth=1.6;
+    g.beginPath();
+    for(var t2=0;t2<=u;t2+=0.03){
+      var dd2=BOLA.dist*t2;
+      var al=Math.max(0,Math.sin(Math.PI*t2)*BOLA.dist*Math.tan(BOLA.angulo*Math.PI/180)*0.5);
+      var px=mx(dd2,BOLA.dir), py=my(dd2,BOLA.dir)-al*esc*0.55;
+      if(t2===0) g.moveTo(px,py); else g.lineTo(px,py);
+    }
+    g.stroke();
+    /* Cuánto lleva */
+    if(u<1){
+      g.fillStyle='rgba(255,255,255,.75)';
+      g.font='700 12px '+getComputedStyle(document.body).fontFamily;
+      g.textAlign='center';
+      g.fillText(Math.round(d*3.28084)+' pies', bx, sy-14);
+    }
+  }
+}
+
+/* ══ BUCLE ═══════════════════════════════════════════════════════════ */
+var ULT=0;
+function bucle(ahora){
+  requestAnimationFrame(bucle);
+  var dt=Math.min(50, ahora-ULT); ULT=ahora; T+=dt;
+  if(!P) return;
+
+  if(BOLA && !BOLA.listo){
+    BOLA.u=Math.min(1,(ahora-BOLA.t0)/BOLA.dur);
+    if(BOLA.u>=1){ BOLA.listo=true; resolverBatazo(); }
+  }
+  if(PULSO && !PULSO.listo){
+    var u=((ahora-PULSO.t0)%PULSO.dur)/PULSO.dur;
+    var pos=u<0.5? u*2 : (1-u)*2;
+    document.getElementById('pulso').querySelector('.mar').style.left=(pos*100)+'%';
+  }
+
+  g.save();
+  if(SACUDE>0.4){
+    g.translate((Math.random()-.5)*SACUDE,(Math.random()-.5)*SACUDE);
+    SACUDE*=0.88;
+  }
+  if(VISTA==='bateo') pintarBateo(); else pintarCampo();
+  g.restore();
+
+  if(DESTELLO>0.01){
+    g.fillStyle='rgba(255,255,255,'+(DESTELLO*0.5)+')';
+    g.fillRect(0,0,W,H); DESTELLO*=0.90;
+  }
+  /* Confeti */
+  for(var i=EFECTOS.length-1;i>=0;i--){
+    var p=EFECTOS[i];
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.05; p.g+=p.vg; p.vida-=0.006;
+    if(p.y>H+30||p.vida<=0){ EFECTOS.splice(i,1); continue; }
+    g.save(); g.translate(p.x,p.y); g.rotate(p.g);
+    g.globalAlpha=Math.min(1,p.vida*2); g.fillStyle=p.c;
+    g.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6); g.restore();
+  }
+  g.globalAlpha=1;
+}
+
+/* ══ ENTRADA DEL JUGADOR ═════════════════════════════════════════════ */
+function accion(){
+  if(P.fin) return;
+  if(yoBateo()){ batear(); }
+  else {
+    if(P.fase==='escoge') soltarPulso();
+    else if(P.fase==='pulso') cerrarPulso();
+  }
+}
+cv.addEventListener('pointerdown', function(ev){ ac(); accion(); });
+cv.addEventListener('pointermove', function(ev){
+  var r=cv.getBoundingClientRect();
+  var my2=(ev.clientY-r.top), mx2=(ev.clientX-r.left);
+  if(yoBateo()){
+    /* El alto del bate sigue al ratón, dentro de un rango cómodo */
+    var p0=proy(0,1.45,0.4).y, p1=proy(0,0.15,0.4).y;
+    var u=Math.max(0,Math.min(1,(my2-p0)/(p1-p0)));
+    BAT.alto=1.45+(0.15-1.45)*u;
+  } else if(P.fase==='escoge' && MIL){
+    var z0=proy(-0.55,0.15,0.4), z1=proy(0.55,1.45,0.4);
+    MIL.x=Math.max(-0.55,Math.min(0.55,((mx2-z0.x)/(z1.x-z0.x))*1.1-0.55));
+    MIL.y=Math.max(0.15,Math.min(1.45, 1.45+(0.15-1.45)*((my2-z1.y)/(z0.y-z1.y))));
+  }
+});
+addEventListener('keydown', function(ev){
+  if(ev.key===' '){ ev.preventDefault(); ac(); accion(); return; }
+  if(ev.key>='1' && ev.key<='4'){ escoger(+ev.key-1); return; }
+  if(ev.key==='Escape'){ cerrar(); }
+  if(ev.key.toLowerCase()==='n'){ menu(); }
+});
+addEventListener('resize', medir);
+
+/* ══ PANELES ═════════════════════════════════════════════════════════ */
+function panel(h){
+  document.getElementById('panel').innerHTML=h;
+  document.getElementById('velo').classList.add('on');
+}
+function cerrar(){ document.getElementById('velo').classList.remove('on'); }
+function menu(){
+  panel('<h2>Béisbol <i>de noche</i></h2>'
+    +'<p>Bateas en la alta y lanzas en la baja. Al batear, el <b>ratón</b> sube y baja '
+    +'el bate y el <b>clic</b> es el swing: temprano se hala a tu lado, tarde se va al '
+    +'contrario. Al lanzar, escoges el pitcheo, apuntas y aguantas el pulso.</p>'
+    +'<div class="ops">'
+      +[3,6,9].map(function(n){
+        return '<button class="op'+(ENTRADAS===n?' sel':'')+'" onclick="B.entradas('+n+')">'
+          +n+' entradas</button>'; }).join('')
+    +'</div>'
+    +'<div class="ops"><button class="op sel" onclick="B.otro()">Jugar</button>'
+      +(P && !P.fin? '<button class="op" onclick="B.cerrar()">Seguir el de ahora</button>':'')
+    +'</div>'
+    +'<div class="sello"><span class="tec">clic</span> o <span class="tec">espacio</span> '
+    +'batea y lanza · <span class="tec">1</span>…<span class="tec">4</span> escogen el '
+    +'pitcheo · <span class="tec">N</span> nuevo partido<br>'
+    +'la valla está a 115 m por el centro y a 95 por las esquinas</div>');
+}
+
+return {
+  inicio:function(){ medir(); nuevoPartido(3); requestAnimationFrame(bucle); menu(); },
+  menu:menu, cerrar:cerrar,
+  entradas:function(n){ ENTRADAS=n; menu(); },
+  otro:function(){ cerrar(); nuevoPartido(ENTRADAS); narrar('¡Play ball!', true);
+    esperar(1400, pedirTurno); },
+  sonido:function(){ SONIDO=!SONIDO;
+    document.getElementById('b-snd').textContent=SONIDO?'🔊':'🔇'; },
+  /* para las pruebas */
+  _p:function(){ return P; }, _l:function(){ return L; }, _b:function(){ return BOLA; },
+  _accion:accion, _bat:function(h){ BAT.alto=h; },
+  _forzar:function(q,err,y){ if(L) L.juzgado=true; BAT.alto=y||0.8;
+    contacto(q,err||0,{x:0,y:y||0.8}); },
+  _simSwing:function(err, dy, dx){
+    var aErr=Math.abs(err);
+    if(aErr>150 || dy>0.42) return { tipo:'fallo' };
+    var qT=Math.max(0,1-aErr/150), qY=Math.max(0,1-dy/0.42);
+    var q=Math.pow(qT*0.62+qY*0.38,1.25)*(1-Math.min(0.3,Math.abs(dx||0)*0.5));
+    if(q<0.22) return { tipo:'foul' };
+    var r=calcBatazo(q, err, dy*(Math.random()<.5?-1:1));
+    var c=clasificar(r.dist,r.dir,r.angulo,r.t,r.salida);
+    return { tipo:c.t, bases:c.bases||0, pies:Math.round(r.dist*3.28084) };
+  },
+  _sim:function(q,err,des){ var r=calcBatazo(q,err,des);
+    var c=clasificar(r.dist,r.dir,r.angulo,r.t,r.salida);
+    return { tipo:c.t, bases:c.bases||0, pies:Math.round(r.dist*3.28084),
+             ang:Math.round(r.angulo) }; },
+  _vista:function(){ return VISTA; }, _fase:function(){ return P.fase; }
+};
+})();
+
+B.inicio();
+<\/script>
+</body>
+</html>
+</script>
+
 <div id="aviso"></div>
 <script>
 /* ══════════════════════════════════════════════════════════════════════
@@ -6683,7 +7900,10 @@ var JUEGOS=[
        +'y de rayo, cadenas que multiplican y niveles que aprietan.' },
   { id:'sudoku', nom:'Sudoku', sub:'9 × 9', ic:'9', col:'#C4B5FD',
     txt:'Los tableros se arman aquí mismo y se comprueba que cada uno tenga '
-       +'una sola solución. Cuatro niveles, notas a lápiz y récords.' }
+       +'una sola solución. Cuatro niveles, notas a lápiz y récords.' },
+  { id:'beisbol', nom:'Béisbol', sub:'Estadio nocturno', ic:'⚾', col:'#FFD166',
+    txt:'Un partido entero: bateas desde atrás del plato y después te toca '
+       +'lanzar. La pelota vuela y la cámara se va arriba a ver dónde cae.' }
 ];
 
 function pintarJuegos(){
